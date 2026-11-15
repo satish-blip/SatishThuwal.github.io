@@ -138,3 +138,38 @@ p{margin:0 0 14px}
   .section{padding:16px 0}
   .skill,.creds li{box-shadow:none;break-inside:avoid}
 }
+
+/* blog */
+.post-list{list-style:none;margin:0;padding:0;display:grid;gap:16px}
+.post-card a{display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 26px;box-shadow:var(--shadow);transition:border-color .2s,transform .2s}
+.post-card a:hover{border-color:var(--accent);transform:translateY(-2px)}
+.post-card time{font-size:13px;font-weight:600;color:var(--accent)}
+.post-card .post-title{max-width:none;font-family:Inter,system-ui,sans-serif;font-size:21px;margin:4px 0 6px;color:var(--ink)}
+.post-card p{margin:0;color:var(--muted)}
+.post-tags{display:inline-block;margin-top:10px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.page-title{font-family:"Source Serif 4",Georgia,serif;font-size:clamp(32px,4.4vw,46px);line-height:1.15;margin:0 0 16px;max-width:22ch}
+.sub-plain{font-size:17px;max-width:62ch;margin-bottom:40px!important}
+.empty{font-style:italic}
+.post{max-width:760px;padding-top:56px;padding-bottom:72px}
+.post-head h1{font-size:clamp(32px,4.6vw,46px);line-height:1.15;margin:18px 0 12px}
+.post-meta{color:var(--muted);font-size:14px;margin:0 0 36px;padding-bottom:24px;border-bottom:1px solid var(--line)}
+.back{font-size:14px;font-weight:600;text-decoration:none}
+.prose{font-size:18px;line-height:1.75}
+.prose h2{font-size:28px;margin:44px 0 14px;max-width:none}
+.prose h3{font-size:21px;margin:32px 0 10px}
+.prose p,.prose li{color:var(--ink)}
+.prose ul,.prose ol{padding-left:24px}
+.prose li{margin:6px 0}
+.prose img{max-width:100%;height:auto;border-radius:12px}
+.prose blockquote{margin:24px 0;padding:4px 0 4px 20px;border-left:3px solid var(--accent);color:var(--muted)}
+.prose code{font-size:.88em;background:var(--bg-alt);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+.prose pre{background:var(--bg-alt);border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow-x:auto;font-size:14px;line-height:1.55}
+.prose pre code{background:none;border:0;padding:0}
+.prose table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:15px}
+.prose th,.prose td{border-bottom:1px solid var(--line);padding:8px 12px;text-align:left}
+.prose hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+.post-foot{margin-top:56px;padding-top:24px;border-top:1px solid var(--line)}
+.post-foot p{color:var(--muted)}
+#writing{border-top:1px solid var(--line)}
+.post-list{max-width:760px}
+nav a[aria-current="page"]{color:var(--ink)}

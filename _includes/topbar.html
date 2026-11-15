@@ -1,0 +1,14 @@
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="{{ '/' | relative_url }}" aria-label="ST, home">ST</a>
+    <nav aria-label="Sections">
+      <a href="{{ '/#learning' | relative_url }}">Learning</a>
+      <a href="{{ '/#building' | relative_url }}">Building</a>
+      <a href="{{ '/#what' | relative_url }}">What I do</a>
+      <a href="{{ '/blog/' | relative_url }}"{% if page.url contains '/blog/' %} aria-current="page"{% endif %}>Writing</a>
+      <a href="{{ '/#career' | relative_url }}">Career</a>
+      <a href="{{ '/#contact' | relative_url }}">Contact</a>
+    </nav>
+  </div>
+</header>
