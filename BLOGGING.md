@@ -31,7 +31,7 @@ lists, links, quotes).
   there, and when it is ready, paste the text into a new file in `_posts/`.
 - **Images:** in the repo, click **Add file → Upload files**, and type
   `images/` before the name (or drag in a folder called `images`). Then use
-  `![Description](/SatishThuwal.github.io/images/file.png)` in the post.
+  `![Description](/images/file.png)` in the post.
 - **Edit or unpublish:** open the file in `_posts` and edit it, or delete it.
 - **Dates:** a post dated in the future is skipped. It won't appear on its own
   when the date arrives, because the site only rebuilds when something is
