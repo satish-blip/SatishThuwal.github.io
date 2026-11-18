@@ -239,3 +239,8 @@ a.term:hover,a.term[aria-expanded="true"]{color:var(--c1);text-decoration-style:
   .tbl th,.tbl td{padding:5px 6px}
 }
 @media (max-width:560px){.algnav{-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 85%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 85%,transparent)}}
+textarea.txt,input.txt{color:var(--ink)}
+.heat{overflow-x:auto}
+.method{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:8px 0;background:var(--card)}
+.method h4{margin:0 0 6px;font-size:14px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.method h4 span{font:500 12px "JetBrains Mono",monospace;color:var(--muted)}
