@@ -201,3 +201,21 @@ a.ml-card:hover{transform:translateY(-2px);border-color:#8b5cf6}
 nav a[aria-current="page"]{color:var(--ink)}
 @media (max-width:560px){nav{-webkit-mask-image:linear-gradient(90deg,#000 82%,transparent);mask-image:linear-gradient(90deg,#000 82%,transparent);padding-right:24px}}
 .ml-sub{margin:30px 0 14px;scroll-margin-top:72px}.ml-sub h4{font-size:19px;margin:0 0 3px}.ml-sub p{margin:0;color:var(--muted);font-size:14.5px}
+/* ML cards: one swipeable row per group instead of a tall grid (desktop and phone) */
+.ml-row{position:relative}
+.ml-grid3{display:flex;gap:16px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;padding:4px 2px 14px;overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:#c4b5fd transparent;-webkit-overflow-scrolling:touch}
+.ml-grid3::-webkit-scrollbar{height:6px}.ml-grid3::-webkit-scrollbar-thumb{background:#c4b5fd;border-radius:6px}
+.ml-grid3>*{flex:0 0 268px;scroll-snap-align:start}
+.ml-grid3 .ml-art{padding:8px 12px}
+.ml-grid3 .ml-body{padding:12px 16px 14px}
+.ml-grid3 .ml-body h3{font-size:17px;margin:6px 0 4px}
+.ml-grid3 .ml-body p{font-size:13.5px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ml-grid3 .ml-go{margin-top:8px}
+.ml-arrow{position:absolute;top:calc(50% - 28px);width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:20px;line-height:1;cursor:pointer;box-shadow:var(--shadow);z-index:2;display:none;align-items:center;justify-content:center}
+.ml-arrow:hover{border-color:#8b5cf6;color:#7c3aed}
+.ml-arrow.prev{left:-14px}.ml-arrow.next{right:-14px}
+.ml-row.can-prev .ml-arrow.prev,.ml-row.can-next .ml-arrow.next{display:flex}
+.ml-row.can-next::after{content:"";position:absolute;top:0;right:0;bottom:14px;width:40px;pointer-events:none;background:linear-gradient(90deg,transparent,var(--bg-alt))}
+.ml-count{font-size:13px;color:var(--muted);margin:-8px 0 8px}
+@media (hover:none){.ml-arrow{display:none!important}}
+@media (max-width:600px){.ml-grid3>*{flex-basis:76vw}.ml-grid3{gap:12px}}
