@@ -64,10 +64,10 @@ const ADV_SALES=[10.4,5.9,18.5,17.9,4.8,11.8,13.2,17.4,7.2,11.7,20.1,8.6,18.2,7.
 ML.REG_DATASETS = [
   {id:'line', name:'Straight line', desc:'y = 0.8x + 0.5 + noise', f:x=>0.8*x+0.5},
   {id:'quad', name:'Curve (quadratic)', desc:'y = 0.45x² − 0.6x − 1 + noise', f:x=>0.45*x*x-0.6*x-1},
-  {id:'sine', name:'Sine wave', desc:'y = 1.6 sin(1.3x) + noise: the bias–variance example from the TA notebook', f:x=>1.6*Math.sin(1.3*x)},
+  {id:'sine', name:'Sine wave', desc:'y = 1.6 sin(1.3x) + noise: the classic bias–variance example', f:x=>1.6*Math.sin(1.3*x)},
   {id:'outlier', name:'With outliers', desc:'A straight line plus a few large outliers that pull least squares', f:x=>0.8*x+0.5},
   {id:'hetero', name:'Fanning noise', desc:'Noise grows with |x| (heteroscedastic), which breaks the constant-variance assumption', f:x=>0.6*x},
-  {id:'adv', name:'Advertising (TV → Sales)', desc:'The 20-row dataset from TA Tutorial 3: TV spend ($1000s) vs Sales (1000 units)', real:true},
+  {id:'adv', name:'Advertising (TV → Sales)', desc:'A 20-row sample of the classic Advertising data: TV spend ($1000s) vs Sales (1000 units)', real:true},
 ];
 ML.regDataset = function(id, n=30, noise=0.5, seed=3){
   const d = ML.REG_DATASETS.find(d=>d.id===id) || ML.REG_DATASETS[0];

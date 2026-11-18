@@ -33,7 +33,7 @@
       <h3>How it works</h3><ol class="steps2"><li>Write the prediction as \(\hat y = w_0 + w_1x_1 + \dots + w_dx_d\).</li><li>Measure the error with the <a class="term" data-t="mse">mean squared error</a>.</li><li>Find the <a class="term" data-t="parameter">weights</a> that make it smallest: in one shot with the <a class="term" data-t="normal-equations">normal equations</a>, or step by step with <a class="term" data-t="gradient-descent">gradient descent</a>.</li><li>Check the fit with <a class="term" data-t="r2">R²</a> and the residuals, and on <a class="term" data-t="test-set">new data</a>.</li></ol>
     </div>
     <div>
-      <h3>An everyday picture</h3><p>Predicting sales from TV advertising spend (the TA Tutorial 3 dataset): each extra $1000 of TV spend adds roughly the same number of sales, so a straight line through the scatter tells you the trend and the typical return.</p>
+      <h3>An everyday picture</h3><p>Predicting sales from TV advertising spend (the classic Advertising dataset): each extra $1000 of TV spend adds roughly the same number of sales, so a straight line through the scatter tells you the trend and the typical return.</p>
       <div class="pc"><div class="pro"><b>Good at</b><ul><li>Fast, exact solution</li><li>Easy to read: each weight is an effect size</li><li>A strong baseline for any number-prediction task</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Outliers pull the line hard</li><li>Curves need extra features</li><li>High-degree polynomials overfit wildly</li></ul></div></div>
       
       <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="regression">Regression</a><a class="term" data-t="least-squares">Least squares</a><a class="term" data-t="residual-reg">Residual</a><a class="term" data-t="mse">Mean squared error</a><a class="term" data-t="r2">R²</a><a class="term" data-t="normal-equations">Normal equations</a><a class="term" data-t="gradient-descent">Gradient descent</a><a class="term" data-t="learning-rate">Learning rate</a><a class="term" data-t="polynomial-features">Polynomial features</a><a class="term" data-t="overfitting">Overfitting</a><a class="term" data-t="bias-variance">Bias–variance</a><a class="term" data-t="ridge">Ridge</a><a class="term" data-t="lasso">Lasso</a></div>
@@ -97,7 +97,7 @@
       <h3>Uncertainty in the coefficients</h3>
       <div class="mathbox c4">$$\hat\sigma^2=\frac{\mathrm{RSS}}{n-(p+1)},\qquad \operatorname{Cov}(\hat\beta)=\hat\sigma^2(X^\top X)^{-1},\qquad t_j=\frac{\hat\beta_j}{\mathrm{SE}(\hat\beta_j)}$$</div>
       <div class="tblwrap"><table class="tbl" id="coefTbl"></table></div>
-      <p class="hint">A large \(|t|\) (roughly above 2) is evidence that the coefficient is not zero. Try the <b>Advertising</b> dataset to reproduce the Tutorial 3 table, then drag a point far away and watch the standard errors react.</p>
+      <p class="hint">A large \(|t|\) (roughly above 2) is evidence that the coefficient is not zero. Try the <b>Advertising</b> dataset to get a real-data regression table, then drag a point far away and watch the standard errors react.</p>
     </div>
   </div>
 </section>
@@ -174,7 +174,7 @@
 <span class="k">from</span> sklearn.preprocessing <span class="k">import</span> PolynomialFeatures, StandardScaler
 <span class="k">from</span> sklearn.pipeline <span class="k">import</span> make_pipeline
 
-<span class="c"># closed form, exactly as in Tutorial 3</span>
+<span class="c"># closed form</span>
 X = np.column_stack([np.ones(len(x)), x])
 beta = np.linalg.solve(X.T @ X, X.T @ y)          <span class="c"># (X^T X)^{-1} X^T y, without forming the inverse</span>
 e = y - X @ beta; RSS = e @ e; R2 = <span class="s">1</span> - RSS / np.sum((y - y.mean())**<span class="s">2</span>)

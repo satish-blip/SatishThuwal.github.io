@@ -32,7 +32,7 @@ M.polyReg = function(x, y, o={}){
   const f = v => ym + LA.dot(st.t(phi(v)), w);
   return { f, w, b0:ym, degree:deg, phi, st, terms:p };
 };
-/* OLS with intercept in raw units for the simple (degree 1) case, with inference stats (Tutorial 3) */
+/* OLS with intercept in raw units for the simple (degree 1) case, with inference stats */
 M.olsStats = function(x, y){
   const n=x.length, X=x.map(v=>[1,v]), XtX=LA.mul(LA.T(X),X), XtY=LA.mv(LA.T(X),y), beta=LA.solve(XtX,XtY);
   const yh=x.map(v=>beta[0]+beta[1]*v), e=y.map((v,i)=>v-yh[i]), yb=y.reduce((a,b)=>a+b,0)/n;
