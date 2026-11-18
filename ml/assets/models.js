@@ -56,17 +56,22 @@ M.LeastSquares = function(X, y, o={}){
    Logistic regression (gradient descent for the animation, Newton/IRLS for speed)
    ===================================================================== */
 M.Logistic = function(X, y, o={}){
-  const deg=o.degree||1, lam=o.lambda??1e-4, phi=ML.poly2(deg), F=X.map(phi), st=Standardizer(F), Z=F.map(f=>[1,...st.t(f)]), n=Z.length, d=Z[0].length;
-  const w = new Array(d).fill(0);
-  const model = { name:'Logistic regression', w, degree:deg, lambda:lam, phi, st, feat: x=>[1,...st.t(phi(x))] };
+  const deg=o.degree||1, lam=o.lambda??1e-4, pen=o.penalty||'l2', phi=ML.poly2(deg), F=X.map(phi), st=Standardizer(F), Z=F.map(f=>[1,...st.t(f)]), n=Z.length, d=Z[0].length;
+  const w = new Array(d).fill(0); const l2 = pen==='l2' ? lam : 0, l1 = pen==='l1' ? lam : 0;
+  const model = { name:'Logistic regression', w, degree:deg, lambda:lam, penalty:pen, phi, st, feat: x=>[1,...st.t(phi(x))] };
   model.score = x => LA.dot(model.feat(x), w);
   model.proba = x => ML.sigmoid(model.score(x));
-  model.loss = () => { let L=0; for(let i=0;i<n;i++){ const z=LA.dot(Z[i],w); L += (y[i]? Math.log1p(Math.exp(-z)) : Math.log1p(Math.exp(z))); if(!isFinite(L)) L=1e9; } let r=0; for(let j=1;j<d;j++) r+=w[j]*w[j]; return L/n + lam*r/2; };
-  model.grad = () => { const g=new Array(d).fill(0); for(let i=0;i<n;i++){ const e=ML.sigmoid(LA.dot(Z[i],w))-y[i]; for(let j=0;j<d;j++) g[j]+=e*Z[i][j]; } for(let j=0;j<d;j++) g[j]=g[j]/n+(j?lam*w[j]:0); return g; };
-  model.gdStep = (lr) => { const g=model.grad(); for(let j=0;j<d;j++) w[j]-=lr*g[j]; return g; };
-  model.newton = (iters=30) => { for(let it=0;it<iters;it++){ const H=LA.zeros(d,d), g=model.grad();
+  model.loss = () => { let L=0; for(let i=0;i<n;i++){ const z=LA.dot(Z[i],w); L += (y[i]? Math.log1p(Math.exp(-z)) : Math.log1p(Math.exp(z))); if(!isFinite(L)) L=1e9; } let r=0,a=0; for(let j=1;j<d;j++){ r+=w[j]*w[j]; a+=Math.abs(w[j]); } return L/n + l2*r/2 + l1*a; };
+  /* gradient of the smooth part (cross-entropy + L2). With L1 the optimality measure is the prox-gradient, see model.optGap */
+  model.grad = () => { const g=new Array(d).fill(0); for(let i=0;i<n;i++){ const e=ML.sigmoid(LA.dot(Z[i],w))-y[i]; for(let j=0;j<d;j++) g[j]+=e*Z[i][j]; } for(let j=0;j<d;j++) g[j]=g[j]/n+(j?l2*w[j]:0); return g; };
+  const soft=(v,t)=>Math.sign(v)*Math.max(0,Math.abs(v)-t);
+  model.gdStep = (lr) => { const g=model.grad(); for(let j=0;j<d;j++){ w[j]-=lr*g[j]; if(j&&l1) w[j]=soft(w[j],lr*l1); } return g; };
+  model.optGap = () => { const g=model.grad(); if(!l1) return Math.sqrt(g.reduce((s,v)=>s+v*v,0)); let s2=0; for(let j=0;j<d;j++){ const nw=j?soft(w[j]-g[j],l1):w[j]-g[j]; s2+=(w[j]-nw)**2; } return Math.sqrt(s2); };
+  let lip=null; const lipschitz=()=>{ if(lip) return lip; let v=new Array(d).fill(1), ev=1; for(let it=0;it<60;it++){ const u=new Array(d).fill(0); for(let i=0;i<n;i++){ const t=LA.dot(Z[i],v); for(let j=0;j<d;j++) u[j]+=t*Z[i][j]/n; } ev=Math.sqrt(u.reduce((s,x)=>s+x*x,0)); v=u.map(x=>x/ev); } return lip=0.25*ev+l2+1e-9; };
+  model.newton = (iters=30) => { if(l1){ const lr=1/lipschitz(); for(let k=0;k<iters*120;k++) model.gdStep(lr); return model; }
+    for(let it=0;it<iters;it++){ const H=LA.zeros(d,d), g=model.grad();
       for(let i=0;i<n;i++){ const p=ML.sigmoid(LA.dot(Z[i],w)), s=p*(1-p)+1e-9; for(let j=0;j<d;j++){ const zj=Z[i][j]*s; for(let k=j;k<d;k++) H[j][k]+=zj*Z[i][k]; } }
-      for(let j=0;j<d;j++){ for(let k=j;k<d;k++){ H[j][k]/=n; H[k][j]=H[j][k]; } H[j][j]+= (j?lam:0)+1e-8; }
+      for(let j=0;j<d;j++){ for(let k=j;k<d;k++){ H[j][k]/=n; H[k][j]=H[j][k]; } H[j][j]+= (j?l2:0)+1e-8; }
       const step=LA.solve(H,g); if(!step) break; let mx=0; for(let j=0;j<d;j++){ w[j]-=step[j]; mx=Math.max(mx,Math.abs(step[j])); } if(mx<1e-7) break; } return model; };
   model.Z = Z; return model;
 };
@@ -80,8 +85,9 @@ M.GDA = function(X, y, o={}){
   const S0=LA.cov(X0,mu0,X0.length), S1=LA.cov(X1,mu1,X1.length), reg=o.reg??1e-6;
   const Sw=[[ (X0.length*S0[0][0]+X1.length*S1[0][0])/X.length, (X0.length*S0[0][1]+X1.length*S1[0][1])/X.length ],
             [ (X0.length*S0[1][0]+X1.length*S1[1][0])/X.length, (X0.length*S0[1][1]+X1.length*S1[1][1])/X.length ]];
-  const addI = S => [[S[0][0]+reg,S[0][1]],[S[1][0],S[1][1]+reg]];
-  let C0, C1; if(type==='lda'){ C0=C1=addI(Sw); } else if(type==='nb'){ C0=[[S0[0][0]+reg,0],[0,S0[1][1]+reg]]; C1=[[S1[0][0]+reg,0],[0,S1[1][1]+reg]]; } else { C0=addI(S0); C1=addI(S1); }
+  const sh=o.shrink||0; /* Ledoit-Wolf style shrinkage towards a scaled identity: the L2 / ridge analogue for covariance estimates */
+  const addI = S => { const t=(S[0][0]+S[1][1])/2; return [[(1-sh)*S[0][0]+sh*t+reg,(1-sh)*S[0][1]],[(1-sh)*S[1][0],(1-sh)*S[1][1]+sh*t+reg]]; };
+  let C0, C1; if(type==='lda'){ C0=C1=addI(Sw); } else if(type==='nb'){ const d0=addI([[S0[0][0],0],[0,S0[1][1]]]), d1=addI([[S1[0][0],0],[0,S1[1][1]]]); C0=d0; C1=d1; } else { C0=addI(S0); C1=addI(S1); }
   const P0=LA.inv2(C0), P1=LA.inv2(C1), ld0=Math.log(LA.det2(C0)), ld1=Math.log(LA.det2(C1));
   const qf=(P,m,x)=>{ const a=x[0]-m[0], b=x[1]-m[1]; return a*(P[0][0]*a+P[0][1]*b)+b*(P[1][0]*a+P[1][1]*b); };
   const delta = (x,k) => k ? -0.5*ld1-0.5*qf(P1,mu1,x)+Math.log(pi1) : -0.5*ld0-0.5*qf(P0,mu0,x)+Math.log(pi0);

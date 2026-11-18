@@ -211,7 +211,7 @@ class Plot{
     c.closePath(); if(style.fill){ c.fillStyle=style.fill; c.globalAlpha=style.fillAlpha??.12; c.fill(); c.globalAlpha=1; }
     c.strokeStyle=style.color||ML.palette().ink; c.lineWidth=style.width||2; if(style.dash) c.setLineDash(style.dash); c.stroke(); c.restore(); }
   /* pointer helpers: handlers receive world coordinates */
-  pointer(h){ const el=this.cv; let down=false; const pos=e=>{ const r=el.getBoundingClientRect(); return [this.ix(e.clientX-r.left), this.iy(e.clientY-r.top), e.clientX-r.left, e.clientY-r.top]; };
+  pointer(h){ const el=this.cv; let down=false; /* only plots you can drag block page scrolling on touch screens */ this.host.style.touchAction = h.move ? 'none' : 'manipulation'; const pos=e=>{ const r=el.getBoundingClientRect(); return [this.ix(e.clientX-r.left), this.iy(e.clientY-r.top), e.clientX-r.left, e.clientY-r.top]; };
     el.addEventListener('pointerdown',e=>{ down=true; el.setPointerCapture(e.pointerId); h.down&&h.down(...pos(e),e); });
     el.addEventListener('pointermove',e=>{ if(down) h.move&&h.move(...pos(e),e); else h.hover&&h.hover(...pos(e),e); });
     el.addEventListener('pointerup',e=>{ if(down){down=false; h.up&&h.up(...pos(e),e);} });
@@ -262,7 +262,7 @@ ML.renderMath = function(root){ if(!window.renderMathInElement) return; renderMa
 /* ---------------- site nav ---------------- */
 ML.PAGES = [
   ['linear-regression','Linear Regression'],['logistic-regression','Logistic'],['lda-gda','LDA / GDA'],['svm','SVM'],
-  ['decision-trees','Decision Trees'],['ensembles','Bagging & Boosting'],['pca','PCA'],['compare','Compare all'] ];
+  ['decision-trees','Decision Trees'],['ensembles','Bagging & Boosting'],['pca','PCA'],['regularisation','L1 / L2'],['compare','Compare all'] ];
 ML.nav = function(cur){ const n=document.getElementById('algnav'); if(!n) return; const base = cur==='hub' ? '' : '../';
   n.innerHTML = `<a href="${base}"${cur==='hub'?' class="on"':''}>All</a>` + ML.PAGES.map(([id,t])=>`<a href="${base}${id}/"${id===cur?' class="on" aria-current="page"':''}>${t}</a>`).join('');
   const on=n.querySelector('.on'); if(on) requestAnimationFrame(()=>{ n.scrollLeft = on.offsetLeft - n.clientWidth/2 + on.offsetWidth/2; }); };

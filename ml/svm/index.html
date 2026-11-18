@@ -21,7 +21,25 @@
   <p class="kicker">Traditional ML &middot; Classification</p>
   <h1>Support Vector <span class="grad">Machines</span></h1>
   <p class="lede">An SVM picks the boundary with the widest possible margin, and that boundary depends only on a handful of points: the support vectors. Move points around and watch which ones matter. Then swap kernels to bend the boundary, and see which kernel suits which kind of data.</p>
-  <div class="toc"><a href="#lab">1 · Live SVM</a><a href="#sv">2 · Support vectors</a><a href="#maths">3 · The maths</a><a href="#trick">4 · Kernel trick in 3D</a><a href="#gallery">5 · Kernel × dataset</a><a href="#cg">6 · C and γ</a><a href="#code">7 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#lab">1 · Live SVM</a><a href="#sv">2 · Support vectors</a><a href="#maths">3 · The maths</a><a href="#trick">4 · Kernel trick in 3D</a><a href="#gallery">5 · Kernel × dataset</a><a href="#cg">6 · C and γ</a><a href="#code">7 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What is a support vector machine, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p>Many lines can separate two classes. A <a class="term" data-t="svm">support vector machine</a> picks the one with the widest empty corridor, the <a class="term" data-t="margin">margin</a>, between the classes. Only the points touching or inside that corridor matter; they are the <a class="term" data-t="support-vector">support vectors</a>, and the rest of the data could be deleted without changing the answer.</p><p>Real data overlaps, so a <a class="term" data-t="soft-margin">soft margin</a> lets some points cross at a price set by \(C\). For curved boundaries a <a class="term" data-t="kernel">kernel</a> measures similarity in a richer hidden space (the <a class="term" data-t="kernel-trick">kernel trick</a>), so the SVM can draw circles and spirals while still solving a straight-line problem behind the scenes.</p>
+      <h3>How it works</h3><ol class="steps2"><li>Find \(w,b\) that maximise the margin width \(2/\lVert w\rVert\) while keeping points on the right side.</li><li>Allow violations with <a class="term" data-t="slack">slack</a>, each costing \(C\).</li><li>Solve the <a class="term" data-t="dual">dual</a> problem, which only needs similarities between pairs of points (<a class="term" data-t="smo">SMO</a> solver).</li><li>Swap in a kernel (linear, polynomial, <a class="term" data-t="rbf">RBF</a>) to bend the boundary.</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>Building a road between two villages: you want the widest possible road that does not knock down any houses. Only the houses right at the edge of the road decide where it goes.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Strong on small and medium datasets</li><li>Kernels give flexible boundaries with few hyperparameters</li><li>Convex: one best answer</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Needs feature scaling</li><li>C and γ must be tuned</li><li>Slow for very large datasets; no probabilities by default</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="svm">SVM</a><a class="term" data-t="margin">Margin</a><a class="term" data-t="support-vector">Support vectors</a><a class="term" data-t="hyperplane">Hyperplane</a><a class="term" data-t="soft-margin">Soft margin</a><a class="term" data-t="slack">Slack</a><a class="term" data-t="hinge">Hinge loss</a><a class="term" data-t="dual">Dual problem</a><a class="term" data-t="lagrange">Lagrange multiplier</a><a class="term" data-t="kkt">KKT conditions</a><a class="term" data-t="kernel">Kernel</a><a class="term" data-t="kernel-trick">Kernel trick</a><a class="term" data-t="rbf">RBF kernel</a><a class="term" data-t="smo">SMO</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section id="lab" class="lab">
@@ -167,6 +185,7 @@ grid = GridSearchCV(SVC(kernel=<span class="s">"rbf"</span>), {<span class="s">"
 </main>
 
 <script src="../assets/core.js"></script>
+<script src="../assets/gloss.js"></script>
 <script src="../assets/models.js"></script>
 <script>
 (function(){
@@ -264,7 +283,7 @@ function drawLift(){ const P=ML.palette(), c=lift.ctx, d=LI.data, zc=+$('#planeZ
   pts.forEach(o=>{ c.beginPath(); c.arc(o.p[0],o.p[1],4,0,7); c.fillStyle=o.y?P.k1:P.k0; c.fill(); c.strokeStyle=P.bg; c.lineWidth=1; c.stroke(); });
   let ok=0; d.X.forEach((x,i)=>{ const z=x[0]*x[0]+x[1]*x[1]; if((z<zc?1:0)===d.y[i]) ok++; });
   $('#liftStats').innerHTML=[['c1',ML.pct(ok/d.X.length),'accuracy of the plane'],['c3','r = '+fmt(Math.sqrt(zc),2),'circle radius in 2D']].map(([c2,v,l])=>`<div class="stat ${c2}"><b>${v}</b><span>${l}</span></div>`).join(''); }
-let ld=null; lift.cv.addEventListener('pointerdown',e=>{ ld=[e.clientX,e.clientY,LI.yaw,LI.pitch]; lift.cv.setPointerCapture(e.pointerId); });
+let ld=null; lift.host.style.touchAction='none'; lift.cv.addEventListener('pointerdown',e=>{ ld=[e.clientX,e.clientY,LI.yaw,LI.pitch]; lift.cv.setPointerCapture(e.pointerId); });
 lift.cv.addEventListener('pointermove',e=>{ if(!ld) return; LI.yaw=ld[2]+(e.clientX-ld[0])*0.01; LI.pitch=Math.max(-0.2,Math.min(1.5,ld[3]+(e.clientY-ld[1])*0.01)); drawLift(); });
 lift.cv.addEventListener('pointerup',()=>ld=null); lift.cv.style.cursor='grab';
 $('#spin').onclick=()=>{ if(LI.spin){ clearInterval(LI.spin); LI.spin=null; $('#spin').textContent='Auto-rotate'; } else { LI.spin=setInterval(()=>{ LI.yaw+=0.02; drawLift(); },30); $('#spin').textContent='Stop'; } };

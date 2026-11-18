@@ -21,7 +21,25 @@
   <p class="kicker">Traditional ML &middot; Trees</p>
   <h1>Decision <span class="grad">Trees</span></h1>
   <p class="lede">A decision tree asks a sequence of yes/no questions like "is \(x_1\le0.4\)?" and cuts the plane into rectangles. Grow one here split by split: at every step the algorithm tries every threshold on every feature and keeps the one that makes the children purest. Click any node to see that search laid out.</p>
-  <div class="toc"><a href="#lab">1 · Grow a tree</a><a href="#split">2 · How a split is chosen</a><a href="#maths">3 · The maths</a><a href="#depth">4 · Depth and overfitting</a><a href="#code">5 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#lab">1 · Grow a tree</a><a href="#split">2 · How a split is chosen</a><a href="#maths">3 · The maths</a><a href="#depth">4 · Depth and overfitting</a><a href="#code">5 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What is a decision tree, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p>A <a class="term" data-t="decision-tree">decision tree</a> is a flowchart of yes/no questions about the features: "Is \(x_1 < 0.3\)? If yes, is \(x_2 > 1.2\)?" Each answer sends a point down one branch until it reaches a <a class="term" data-t="leaf">leaf</a>, which holds the prediction.</p><p>The tree is grown greedily: at every <a class="term" data-t="node">node</a> it tries every possible question and keeps the <a class="term" data-t="split">split</a> that makes the two groups as "pure" (single-class) as possible, measured by <a class="term" data-t="gini">Gini impurity</a> or <a class="term" data-t="entropy">entropy</a>. Because every question is about one feature, the boundary is made of horizontal and vertical steps.</p>
+      <h3>How it works</h3><ol class="steps2"><li>Start with all training points in one node.</li><li>Try every feature and every threshold; score each split by the drop in impurity.</li><li>Keep the best split and repeat on each child.</li><li>Stop at a <a class="term" data-t="max-depth">maximum depth</a>, a minimum leaf size or a pure node; optionally <a class="term" data-t="pruning">prune</a> back.</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>The game "20 questions", or a doctor’s triage chart: each question narrows the possibilities until the answer is obvious.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Easy to explain and draw</li><li>No feature scaling needed</li><li>Handles mixed and non-linear data</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Deep trees overfit badly</li><li>Small changes in the data can change the whole tree</li><li>Staircase boundaries for diagonal patterns</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="decision-tree">Decision tree</a><a class="term" data-t="node">Node</a><a class="term" data-t="leaf">Leaf</a><a class="term" data-t="split">Split</a><a class="term" data-t="impurity">Impurity</a><a class="term" data-t="gini">Gini</a><a class="term" data-t="entropy">Entropy / information gain</a><a class="term" data-t="max-depth">Max depth</a><a class="term" data-t="pruning">Pruning</a><a class="term" data-t="overfitting">Overfitting</a><a class="term" data-t="variance">Variance</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section id="lab" class="lab">
@@ -126,6 +144,7 @@ pruned = DecisionTreeClassifier(ccp_alpha=path.ccp_alphas[<span class="s">-3</sp
 </main>
 
 <script src="../assets/core.js"></script>
+<script src="../assets/gloss.js"></script>
 <script src="../assets/models.js"></script>
 <script src="../assets/tree.js"></script>
 <script>

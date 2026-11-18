@@ -21,7 +21,25 @@
   <p class="kicker">Traditional ML &middot; Ensembles</p>
   <h1>Bagging &amp; <span class="grad">Boosting</span></h1>
   <p class="lede">Two ways to turn many weak trees into one strong model. <b>Bagging</b> (random forests) trains deep trees independently on resampled data and averages them, which cuts variance. <b>Boosting</b> (AdaBoost) trains tiny trees one after another, each focusing on the points the previous ones got wrong, which cuts bias. Step through both algorithms on the same data.</p>
-  <div class="toc"><a href="#rf">1 · Random forest, step by step</a><a href="#rfmaths">2 · Why averaging works</a><a href="#ada">3 · AdaBoost, step by step</a><a href="#adamaths">4 · The AdaBoost maths</a><a href="#vs">5 · Bagging vs boosting</a><a href="#code">6 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#rf">1 · Random forest, step by step</a><a href="#rfmaths">2 · Why averaging works</a><a href="#ada">3 · AdaBoost, step by step</a><a href="#adamaths">4 · The AdaBoost maths</a><a href="#vs">5 · Bagging vs boosting</a><a href="#code">6 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What are bagging and boosting, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p>An <a class="term" data-t="ensemble">ensemble</a> combines many simple models into a stronger one. There are two big recipes.</p><p><b><a class="term" data-t="bagging">Bagging</a></b> trains many models side by side, each on a slightly different random copy of the data (a <a class="term" data-t="bootstrap">bootstrap sample</a>), and lets them vote. A <a class="term" data-t="random-forest">random forest</a> does this with deep decision trees, which are individually unstable but whose mistakes average out. <b><a class="term" data-t="boosting">Boosting</a></b> trains models one after another; each new one concentrates on the points the previous ones got wrong. <a class="term" data-t="adaboost">AdaBoost</a> does this with tiny one-question trees (<a class="term" data-t="stump">stumps</a>).</p>
+      <h3>How it works</h3><ol class="steps2"><li>Bagging: draw a bootstrap sample, train a tree, repeat many times, then take the majority vote.</li><li>Random forest: also pick a random subset of features at each split so the trees differ more.</li><li>Boosting: train a <a class="term" data-t="weak-learner">weak learner</a>, raise the weight of the points it got wrong, train the next one on the re-weighted data.</li><li>Give each boosted learner a vote in proportion to its accuracy, and sum.</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>Bagging is asking 100 people to guess the number of sweets in a jar and taking the average. Boosting is a study group where each new member focuses on the questions the group still gets wrong.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Among the most accurate methods on tabular data</li><li>Random forests need almost no tuning and give a free error estimate</li><li>Boosting turns very weak models into strong ones</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Harder to interpret than one tree</li><li>Boosting can overfit noisy labels</li><li>More computation</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="ensemble">Ensemble</a><a class="term" data-t="bagging">Bagging</a><a class="term" data-t="bootstrap">Bootstrap</a><a class="term" data-t="random-forest">Random forest</a><a class="term" data-t="oob">Out-of-bag</a><a class="term" data-t="variance">Variance</a><a class="term" data-t="boosting">Boosting</a><a class="term" data-t="adaboost">AdaBoost</a><a class="term" data-t="weak-learner">Weak learner</a><a class="term" data-t="stump">Stump</a><a class="term" data-t="gradient-boosting">Gradient boosting</a><a class="term" data-t="bias-variance">Bias–variance</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section class="card">
@@ -177,6 +195,7 @@ ada.estimator_errors_               <span class="c"># epsilon_t</span>
 </main>
 
 <script src="../assets/core.js"></script>
+<script src="../assets/gloss.js"></script>
 <script src="../assets/models.js"></script>
 <script src="../assets/tree.js"></script>
 <script>

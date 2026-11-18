@@ -21,7 +21,25 @@
   <p class="kicker">Traditional ML &middot; Generative classifiers</p>
   <h1>LDA &amp; <span class="grad">GDA</span></h1>
   <p class="lede">Gaussian discriminant analysis models each class as a Gaussian blob, then uses Bayes' rule to classify. Share one covariance across classes and the boundary is a straight line (LDA). Give each class its own covariance and it becomes a curve (QDA). Drag the class means, change the priors, and see Fisher's projection that LDA secretly finds.</p>
-  <div class="toc"><a href="#lab">1 · Fit Gaussians live</a><a href="#maths">2 · The maths</a><a href="#fisher">3 · Fisher's projection</a><a href="#gen">4 · It's generative</a><a href="#code">5 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#lab">1 · Fit Gaussians live</a><a href="#maths">2 · The maths</a><a href="#fisher">3 · Fisher's projection</a><a href="#gen">4 · It's generative</a><a href="#code">5 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What are LDA and GDA, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p>These are <a class="term" data-t="generative">generative</a> classifiers. Instead of drawing a boundary directly, they first describe what each class looks like: a <a class="term" data-t="gaussian">bell-shaped cloud</a> with its own centre (<a class="term" data-t="mean">mean</a>) and shape (<a class="term" data-t="covariance">covariance matrix</a>). A new point is given to the class whose cloud makes it most likely, adjusted by how common each class is (the <a class="term" data-t="prior">prior</a>), using <a class="term" data-t="bayes-rule">Bayes’ rule</a>.</p><p><a class="term" data-t="lda">LDA</a> assumes every class cloud has the same shape, which gives a straight boundary. <a class="term" data-t="qda">QDA</a> lets each class have its own shape, giving curved boundaries. <a class="term" data-t="naive-bayes">Naive Bayes</a> assumes the features are independent within a class.</p>
+      <h3>How it works</h3><ol class="steps2"><li>Estimate each class’s mean and covariance from the training data.</li><li>Estimate how common each class is (the prior).</li><li>For a new point, compute a <a class="term" data-t="discriminant">score</a> per class: how likely the point is under that class’s Gaussian, times the prior.</li><li>Pick the class with the highest score.</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>Sorting fish into salmon and sea bass by length and brightness: measure many of each, describe the typical salmon and the typical sea bass, then label a new fish by which description it fits better.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Very fast, no iterations</li><li>Works well with little data when the Gaussian assumption is roughly right</li><li>Gives probabilities and a projection (Fisher LDA) for visualisation</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Wrong shape assumptions hurt (moons, spirals)</li><li>QDA needs many points per class to estimate covariances</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="generative">Generative model</a><a class="term" data-t="gaussian">Gaussian</a><a class="term" data-t="mean">Mean</a><a class="term" data-t="covariance">Covariance matrix</a><a class="term" data-t="prior">Prior</a><a class="term" data-t="posterior">Posterior</a><a class="term" data-t="bayes-rule">Bayes’ rule</a><a class="term" data-t="likelihood">Likelihood</a><a class="term" data-t="lda">LDA</a><a class="term" data-t="qda">QDA</a><a class="term" data-t="naive-bayes">Naive Bayes</a><a class="term" data-t="discriminant">Discriminant</a><a class="term" data-t="projection">Projection</a><a class="term" data-t="shrinkage">Shrinkage</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section id="lab" class="lab">
@@ -36,6 +54,7 @@
       <div class="controls">
         <div class="ctl"><span class="lbl">Dataset</span><div class="dsrow" id="dsPick"></div></div>
         <div class="ctl"><span class="lbl">Model</span><div class="seg" id="mSeg"><button data-v="lda" class="on">LDA (shared Σ)</button><button data-v="qda">QDA (Σ per class)</button><button data-v="nb">Gaussian naive Bayes</button></div></div>
+        <div class="ctl"><label for="shrink"><span>Covariance shrinkage \(\alpha\) (<a href="../regularisation/">L2-style regularisation</a>)</span><output id="shrinkOut"></output></label><input type="range" id="shrink" min="0" max="1" step="0.01" value="0"></div>
         <div class="ctl"><label for="prior"><span>Prior \(\pi_1=P(y=1)\)</span><output id="priorOut"></output></label><input type="range" id="prior" min="0.02" max="0.98" step="0.01" value="0.5"><label class="toggle"><input type="checkbox" id="estPrior" checked>Estimate from data (class frequency)</label></div>
         <div class="grid2" style="gap:12px">
           <div class="ctl"><label for="nPts">Points <output id="nPtsOut"></output></label><input type="range" id="nPts" min="20" max="400" step="10" value="200"></div>
@@ -70,6 +89,7 @@
       <div class="note">Try <b>Unequal covariance</b>: LDA must use one straight line, QDA wraps a curve around the tight class. Then try <b>Circles</b>: QDA's ellipse works, LDA fails. On <b>XOR</b> and <b>Spirals</b> neither Gaussian story fits.</div>
     </div>
   </div>
+  <div class="note"><b>Regularised discriminant analysis.</b> With few points or many features the sample covariance is noisy and can be nearly singular, so \(\Sigma^{-1}\) explodes. The shrinkage slider replaces it by \(\hat\Sigma_\alpha=(1-\alpha)\hat\Sigma+\alpha\,\tfrac{\operatorname{tr}\hat\Sigma}{d}I\) (Ledoit and Wolf; scikit-learn's <code>LinearDiscriminantAnalysis(solver="lsqr", shrinkage=α)</code>). This is the covariance version of an L2 / ridge penalty: at \(\alpha=1\) LDA ignores correlations and becomes a nearest-mean classifier (after scaling). Try QDA with 20 points and raise \(\alpha\). See the <a href="../regularisation/">L1 and L2 regularisation page</a>.</div>
 </section>
 
 <section id="fisher" class="card">
@@ -124,6 +144,7 @@ LinearDiscriminantAnalysis(n_components=<span class="s">1</span>).<span class="f
 </main>
 
 <script src="../assets/core.js"></script>
+<script src="../assets/gloss.js"></script>
 <script src="../assets/models.js"></script>
 <script>
 (function(){
@@ -132,7 +153,7 @@ ML.nav('lda-gda'); ML.renderMath(document.body);
 const S={ds:'aniso', n:200, noise:0.3, seed:7, type:'lda', X:[], y:[], m:null, theta:20, fake:null};
 const main=new ML.Plot('#mainPlot');
 function load(){ const d=ML.dataset(S.ds,S.n,S.noise,S.seed); S.X=d.X.map(p=>p.slice()); S.y=d.y.slice(); S.fake=null; }
-function fitM(type){ const m=Mo.GDA(S.X,S.y,{type:type||S.type}); if(!$('#estPrior').checked){ const p1=+$('#prior').value; return withPrior(m,p1); } return m; }
+function fitM(type){ const m=Mo.GDA(S.X,S.y,{type:type||S.type,shrink:+$('#shrink').value}); if(!$('#estPrior').checked){ const p1=+$('#prior').value; return withPrior(m,p1); } return m; }
 function withPrior(m,p1){ const shift=Math.log(p1/(1-p1))-Math.log(m.pi1/m.pi0); const sc=m.score; const o=Object.assign({},m); o.score=x=>sc(x)+shift; o.proba=x=>ML.sigmoid(o.score(x)); o.pi1=p1; o.pi0=1-p1; if(m.c!==undefined) o.c=m.c+shift; return o; }
 
 let drag=null, hover=-1;
@@ -199,6 +220,7 @@ $('#sample').onclick=()=>{ const m=S.m, r=ML.rng(Math.floor(Math.random()*1e9)),
 /* controls */
 ML.datasetPicker('dsPick',S.ds,id=>{ S.ds=id; load(); draw(); });
 ML.bindSeg('mSeg',v=>{ S.type=v; draw(); });
+ML.bindRange('shrink',()=>draw(),v=>v.toFixed(2));
 ML.bindRange('prior',()=>{ $('#estPrior').checked=false; draw(); },v=>v.toFixed(2));
 $('#estPrior').onchange=draw; $('#showE').onchange=$('#showOther').onchange=draw;
 ML.bindRange('nPts',v=>{ S.n=v; load(); draw(); }); ML.bindRange('noise',v=>{ S.noise=v; load(); draw(); },v=>v.toFixed(2));

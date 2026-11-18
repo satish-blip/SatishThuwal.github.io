@@ -13,7 +13,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
 <link rel="stylesheet" href="../assets/ml.css">
 <style>
-.cmp{display:grid;gap:6px;min-width:1040px}
+.cmp{display:grid;gap:6px;--rl:150px;--cw:100px}
+.cmp .rl{position:sticky;left:0;z-index:2;background:var(--card);padding-right:4px}
+@media (max-width:560px){.cmp{--rl:78px;--cw:112px;gap:5px}.cmp .rl{font-size:11px}}
 .cmp .hd{font-size:12px;font-weight:700;text-align:center;align-self:end;padding-bottom:2px}
 .cmp .rl{font-size:12px;font-weight:700;align-self:center;line-height:1.3}
 .cmp .rl a{color:var(--ink);text-decoration:none}.cmp .rl a:hover{color:var(--c1)}
@@ -34,6 +36,18 @@
   <p class="kicker">Traditional ML &middot; Side by side</p>
   <h1>Every algorithm, <span class="grad">every dataset</span></h1>
   <p class="lede">Eleven classifiers trained live in your browser on eight datasets that run from easy (linear blobs) to hard (spirals, noisy labels). Each cell is a real model fitted on the training points and scored on held-out test points. Change the hyperparameters and the whole grid retrains. Click any cell to inspect it.</p>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>How to read this page</h2>
+  <div class="grid2 prose">
+    <div><p>Every <a class="term" data-t="classification">classifier</a> on this site is trained here on every <a class="term" data-t="dataset">dataset</a>, using the same <a class="term" data-t="training-set">training points</a>, and scored on the same <a class="term" data-t="test-set">held-out test points</a>. Each small plot shows one model’s <a class="term" data-t="decision-boundary">decision boundary</a>: colour is the predicted class, dots are the data.</p>
+    <p>No model wins everywhere. Linear models are perfect on blobs and hopeless on circles; trees and forests handle almost anything but draw staircases; <a class="term" data-t="kernel">kernel</a> SVMs and boosted ensembles adapt to curves. That is the "no free lunch" idea in one picture.</p></div>
+    <div><ol class="steps2"><li>Pick datasets and algorithms with the chips.</li><li>Tune the shared <a class="term" data-t="hyperparameter">hyperparameters</a> on the left (polynomial degree, \(\lambda\), \(C\), \(\gamma\), depth, trees, rounds).</li><li>Read the <a class="term" data-t="accuracy">accuracy</a> under each plot and the leaderboard heat map; a big gap between train and test accuracy means <a class="term" data-t="overfitting">overfitting</a>.</li></ol>
+    <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="overfitting">Overfitting</a><a class="term" data-t="underfitting">Underfitting</a><a class="term" data-t="generalisation">Generalisation</a><a class="term" data-t="bias-variance">Bias–variance</a><a class="term" data-t="hyperparameter">Hyperparameter</a><a class="term" data-t="regularisation">Regularisation</a><a class="term" data-t="linearly-separable">Linearly separable</a><a class="term" data-t="noise">Label noise</a></div>
+    <p class="hint">Dotted-underlined words are clickable definitions.</p></div>
+  </div>
 </section>
 
 <section class="lab">
@@ -77,7 +91,7 @@
     <div><h3 style="margin:0 0 6px">Datasets</h3><div class="chips" id="dsChips"></div></div>
   </div>
   <div class="tblwrap" style="margin-top:14px"><div class="cmp" id="grid"></div></div>
-  <p class="hint">Number in each cell = test accuracy (green ≥ 90%, orange ≥ 75%, red below). Hover for train accuracy and fit time. Row names link to each algorithm's own page.</p>
+  <p class="hint">Number in each cell = test accuracy (green ≥ 90%, orange ≥ 75%, red below). Hover (or tap and hold) for train accuracy and fit time. Row names link to each algorithm's own page.</p>
 </section>
 
 <section class="card">
@@ -103,6 +117,7 @@
 </main>
 
 <script src="../assets/core.js"></script>
+<script src="../assets/gloss.js"></script>
 <script src="../assets/models.js"></script>
 <script>
 (function(){
@@ -122,7 +137,7 @@ const key=(a,d)=>a+'|'+d;
 const dataCache={}; function data(d){ const k=d+'|'+S.n+'|'+S.noise+'|'+S.seed+'|'+S.tf; if(!dataCache[k]){ const full=ML.dataset(d,S.n,S.noise,S.seed); dataCache[k]=Object.assign(ML.split(full,S.tf,S.seed+5),{full}); } return dataCache[k]; }
 
 const cells={};
-function layout(){ Object.keys(cells).forEach(k=>delete cells[k]); const g=$("#grid"), A=algos(), D=dss(); g.style.gridTemplateColumns=`150px repeat(${D.length},minmax(0,1fr))`;
+function layout(){ Object.keys(cells).forEach(k=>delete cells[k]); const g=$("#grid"), A=algos(), D=dss(); g.style.gridTemplateColumns=`var(--rl) repeat(${D.length},minmax(var(--cw),1fr))`; g.style.minWidth=`calc(var(--rl) + ${D.length} * (var(--cw) + 6px))`;
   g.innerHTML='<div></div>'+D.map(d=>`<div class="hd">${d.name}<br><span class="pill">${d.level}</span></div>`).join('');
   A.forEach(a=>{ const l=document.createElement('div'); l.className='rl'; l.innerHTML=`<a href="../${a.page}/">${a.short}</a>`; l.title=a.name; g.appendChild(l);
     D.forEach(d=>{ const c=document.createElement('div'); c.className='thumb cell'; c.innerHTML='<div class="plot sq" style="border:0;border-radius:0"></div><span class="acc"></span><div>…</div>'; c.onclick=()=>{ S.focus={a:a.id,d:d.id}; drawFocus(); markFocus(); window.scrollTo({top:0,behavior:'smooth'}); };

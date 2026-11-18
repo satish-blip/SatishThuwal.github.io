@@ -21,7 +21,25 @@
   <p class="kicker">Traditional ML &middot; Unsupervised &middot; Dimensionality reduction</p>
   <h1>Principal Component <span class="grad">Analysis</span></h1>
   <p class="lede">PCA finds the directions along which the data varies most, and lets you keep only the top few. Rotate a direction by hand until the projected variance peaks (that is PC1), see why that same direction minimises reconstruction error, spin a 3D cloud, and rebuild images from a handful of eigen-images.</p>
-  <div class="toc"><a href="#lab">1 · Find PC1 by hand</a><a href="#maths">2 · The maths</a><a href="#d3">3 · 3D and the scree plot</a><a href="#img">4 · Eigen-images</a><a href="#lda">5 · PCA vs LDA</a><a href="#code">6 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#lab">1 · Find PC1 by hand</a><a href="#maths">2 · The maths</a><a href="#d3">3 · 3D and the scree plot</a><a href="#img">4 · Eigen-images</a><a href="#lda">5 · PCA vs LDA</a><a href="#code">6 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What is PCA, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p><a class="term" data-t="pca">Principal component analysis</a> finds the directions in which your data varies the most. The first <a class="term" data-t="principal-component">principal component</a> is the single line that captures the biggest spread of the data; the second is the next biggest, at right angles to the first, and so on.</p><p>Keeping only the first few components gives a smaller description of each point that loses as little as possible: <a class="term" data-t="dimensionality-reduction">dimensionality reduction</a>. It is used to compress images, remove noise and plot high-dimensional data in 2-D. PCA does not use labels: it is <a class="term" data-t="unsupervised">unsupervised</a>.</p>
+      <h3>How it works</h3><ol class="steps2"><li><a class="term" data-t="standardise">Centre</a> the data (and usually scale each feature).</li><li>Compute the <a class="term" data-t="covariance">covariance matrix</a>.</li><li>Find its <a class="term" data-t="eigenvector">eigenvectors</a> (directions) and eigenvalues (variance along each).</li><li>Keep the top \(k\) directions and <a class="term" data-t="projection">project</a> the data onto them; the <a class="term" data-t="explained-variance">explained variance</a> tells you how much you kept.</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>Photographing a teapot: some camera angles show its shape clearly (spout, handle, lid), others hide it. PCA picks the angle that shows the most.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Fast, exact and simple</li><li>Removes correlated, redundant features</li><li>Great for visualisation and compression</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Only finds straight-line structure</li><li>Directions of high variance are not always the ones that separate classes (compare LDA)</li><li>Sensitive to feature scaling</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="pca">PCA</a><a class="term" data-t="principal-component">Principal component</a><a class="term" data-t="variance">Variance</a><a class="term" data-t="covariance">Covariance matrix</a><a class="term" data-t="eigenvector">Eigenvector / eigenvalue</a><a class="term" data-t="projection">Projection</a><a class="term" data-t="explained-variance">Explained variance</a><a class="term" data-t="scree">Scree plot</a><a class="term" data-t="reconstruction">Reconstruction</a><a class="term" data-t="dimensionality-reduction">Dimensionality reduction</a><a class="term" data-t="standardise">Standardise</a><a class="term" data-t="unsupervised">Unsupervised</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section id="lab" class="lab">
@@ -142,6 +160,7 @@ eigvals = s**<span class="s">2</span> / (len(X) - <span class="s">1</span>); W =
 </main>
 
 <script src="../assets/core.js"></script>
+<script src="../assets/gloss.js"></script>
 <script src="../assets/models.js"></script>
 <script>
 (function(){
@@ -203,7 +222,7 @@ function draw3(){ const P=ML.palette(), c=p3.ctx, p=T.pca, mu=p.mu; p3.clear(); 
   // scree
   let cum=0; const cs=p.ratio.map((r2,j)=>{ cum+=r2; return [j+1,cum]; }); const r=ML.chart(scree,[{pts:cs,color:P.c4,width:2.5,dots:true}],{x0:0.5,x1:3.5,y0:0,y1:1,xl:'component',yfmt:v=>(100*v).toFixed(0)+'%'});
   const sc=scree.ctx; sc.save(); p.ratio.forEach((r2,j)=>{ sc.fillStyle=cols[j]; sc.globalAlpha=.75; const x=r.fx(j+1), w=36; sc.fillRect(x-w/2,r.fy(r2),w,r.fy(0)-r.fy(r2)); sc.globalAlpha=1; sc.fillStyle=P.ink; sc.font='600 11px Inter,system-ui,sans-serif'; sc.textAlign='center'; sc.fillText(ML.pct(r2),x,r.fy(r2)-4); }); sc.restore(); }
-let d3=null; p3.cv.addEventListener('pointerdown',e=>{ d3=[e.clientX,e.clientY,T.yaw,T.pitch]; p3.cv.setPointerCapture(e.pointerId); }); p3.cv.addEventListener('pointermove',e=>{ if(!d3) return; T.yaw=d3[2]+(e.clientX-d3[0])*0.01; T.pitch=Math.max(-1.4,Math.min(1.4,d3[3]+(e.clientY-d3[1])*0.01)); draw3(); }); p3.cv.addEventListener('pointerup',()=>d3=null); p3.cv.style.cursor='grab';
+let d3=null; p3.host.style.touchAction='none'; p3.cv.addEventListener('pointerdown',e=>{ d3=[e.clientX,e.clientY,T.yaw,T.pitch]; p3.cv.setPointerCapture(e.pointerId); }); p3.cv.addEventListener('pointermove',e=>{ if(!d3) return; T.yaw=d3[2]+(e.clientX-d3[0])*0.01; T.pitch=Math.max(-1.4,Math.min(1.4,d3[3]+(e.clientY-d3[1])*0.01)); draw3(); }); p3.cv.addEventListener('pointerup',()=>d3=null); p3.cv.style.cursor='grab';
 ML.bindSeg('shape3',v=>{ T.shape=v; gen3(); draw3(); });
 $('#spin3').onclick=()=>{ if(T.spin){ clearInterval(T.spin); T.spin=null; $('#spin3').textContent='Auto-rotate'; } else { T.spin=setInterval(()=>{ T.yaw+=0.02; draw3(); },30); $('#spin3').textContent='Stop'; } };
 

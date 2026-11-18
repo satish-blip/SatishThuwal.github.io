@@ -199,3 +199,5 @@ a.ml-card:hover{transform:translateY(-2px);border-color:#8b5cf6}
 #writing{border-top:1px solid var(--line)}
 .post-list{max-width:760px}
 nav a[aria-current="page"]{color:var(--ink)}
+@media (max-width:560px){nav{-webkit-mask-image:linear-gradient(90deg,#000 82%,transparent);mask-image:linear-gradient(90deg,#000 82%,transparent);padding-right:24px}}
+.ml-sub{margin:30px 0 14px;scroll-margin-top:72px}.ml-sub h4{font-size:19px;margin:0 0 3px}.ml-sub p{margin:0;color:var(--muted);font-size:14.5px}
