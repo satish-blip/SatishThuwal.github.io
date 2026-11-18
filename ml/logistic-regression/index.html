@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Logistic Regression Lab</title>
+<meta name="description" content="Interactive logistic regression in the browser: watch gradient descent or Newton's method train the model, see probability contours, the sigmoid and log-loss, polynomial features, thresholds, confusion matrix and ROC curve.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/ml.css">
+</head>
+<body>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../#ml">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Algorithms"></nav></div></header>
+
+<main class="wrap">
+<section class="hero">
+  <p class="kicker">Traditional ML &middot; Classification</p>
+  <h1>Logistic <span class="grad">Regression</span></h1>
+  <p class="lede">Despite the name, logistic regression is a classifier. It passes a linear score through the sigmoid to get a probability, and learns its weights by minimising cross-entropy. Watch it train step by step, add polynomial features to bend the boundary, and move the decision threshold to trade precision for recall.</p>
+  <div class="toc"><a href="#lab">1 · Train it live</a><a href="#sig">2 · Sigmoid and log-loss</a><a href="#maths">3 · The maths</a><a href="#thr">4 · Threshold, confusion matrix, ROC</a><a href="#code">5 · Python</a></div>
+</section>
+
+<section id="lab" class="lab">
+  <div class="card hl">
+    <h2><span class="num">1</span>Train it live</h2>
+    <p class="sub">Shading is \(P(y=1\mid x)\). Contour lines mark probabilities 0.1, 0.25, 0.5 (bold), 0.75 and 0.9. Hover a point to see its numbers; click to add a point of the selected class.</p>
+    <div class="plot sq" id="mainPlot"></div>
+    <div class="legend"><span><i class="sw k0"></i>class 0</span><span><i class="sw k1"></i>class 1</span><span>✕ = misclassified at threshold 0.5</span></div>
+    <div class="mathbox c1" id="hoverBox">Hover a point.</div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="controls">
+        <div class="ctl"><span class="lbl">Dataset</span><div class="dsrow" id="dsPick"></div></div>
+        <div class="ctl"><label for="deg"><span>Polynomial feature degree</span><output id="degOut"></output></label><input type="range" id="deg" min="1" max="6" value="1"></div>
+        <div class="ctl"><label for="lam"><span>L2 penalty λ</span><output id="lamOut"></output></label><input type="range" id="lam" min="-5" max="0" step="0.1" value="-3"></div>
+        <div class="ctl"><label for="lr"><span>Learning rate η (gradient descent)</span><output id="lrOut"></output></label><input type="range" id="lr" min="-2" max="1" step="0.05" value="0"></div>
+        <div class="player"><button class="btn primary" id="run">Run GD</button><button class="btn" id="step">Step ×10</button><button class="btn" id="newton">Solve (Newton)</button><button class="btn" id="reset">Reset w = 0</button></div>
+        <div class="grid2" style="gap:12px">
+          <div class="ctl"><label for="nPts">Points <output id="nPtsOut"></output></label><input type="range" id="nPts" min="20" max="400" step="10" value="160"></div>
+          <div class="ctl"><label for="noise">Noise <output id="noiseOut"></output></label><input type="range" id="noise" min="0" max="1" step="0.05" value="0.3"></div>
+        </div>
+        <div class="ctl"><span class="lbl">Clicking adds</span><div class="seg" id="addSeg"><button data-v="0" class="on">● class 0</button><button data-v="1">● class 1</button></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="stats" id="stats"></div>
+      <div class="plot short" id="lossPlot" style="margin-top:10px"></div>
+      <p class="hint">Training loss (cross-entropy + penalty) per iteration. Newton jumps are shown as a vertical drop.</p>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3 style="margin-top:0">Learned weights</h3>
+  <p class="sub">Features are polynomial terms \(x_1^ax_2^b\), standardised before fitting. For degree 1 the boundary is the line \(w_0+w_1\tilde x_1+w_2\tilde x_2=0\).</p>
+  <div class="tblwrap"><div id="wBars"></div></div>
+</section>
+
+<section id="sig" class="card">
+  <h2><span class="num">2</span>The sigmoid and the log-loss</h2>
+  <div class="grid2">
+    <div>
+      <div class="plot short" id="sigPlot"></div>
+      <div class="ctl" style="margin-top:8px"><label for="z"><span>Score \(z=w^\top x\)</span><output id="zOut"></output></label><input type="range" id="z" min="-8" max="8" step="0.1" value="1.5"></div>
+      <div class="mathbox c1" id="sigBox"></div>
+    </div>
+    <div>
+      <div class="plot short" id="cePlot"></div>
+      <div class="legend"><span><i class="sw" style="background:var(--k1)"></i>loss if the true label is 1: \(-\log p\)</span><span><i class="sw" style="background:var(--k0)"></i>loss if the label is 0: \(-\log(1-p)\)</span></div>
+      <p class="hint">Confident and wrong is punished without limit: at \(p=0.01\) for a true 1, the loss is \(4.6\). That is why the optimiser fights hard for every misclassified point, and why perfectly separable data sends \(\lVert w\rVert\to\infty\) without a penalty.</p>
+    </div>
+  </div>
+</section>
+
+<section id="maths" class="card">
+  <h2><span class="num">3</span>The maths</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>Model: linear log-odds</h3>
+      <div class="mathbox c1">$$P(y=1\mid x)=\sigma(w^\top x)=\frac{1}{1+e^{-w^\top x}}\qquad\Longleftrightarrow\qquad \log\frac{P(y=1\mid x)}{P(y=0\mid x)}=w^\top x$$</div>
+      <p>The boundary \(P=0.5\) is where \(w^\top x=0\): a hyperplane in feature space. With polynomial features \(\phi(x)\) it becomes a curve in the original space, but the model is still linear in \(w\).</p>
+      <h3>Maximum likelihood = minimum cross-entropy</h3>
+      <div class="mathbox c2">$$L(w)=-\frac1n\sum_{i=1}^n\Big[y_i\log p_i+(1-y_i)\log(1-p_i)\Big]+\frac\lambda2\lVert w\rVert^2,\qquad p_i=\sigma(w^\top x_i)$$</div>
+      <p>Using \(\sigma'(z)=\sigma(z)(1-\sigma(z))\), the gradient collapses to a remarkably simple form, the same shape as least squares:</p>
+      <div class="mathbox c3">$$\nabla L(w)=\frac1n X^\top(p-y)+\lambda w$$</div>
+      <p>Gradient descent: \(w\leftarrow w-\eta\,\nabla L(w)\). There is <b>no closed form</b>, unlike linear regression, because \(p\) depends non-linearly on \(w\).</p>
+    </div>
+    <div>
+      <h3>Convexity and Newton's method</h3>
+      <div class="mathbox c4">$$\nabla^2L(w)=\frac1nX^\top S X+\lambda I,\qquad S=\operatorname{diag}\big(p_i(1-p_i)\big)\succeq0$$</div>
+      <p>The Hessian is positive semi-definite, so \(L\) is <b>convex</b>: any local minimum is global, and gradient descent with a small enough step will find it. Newton's method uses curvature too, \(w\leftarrow w-(\nabla^2L)^{-1}\nabla L\). This is the same as <b>iteratively reweighted least squares</b> (IRLS) and usually converges in under 10 steps. Press <i>Solve (Newton)</i> and compare with gradient descent.</p>
+      <h3>Separable data</h3>
+      <p>If a hyperplane separates the classes perfectly, scaling \(w\) up always lowers the loss, so with \(\lambda=0\) the weights grow forever and probabilities become 0 or 1. Choose <b>Linear blobs</b>, set λ to its minimum and run GD: watch \(\lVert w\rVert\) climb. The L2 penalty fixes this.</p>
+      <h3>Compared with LDA</h3>
+      <p>LDA also gives linear log-odds, but it gets \(w\) by modelling each class as a Gaussian. Logistic regression fits \(P(y\mid x)\) directly (discriminative) and makes no assumption about how \(x\) is distributed, so it is more robust when the Gaussian assumption is wrong.</p>
+    </div>
+  </div>
+</section>
+
+<section id="thr" class="card">
+  <h2><span class="num">4</span>Threshold, confusion matrix and ROC</h2>
+  <p class="sub">Predicting class 1 when \(p\ge0.5\) is only a default. Move the threshold \(t\) and see the trade-off on the current model and data.</p>
+  <div class="grid3">
+    <div>
+      <div class="ctl"><label for="thrR"><span>Threshold \(t\)</span><output id="thrROut"></output></label><input type="range" id="thrR" min="0.01" max="0.99" step="0.01" value="0.5"></div>
+      <div id="cm" style="margin-top:12px"></div>
+      <div class="stats" id="thrStats" style="margin-top:12px"></div>
+    </div>
+    <div><div class="plot sq" id="rocPlot"></div><p class="hint">ROC curve: true-positive rate vs false-positive rate over all thresholds. The dot is \(t\). AUC is the area underneath.</p></div>
+    <div><div class="plot sq" id="histPlot"></div><p class="hint">Predicted probabilities for each class. The threshold is the vertical line; everything right of it is predicted as class 1.</p></div>
+  </div>
+</section>
+
+<section id="code" class="card">
+  <h2><span class="num">5</span>The same thing in Python</h2>
+<pre class="code"><span class="k">from</span> sklearn.linear_model <span class="k">import</span> LogisticRegression
+<span class="k">from</span> sklearn.preprocessing <span class="k">import</span> PolynomialFeatures, StandardScaler
+<span class="k">from</span> sklearn.pipeline <span class="k">import</span> make_pipeline
+<span class="k">from</span> sklearn.metrics <span class="k">import</span> confusion_matrix, roc_auc_score
+
+clf = make_pipeline(PolynomialFeatures(<span class="s">3</span>, include_bias=<span class="k">False</span>), StandardScaler(),
+                    LogisticRegression(C=<span class="s">1</span> / (n * lam)))   <span class="c"># sklearn's C is the inverse penalty</span>
+clf.<span class="f">fit</span>(X, y)
+p = clf.<span class="f">predict_proba</span>(X)[:, <span class="s">1</span>]
+confusion_matrix(y, p &gt;= <span class="s">0.5</span>), roc_auc_score(y, p)
+
+<span class="c"># gradient descent by hand</span>
+w = np.zeros(d)
+<span class="k">for</span> _ <span class="k">in</span> range(<span class="s">1000</span>):
+    p = <span class="s">1</span> / (<span class="s">1</span> + np.exp(-X @ w))
+    w -= eta * (X.T @ (p - y) / n + lam * w)</pre>
+</section>
+
+<p class="foot">Part of the <a href="../">ML algorithms lab</a>. Everything is computed in your browser in plain JavaScript.</p>
+</main>
+
+<script src="../assets/core.js"></script>
+<script src="../assets/models.js"></script>
+<script>
+(function(){
+const {$, fmt} = ML, Mo=ML.models;
+ML.nav('logistic-regression'); ML.renderMath(document.body);
+const S={ds:'moons', n:160, noise:0.3, seed:7, deg:1, lam:1e-3, lr:1, add:0, X:[], y:[], m:null, hist:[], timer:null, iter:0, hover:-1, thr:0.5};
+const main=new ML.Plot('#mainPlot'), lossP=new ML.Plot('#lossPlot',{equal:false});
+function load(){ const d=ML.dataset(S.ds,S.n,S.noise,S.seed); S.X=d.X; S.y=d.y; }
+function newModel(){ stop(); S.m=Mo.Logistic(S.X,S.y,{degree:S.deg,lambda:S.lam}); S.iter=0; S.hist=[[0,S.m.loss()]]; }
+function stop(){ if(S.timer){ clearInterval(S.timer); S.timer=null; $('#run').textContent='Run GD'; } }
+function gd(k){ for(let i=0;i<k;i++){ S.m.gdStep(S.lr); S.iter++; } S.hist.push([S.iter,S.m.loss()]); }
+
+function drawMain(){ const P=ML.palette(), m=S.m; main.clear(); main.regions((x,y)=>m.proba([x,y]),5); main.grid(1);
+  [0.1,0.25,0.75,0.9].forEach(l=>main.contour((x,y)=>m.proba([x,y]),l,{color:l>0.5?P.k1:P.k0,width:1.2,alpha:.75,dash:[4,4]}));
+  main.contour((x,y)=>m.proba([x,y]),0.5,{color:P.ink,width:2.6});
+  main.points(S.X,S.y,{r:4.4, cross:i=>(m.proba(S.X[i])>=0.5?1:0)!==S.y[i], ring:i=>i===S.hover?P.c1:false});
+  drawStats(); drawLoss(); drawWeights(); drawThr(); }
+function drawStats(){ const m=S.m; let ok=0; S.X.forEach((x,i)=>{ if((m.proba(x)>=0.5?1:0)===S.y[i]) ok++; }); const wn=Math.sqrt(m.w.slice(1).reduce((s,v)=>s+v*v,0)); const g=m.grad(), gn=Math.sqrt(g.reduce((s,v)=>s+v*v,0));
+  $('#stats').innerHTML=[['c1',S.iter,'iterations'],['c2',fmt(m.loss(),4),'loss L(w)'],['c5',ML.pct(ok/S.X.length),'training accuracy'],['c4',fmt(wn,2),'‖w‖ (excl. bias)'],['c3',fmt(gn,5),'‖∇L‖ (0 at optimum)'],['c1',m.w.length,'parameters']]
+   .map(([c,v,l])=>`<div class="stat ${c}"><b>${v}</b><span>${l}</span></div>`).join(''); }
+function drawLoss(){ const P=ML.palette(); ML.chart(lossP,[{pts:S.hist,color:P.c2,width:2.5}],{xl:'iteration'}); }
+function drawWeights(){ const m=S.m, names=['bias',...m.phi.terms.map(([a,b])=>{ const t=[]; if(a) t.push('x₁'+(a>1?sup(a):'')); if(b) t.push('x₂'+(b>1?sup(b):'')); return t.join(''); })];
+  const mx=Math.max(1e-9,...m.w.map(Math.abs));
+  $('#wBars').innerHTML='<div style="display:grid;grid-template-columns:80px 1fr 70px;gap:4px 10px;align-items:center;font-size:13px">'+m.w.map((w,j)=>`<span class="mono">${names[j]}</span><div style="position:relative;height:14px;background:var(--soft);border-radius:7px"><span style="position:absolute;top:0;bottom:0;${w>=0?'left:50%':'right:50%'};width:${50*Math.abs(w)/mx}%;background:${w>=0?'var(--k1)':'var(--k0)'};border-radius:7px"></span><span style="position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--muted)"></span></div><span class="mono" style="text-align:right">${fmt(w,3)}</span>`).join('')+'</div>'; }
+const sup=n=>String(n).split('').map(c=>'⁰¹²³⁴⁵⁶⁷⁸⁹'[+c]).join('');
+
+main.pointer({ down(x,y,px,py){ const i=main.nearest(S.X,px,py,10); if(i<0){ S.X=S.X.concat([[x,y]]); S.y=S.y.concat([S.add]); const w=S.m.w.slice(); newModel(); S.m.w.splice(0,w.length,...w); S.m.newton(15); S.hist.push([S.iter,S.m.loss()]); drawMain(); } },
+  hover(x,y,px,py){ const i=main.nearest(S.X,px,py,10); if(i!==S.hover){ S.hover=i; drawMain(); showHover(); } }, leave(){ S.hover=-1; drawMain(); } });
+function showHover(){ const i=S.hover; if(i<0){ $('#hoverBox').innerHTML='Hover a point to see its score, probability and loss.'; return; } const m=S.m, z=m.score(S.X[i]), p=ML.sigmoid(z), y=S.y[i], l=y?-Math.log(Math.max(p,1e-12)):-Math.log(Math.max(1-p,1e-12));
+  $('#hoverBox').innerHTML=ML.tex(`x=(${fmt(S.X[i][0],2)},${fmt(S.X[i][1],2)}),\\ y=${y}:\\quad z=w^\\top\\phi(x)=${fmt(z,3)},\\quad p=\\sigma(z)=${fmt(p,3)},\\quad \\ell=${y?'-\\log p':'-\\log(1-p)'}=${fmt(l,3)}`,true); }
+showHover();
+
+/* training controls */
+$('#run').onclick=()=>{ if(S.timer){ stop(); return; } $('#run').textContent='Pause'; S.timer=setInterval(()=>{ gd(S.iter<100?2:S.iter<1000?10:40); drawMain(); if(S.iter>20000) stop(); },40); };
+$('#step').onclick=()=>{ stop(); gd(10); drawMain(); };
+$('#newton').onclick=()=>{ stop(); for(let k=0;k<8;k++){ S.m.newton(1); S.iter++; S.hist.push([S.iter,S.m.loss()]); } drawMain(); };
+$('#reset').onclick=()=>{ newModel(); drawMain(); };
+ML.datasetPicker('dsPick',S.ds,id=>{ S.ds=id; load(); newModel(); S.m.newton(30); S.hist.push([0,S.m.loss()]); drawMain(); });
+ML.bindRange('deg',v=>{ S.deg=v; newModel(); S.m.newton(30); S.hist.push([0,S.m.loss()]); drawMain(); });
+ML.bindRange('lam',v=>{ S.lam=Math.pow(10,v); const w=S.m.w.slice(); newModel(); S.m.w.splice(0,w.length,...w); S.hist=[[0,S.m.loss()]]; drawMain(); }, v=>Math.pow(10,v).toPrecision(2));
+ML.bindRange('lr',v=>{ S.lr=Math.pow(10,v); }, v=>Math.pow(10,v).toPrecision(2));
+ML.bindRange('nPts',v=>{ S.n=v; load(); newModel(); S.m.newton(30); drawMain(); });
+ML.bindRange('noise',v=>{ S.noise=v; load(); newModel(); S.m.newton(30); drawMain(); }, v=>v.toFixed(2));
+ML.bindSeg('addSeg',v=>S.add=+v);
+
+/* sigmoid + CE */
+const sigP=new ML.Plot('#sigPlot',{equal:false}), ceP=new ML.Plot('#cePlot',{equal:false});
+function drawSig(){ const P=ML.palette(), z=+$('#z').value, p=ML.sigmoid(z); const pts=[]; for(let t=-8;t<=8.001;t+=0.1) pts.push([t,ML.sigmoid(t)]);
+  const {fx,fy}=ML.chart(sigP,[{pts,color:P.c1,width:3}],{y0:0,y1:1,xl:'z'}); const c=sigP.ctx; c.save(); c.strokeStyle=P.c4; c.setLineDash([4,4]); c.beginPath(); c.moveTo(fx(z),fy(0)); c.lineTo(fx(z),fy(p)); c.lineTo(fx(-8),fy(p)); c.stroke(); c.fillStyle=P.c4; c.beginPath(); c.arc(fx(z),fy(p),6,0,7); c.fill(); c.restore();
+  $('#sigBox').innerHTML=ML.tex(`\\sigma(${fmt(z,1)})=\\frac{1}{1+e^{${fmt(-z,1)}}}=${fmt(p,4)},\\qquad \\text{odds}=\\frac{p}{1-p}=e^{z}=${fmt(Math.exp(z),3)}`,true);
+  const a=[],b=[]; for(let q=0.005;q<=0.995;q+=0.005){ a.push([q,-Math.log(q)]); b.push([q,-Math.log(1-q)]); }
+  const r=ML.chart(ceP,[{pts:a,color:P.k1,width:3},{pts:b,color:P.k0,width:3}],{y0:0,y1:5,xl:'predicted p'}); const c2=ceP.ctx; c2.save(); c2.fillStyle=P.c4; [[p,-Math.log(p)],[p,-Math.log(1-p)]].forEach(q=>{ c2.beginPath(); c2.arc(r.fx(q[0]),r.fy(Math.min(5,q[1])),5,0,7); c2.fill(); }); c2.restore(); }
+ML.bindRange('z',drawSig,v=>v.toFixed(1));
+
+/* threshold */
+const roc=new ML.Plot('#rocPlot',{equal:false}), hist=new ML.Plot('#histPlot',{equal:false});
+function drawThr(){ const P=ML.palette(), m=S.m, t=S.thr, ps=S.X.map(x=>m.proba(x)); let TP=0,FP=0,TN=0,FN=0; ps.forEach((p,i)=>{ const pr=p>=t; if(pr&&S.y[i])TP++; else if(pr)FP++; else if(S.y[i])FN++; else TN++; });
+  const cell=(v,l,col)=>`<div style="background:color-mix(in srgb,${col} 18%,transparent);border-radius:10px;padding:10px;text-align:center"><b style="font:500 22px 'JetBrains Mono'">${v}</b><div style="font-size:12px;color:var(--muted)">${l}</div></div>`;
+  $('#cm').innerHTML=`<div style="display:grid;grid-template-columns:70px 1fr 1fr;gap:6px;align-items:center;font-size:12px;font-weight:600"><span></span><span style="text-align:center">pred 0</span><span style="text-align:center">pred 1</span><span>true 0</span>${cell(TN,'true neg','var(--c5)')}${cell(FP,'false pos','var(--c2)')}<span>true 1</span>${cell(FN,'false neg','var(--c2)')}${cell(TP,'true pos','var(--c5)')}</div>`;
+  const prec=TP/(TP+FP||1), rec=TP/(TP+FN||1), f1=2*prec*rec/(prec+rec||1);
+  // ROC
+  const order=ps.map((p,i)=>[p,S.y[i]]).sort((a,b)=>b[0]-a[0]), Pn=S.y.filter(v=>v).length, Nn=S.y.length-Pn; let tp=0,fp=0; const pts=[[0,0]]; let auc=0, prevF=0, prevT=0;
+  order.forEach(o=>{ if(o[1]) tp++; else fp++; const F=fp/Nn, T=tp/Pn; auc+=(F-prevF)*(T+prevT)/2; prevF=F; prevT=T; pts.push([F,T]); });
+  $('#thrStats').innerHTML=[['c5',ML.pct((TP+TN)/S.X.length),'accuracy'],['c1',fmt(prec,3),'precision'],['c3',fmt(rec,3),'recall (TPR)'],['c4',fmt(f1,3),'F1'],['c2',fmt(auc,3),'ROC AUC']].map(([c,v,l])=>`<div class="stat ${c}"><b>${v}</b><span>${l}</span></div>`).join('');
+  const r=ML.chart(roc,[{pts:[[0,0],[1,1]],color:P.muted,dash:[4,4],width:1},{pts,color:P.c1,width:3}],{x0:0,x1:1,y0:0,y1:1,xl:'false-positive rate'}); const c=roc.ctx; c.save(); c.fillStyle=P.c4; c.beginPath(); c.arc(r.fx(FP/Nn),r.fy(TP/Pn),6,0,7); c.fill(); c.restore();
+  // histogram
+  const bins=20, h0=new Array(bins).fill(0), h1=new Array(bins).fill(0); ps.forEach((p,i)=>{ const b=Math.min(bins-1,Math.floor(p*bins)); (S.y[i]?h1:h0)[b]++; });
+  hist.clear(); const hc=hist.ctx, L=30,R=8,T=10,B=24, W=hist.w-L-R, H=hist.h-T-B, mx=Math.max(1,...h0,...h1); hc.save();
+  for(let b=0;b<bins;b++){ const x=L+b/bins*W, bw=W/bins-2; hc.globalAlpha=.75; hc.fillStyle=P.k0; const a0=h0[b]/mx*H; hc.fillRect(x+1,T+H-a0,bw/2,a0); hc.fillStyle=P.k1; const a1=h1[b]/mx*H; hc.fillRect(x+1+bw/2,T+H-a1,bw/2,a1); }
+  hc.globalAlpha=1; hc.strokeStyle=P.ink; hc.lineWidth=2; hc.beginPath(); hc.moveTo(L+t*W,T); hc.lineTo(L+t*W,T+H); hc.stroke(); hc.fillStyle=P.muted; hc.font='11px Inter,system-ui,sans-serif'; hc.textAlign='center'; [0,0.25,0.5,0.75,1].forEach(v=>hc.fillText(v,L+v*W,T+H+15)); hc.restore(); }
+ML.bindRange('thrR',v=>{ S.thr=v; drawThr(); },v=>v.toFixed(2));
+
+main.onResize=()=>S.m&&drawMain(); lossP.onResize=()=>S.m&&drawLoss(); sigP.onResize=ceP.onResize=drawSig; roc.onResize=hist.onResize=()=>S.m&&drawThr();
+ML.onTheme(()=>{ drawMain(); drawSig(); });
+load(); newModel(); gd(30); drawMain(); drawSig();
+})();
+</script>
+</body>
+</html>

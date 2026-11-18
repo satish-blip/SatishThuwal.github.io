@@ -139,6 +139,18 @@ a.ml-card:hover{transform:translateY(-2px);border-color:#8b5cf6}
 .ml-body h3{font-size:21px;margin:10px 0 8px}
 .ml-body p{margin:0;color:var(--muted)}
 .ml-go{display:inline-block;margin-top:14px;font-weight:600;color:#7c3aed}
+.ml-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.ml-tabs a{font-size:14px;font-weight:600;text-decoration:none;padding:6px 14px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.ml-tabs a:hover{border-color:#8b5cf6}
+.ml-group{margin-top:44px;scroll-margin-top:72px}
+.ml-ghead{display:flex;align-items:baseline;gap:6px 18px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.ml-ghead h3{font-size:24px;margin:0;font-family:"Source Serif 4",Georgia,serif}
+.ml-ghead p{margin:0;color:var(--muted);font-size:15px}
+.ml-grid3{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+.ml-grid3 .ml-body{padding:16px 18px 18px}
+.ml-grid3 .ml-body h3{font-size:19px;margin:8px 0 6px}
+.ml-grid3 .ml-body p{font-size:14.5px}
+.ml-grid3 .ml-go{margin-top:10px}
 .ml-card.soon{border-style:dashed;box-shadow:none;background:transparent;justify-content:center}
 @media (prefers-color-scheme:dark){.ml-go{color:#a78bfa}}
 @media (max-width:860px){.ml-grid{grid-template-columns:1fr}}

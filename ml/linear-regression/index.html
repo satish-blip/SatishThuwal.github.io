@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Linear Regression Lab</title>
+<meta name="description" content="Interactive linear regression in the browser: drag points, watch least squares refit, see residual squares, gradient descent on the loss surface, R², standard errors, polynomial features, bias–variance, ridge and lasso.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/ml.css">
+</head>
+<body>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../#ml">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Algorithms"></nav></div></header>
+
+<main class="wrap">
+<section class="hero">
+  <p class="kicker">Traditional ML &middot; Regression</p>
+  <h1>Linear <span class="grad">Regression</span></h1>
+  <p class="lede">Fit a line (or a curve) by making the squared errors as small as possible. Drag the points and the least-squares fit, the residual squares and every statistic update instantly. Then watch gradient descent walk down the loss surface, and see how polynomial degree, ridge and lasso trade bias for variance.</p>
+  <div class="toc"><a href="#lab">1 · Live fit</a><a href="#maths">2 · The maths</a><a href="#gd">3 · Gradient descent</a><a href="#bv">4 · Bias–variance</a><a href="#shrink">5 · Ridge &amp; lasso</a><a href="#code">6 · Python</a></div>
+</section>
+
+<!-- 1. LAB -->
+<section id="lab" class="lab">
+  <div class="card hl">
+    <h2><span class="num">1</span>Least squares, live</h2>
+    <p class="sub">Drag a point to move it. Click empty space to add a point. Right-click (or long-press) a point to delete it.</p>
+    <div class="plot wide" id="fitPlot"></div>
+    <div class="legend"><span><i class="sw" style="background:var(--c1)"></i>fitted model</span><span><i class="sw sq" style="background:var(--c2);opacity:.5"></i>squared residuals</span><span><i class="sw" style="background:var(--muted)"></i>true function (dashed)</span></div>
+    <div class="mathbox c1" id="eqBox"></div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="controls">
+        <div class="ctl"><span class="lbl">Dataset</span><select id="dsSel"></select><span class="hint" id="dsDesc"></span></div>
+        <div class="grid2" style="gap:12px">
+          <div class="ctl"><label for="nPts">Points <output id="nPtsOut"></output></label><input type="range" id="nPts" min="5" max="120" value="30"></div>
+          <div class="ctl"><label for="noise">Noise <output id="noiseOut"></output></label><input type="range" id="noise" min="0" max="1" step="0.05" value="0.4"></div>
+        </div>
+        <div class="ctl"><label for="deg">Polynomial degree <output id="degOut"></output></label><input type="range" id="deg" min="1" max="12" value="1"></div>
+        <div class="ctl"><span class="lbl">Penalty</span><div class="seg" id="penSeg" role="radiogroup"><button data-v="none" class="on">None (OLS)</button><button data-v="ridge">Ridge (L2)</button><button data-v="lasso">Lasso (L1)</button></div></div>
+        <div class="ctl"><label for="lam">λ (penalty strength) <output id="lamOut"></output></label><input type="range" id="lam" min="-4" max="1.5" step="0.05" value="-1"></div>
+        <div class="row"><label class="toggle"><input type="checkbox" id="showSq" checked>Residual squares</label><label class="toggle"><input type="checkbox" id="showTrue" checked>True function</label></div>
+        <div class="row"><button class="btn" id="resample">New sample</button><button class="btn" id="reset">Reset points</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Fit quality</h3>
+      <div class="stats" id="stats"></div>
+      <p class="hint" id="statHint"></p>
+    </div>
+  </div>
+</section>
+
+<!-- 2. MATHS -->
+<section id="maths" class="card">
+  <h2><span class="num">2</span>The maths, with your numbers</h2>
+  <p class="sub">Everything below is computed from the points currently on the plot, using a straight line (degree 1) exactly as in TA Tutorials 2 and 3.</p>
+  <div class="grid2 prose">
+    <div>
+      <h3>Model and loss</h3>
+      <div class="mathbox c1">$$y_i=\beta_0+\beta_1x_i+\varepsilon_i,\qquad \mathrm{RSS}(\beta)=\sum_{i=1}^n\big(y_i-\beta_0-\beta_1x_i\big)^2=\lVert y-X\beta\rVert^2$$</div>
+      <p>Stack a column of ones next to \(x\) to get the design matrix \(X\in\mathbb R^{n\times 2}\). Setting the gradient \(\nabla_\beta \mathrm{RSS}=-2X^\top(y-X\beta)\) to zero gives the <b>normal equations</b>:</p>
+      <div class="mathbox c3">$$X^\top X\,\hat\beta=X^\top y\quad\Longrightarrow\quad \hat\beta=(X^\top X)^{-1}X^\top y$$</div>
+      <div id="liveNormal"></div>
+      <p>This needs \(X\) to have <b>full column rank</b>. If one column is a multiple of another, \(X^\top X\) is singular and the solution is not unique.</p>
+      <h3>Geometry: a projection</h3>
+      <p>\(\hat y=X\hat\beta=Hy\) with the hat matrix \(H=X(X^\top X)^{-1}X^\top\). \(H\) projects \(y\) onto the column space of \(X\), so the residual is orthogonal to every column: \(X^\top e=0\). That is why residuals always sum to zero when there is an intercept.</p>
+      <div id="liveOrth"></div>
+    </div>
+    <div>
+      <h3>How good is the fit?</h3>
+      <div class="mathbox c5">$$\underbrace{\sum(y_i-\bar y)^2}_{\mathrm{TSS}}=\underbrace{\sum(\hat y_i-\bar y)^2}_{\mathrm{MSS}}+\underbrace{\sum(y_i-\hat y_i)^2}_{\mathrm{RSS}},\qquad R^2=1-\frac{\mathrm{RSS}}{\mathrm{TSS}}$$</div>
+      <div id="liveR2"></div>
+      <h3>Uncertainty in the coefficients</h3>
+      <div class="mathbox c4">$$\hat\sigma^2=\frac{\mathrm{RSS}}{n-(p+1)},\qquad \operatorname{Cov}(\hat\beta)=\hat\sigma^2(X^\top X)^{-1},\qquad t_j=\frac{\hat\beta_j}{\mathrm{SE}(\hat\beta_j)}$$</div>
+      <div class="tblwrap"><table class="tbl" id="coefTbl"></table></div>
+      <p class="hint">A large \(|t|\) (roughly above 2) is evidence that the coefficient is not zero. Try the <b>Advertising</b> dataset to reproduce the Tutorial 3 table, then drag a point far away and watch the standard errors react.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3. GD -->
+<section id="gd" class="card">
+  <h2><span class="num">3</span>Gradient descent on the loss surface</h2>
+  <p class="sub">The closed form is not the only route. Gradient descent starts somewhere on the bowl \(J(\beta_0,\beta_1)=\tfrac{1}{2n}\mathrm{RSS}\) and steps downhill: \(\beta\leftarrow\beta-\eta\,\nabla J=\beta+\tfrac{\eta}{n}X^\top(y-X\beta)\). Click the contour plot to choose a starting point.</p>
+  <div class="grid2">
+    <div><div class="plot sq" id="gdPlot"></div><p class="hint">Contours are log-spaced levels of \(J\). The star is the closed-form \(\hat\beta\).</p></div>
+    <div>
+      <div class="controls">
+        <div class="ctl"><label for="lr"><span>Step size \(\eta\) as a fraction of the stability limit \(2/\lambda_{\max}\)</span> <output id="lrOut"></output></label><input type="range" id="lr" min="0.02" max="1.08" step="0.01" value="0.35"></div>
+        <label class="toggle"><input type="checkbox" id="stdX">Standardise \(x\) first (centre and scale)</label>
+        <div class="player"><button class="btn primary" id="gdRun">Run</button><button class="btn" id="gdStep">Step</button><button class="btn" id="gdReset">Reset</button><span class="pos" id="gdPos"></span></div>
+      </div>
+      <div class="plot short" id="gdLoss" style="margin-top:12px"></div>
+      <div class="stats" id="gdStats" style="margin-top:12px"></div>
+      <div class="note" id="gdNote"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. BIAS VARIANCE -->
+<section id="bv" class="card">
+  <h2><span class="num">4</span>Polynomial features and the bias–variance trade-off</h2>
+  <p class="sub">A degree-\(d\) polynomial is still <i>linear</i> regression, because the model is linear in \(\beta\): \(\hat y=\beta_0+\beta_1x+\beta_2x^2+\dots+\beta_dx^d\). Raising \(d\) lowers training error every time, but test error is U-shaped.</p>
+  <div class="grid2">
+    <div><div class="plot wide" id="bvPlot"></div>
+      <div class="legend"><span><i class="sw" style="background:var(--c3)"></i>training MSE</span><span><i class="sw" style="background:var(--c2)"></i>test MSE (fresh data from the same source)</span><span>dashed line = your current degree</span></div></div>
+    <div class="prose">
+      <div class="mathbox c2">$$\mathbb E\big[(y-\hat f(x))^2\big]=\underbrace{\big(f(x)-\mathbb E\hat f(x)\big)^2}_{\text{bias}^2}+\underbrace{\operatorname{Var}\hat f(x)}_{\text{variance}}+\underbrace{\sigma^2}_{\text{noise}}$$</div>
+      <ul>
+        <li><b>Low degree</b>: the model is too rigid. High bias, low variance, so training and test error are both high (underfitting).</li>
+        <li><b>High degree</b>: the curve chases noise. Low bias, high variance, so training error keeps falling while test error climbs (overfitting).</li>
+        <li><b>Regularisation</b> (section 5) is the other dial: keep a high degree but shrink the coefficients.</li>
+      </ul>
+      <div class="note" id="bvNote"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. SHRINKAGE -->
+<section id="shrink" class="card">
+  <h2><span class="num">5</span>Ridge and lasso: shrinkage versus sparsity</h2>
+  <p class="sub">Both add a penalty on the size of \(\beta\) (features standardised, intercept not penalised). The shape of the penalty changes what the solution looks like.</p>
+  <div class="grid2">
+    <div class="prose">
+      <div class="mathbox c3">$$\text{Ridge: }\min_\beta\ \tfrac1n\lVert y-X\beta\rVert_2^2+\lambda\lVert\beta\rVert_2^2\ \Rightarrow\ \hat\beta=(X^\top X+n\lambda I)^{-1}X^\top y$$</div>
+      <div class="mathbox c4">$$\text{Lasso: }\min_\beta\ \tfrac1{2n}\lVert y-X\beta\rVert_2^2+\lambda\lVert\beta\rVert_1\ \Rightarrow\ \beta_j\leftarrow S_\lambda\!\Big(\tfrac1n x_j^\top r_{(j)}\Big),\ S_\lambda(z)=\operatorname{sign}(z)(|z|-\lambda)_+$$</div>
+      <p>Lasso has no closed form; it is solved by <b>coordinate descent</b> with the soft-thresholding operator \(S_\lambda\), which sets small coefficients to <i>exactly</i> zero. Ridge only shrinks them towards zero.</p>
+      <h3>Why the diamond gives zeros</h3>
+      <p>Equivalently, minimise RSS subject to \(\lVert\beta\rVert\le t\). The RSS contours are ellipses around the OLS solution. They usually first touch the L2 <b>circle</b> at a generic point, but they first touch the L1 <b>diamond</b> at a corner, where one coordinate is zero. Drag the OLS point (the star) on the right-hand plot to see it.</p>
+    </div>
+    <div>
+      <div class="plot sq" id="geoPlot"></div>
+      <div class="ctl" style="margin-top:10px"><label for="budget"><span>Budget \(t\)</span> <output id="budgetOut"></output></label><input type="range" id="budget" min="0.2" max="3" step="0.05" value="1.2"></div>
+      <div class="stats" id="geoStats" style="margin-top:8px"></div>
+    </div>
+  </div>
+  <h3>Coefficient paths on your current data (degree <span id="pathDeg"></span>)</h3>
+  <div class="grid2">
+    <div><div class="plot short" id="pathRidge"></div><p class="hint">Ridge: every coefficient shrinks smoothly and reaches zero only as \(\lambda\to\infty\).</p></div>
+    <div><div class="plot short" id="pathLasso"></div><p class="hint">Lasso: coefficients hit zero one by one, which is automatic feature selection.</p></div>
+  </div>
+  <p class="hint">Paths need several features, so they use degree \(\max(d,6)\). The dashed line marks your current \(\lambda\).</p>
+</section>
+
+<!-- 6. CODE -->
+<section id="code" class="card">
+  <h2><span class="num">6</span>The same thing in Python</h2>
+<pre class="code"><span class="k">import</span> numpy <span class="k">as</span> np
+<span class="k">from</span> sklearn.linear_model <span class="k">import</span> LinearRegression, Ridge, Lasso
+<span class="k">from</span> sklearn.preprocessing <span class="k">import</span> PolynomialFeatures, StandardScaler
+<span class="k">from</span> sklearn.pipeline <span class="k">import</span> make_pipeline
+
+<span class="c"># closed form, exactly as in Tutorial 3</span>
+X = np.column_stack([np.ones(len(x)), x])
+beta = np.linalg.solve(X.T @ X, X.T @ y)          <span class="c"># (X^T X)^{-1} X^T y, without forming the inverse</span>
+e = y - X @ beta; RSS = e @ e; R2 = <span class="s">1</span> - RSS / np.sum((y - y.mean())**<span class="s">2</span>)
+se = np.sqrt(np.diag(RSS / (len(y) - <span class="s">2</span>) * np.linalg.inv(X.T @ X)))
+
+<span class="c"># polynomial + penalty, as on this page</span>
+model = make_pipeline(PolynomialFeatures(degree=<span class="s">6</span>, include_bias=<span class="k">False</span>), StandardScaler(),
+                      Lasso(alpha=<span class="s">0.1</span>))     <span class="c"># or Ridge(alpha=...), LinearRegression()</span>
+model.<span class="f">fit</span>(x.reshape(-<span class="s">1</span>, <span class="s">1</span>), y)</pre>
+  <p class="hint">Note that scikit-learn's <code>Ridge(alpha)</code> uses \(\lVert y-X\beta\rVert^2+\alpha\lVert\beta\rVert^2\) (no \(1/n\)), so its \(\alpha\) equals \(n\lambda\) here. <code>Lasso(alpha)</code> uses the same \(\tfrac1{2n}\) scaling as this page.</p>
+</section>
+
+<p class="foot">Part of the <a href="../">ML algorithms lab</a>. Everything is computed in your browser in plain JavaScript; no data leaves the page.</p>
+</main>
+
+<script src="../assets/core.js"></script>
+<script src="../assets/models.js"></script>
+<script>
+(function(){
+const {$, fmt, LA} = ML, Mo = ML.models;
+ML.nav('linear-regression'); ML.renderMath(document.body);
+
+/* ---------- state ---------- */
+const S = { ds:'line', n:30, noise:0.4, seed:3, deg:1, pen:'none', lam:0.1, pts:[], data:null };
+const sel=$('#dsSel'); ML.REG_DATASETS.forEach(d=>{ const o=document.createElement('option'); o.value=d.id; o.textContent=d.name; sel.appendChild(o); });
+function load(){ const d=ML.regDataset(S.ds,S.n,S.noise,S.seed); S.data=d; S.pts=d.x.map((x,i)=>[x,d.y[i]]); $('#dsDesc').textContent=d.desc;
+  $('#nPts').disabled=$('#noise').disabled=!!(d.id==='adv'); setBounds(); }
+let B;
+function setBounds(){ const xs=S.pts.map(p=>p[0]), ys=S.pts.map(p=>p[1]);
+  if(S.data.id==='adv'){ B={x0:-10,x1:290,y0:0,y1:26}; } else { const lo=Math.min(-3.5,...ys), hi=Math.max(3.5,...ys); B={x0:-3.3,x1:3.3,y0:lo-0.6,y1:hi+0.6}; }
+  fitPlot.setBounds(B); }
+
+const fitPlot = new ML.Plot('#fitPlot', {equal:false});
+function fit(deg, pen, lam, pts){ pts=pts||S.pts; return Mo.polyReg(pts.map(p=>p[0]), pts.map(p=>p[1]), {degree:deg, penalty:pen, lambda:lam}); }
+
+/* ---------- main plot ---------- */
+let model=null, hoverI=-1, dragI=-1;
+function drawFit(){
+  const P=ML.palette(), c=fitPlot.ctx; fitPlot.clear();
+  const isAdv=S.data.id==='adv'; fitPlot.grid(isAdv?50:1, true, isAdv?5:1);
+  if(S.pts.length<2){ return; }
+  model = fit(S.deg, S.pen, S.lam);
+  // residual squares (in pixel space, side = vertical residual length)
+  if($('#showSq').checked) S.pts.forEach(p=>{ const yh=model.f(p[0]), X=fitPlot.X(p[0]), Y=fitPlot.Y(p[1]), Yh=fitPlot.Y(yh), s=Yh-Y;
+    c.save(); c.fillStyle=P.c2; c.globalAlpha=.13; c.strokeStyle=P.c2; c.lineWidth=1; const x0 = s>0? X : X; c.fillRect(x0, Math.min(Y,Yh), Math.abs(s)*(p[0]>(B.x0+B.x1)/2?-1:1), Math.abs(s)); c.globalAlpha=.45; c.strokeRect(x0, Math.min(Y,Yh), Math.abs(s)*(p[0]>(B.x0+B.x1)/2?-1:1), Math.abs(s)); c.restore();
+    fitPlot.line(p[0],p[1],p[0],yh,{color:P.c2,width:1.5,alpha:.8}); });
+  // true function
+  if($('#showTrue').checked && S.data.f){ c.save(); c.setLineDash([6,5]); c.strokeStyle=P.muted; c.lineWidth=2; c.beginPath();
+    for(let k=0;k<=200;k++){ const x=B.x0+(B.x1-B.x0)*k/200, X=fitPlot.X(x), Y=fitPlot.Y(S.data.f(x)); k?c.lineTo(X,Y):c.moveTo(X,Y); } c.stroke(); c.restore(); }
+  // fitted curve
+  c.save(); c.strokeStyle=P.c1; c.lineWidth=3.2; c.lineJoin='round'; c.beginPath(); for(let k=0;k<=400;k++){ const x=B.x0+(B.x1-B.x0)*k/400, X=fitPlot.X(x), Y=fitPlot.Y(model.f(x)); k?c.lineTo(X,Y):c.moveTo(X,Y); } c.stroke(); c.restore();
+  fitPlot.points(S.pts, S.pts.map(()=>0), {r:5.5, color:()=>P.c3, ring:i=>i===hoverI||i===dragI ? P.ink : false});
+  if(isAdv){ fitPlot.text('TV spend ($1000s) →', B.x1, B.y0, {align:'right', dy:-18, color:P.muted, font:'600 12px Inter,system-ui,sans-serif'}); fitPlot.text('Sales ↑', B.x0, B.y1, {dx:46, dy:16, color:P.muted, font:'600 12px Inter,system-ui,sans-serif'}); }
+  updateStats(); }
+
+function updateStats(){
+  const xs=S.pts.map(p=>p[0]), ys=S.pts.map(p=>p[1]), n=xs.length, yh=xs.map(model.f), yb=ys.reduce((a,b)=>a+b,0)/n;
+  const RSS=ys.reduce((s,y,i)=>s+(y-yh[i])**2,0), TSS=ys.reduce((s,y)=>s+(y-yb)**2,0), p=S.deg;
+  const nz = model.w.filter(v=>Math.abs(v)>1e-10).length;
+  $('#stats').innerHTML = [['c1',fmt(RSS,2),'RSS'],['c2',fmt(RSS/n,3),'MSE (train)'],['c5',fmt(1-RSS/TSS,3),'R²'],['c3',n,'points'],['c4',nz+' / '+p,'non-zero β (excl. β₀)']]
+    .map(([c,v,l])=>`<div class="stat ${c}"><b>${v}</b><span>${l}</span></div>`).join('');
+  $('#statHint').innerHTML = S.pen==='lasso'&&nz<p ? `Lasso has set ${p-nz} coefficient${p-nz>1?'s':''} to exactly zero.` : (p>=8&&S.pen==='none'? 'High degree with no penalty: look at the wiggles near the edges. That is variance.' : '');
+  // equation (raw coefficients for degree 1, standardised otherwise)
+  if(S.deg===1 && S.pen==='none'){ const st=Mo.olsStats(xs,ys); $('#eqBox').innerHTML=ML.tex(`\\hat y = ${fmt(st.beta[0],3)} ${st.beta[1]<0?'-':'+'} ${fmt(Math.abs(st.beta[1]),4)}\\,x\\qquad R^2=${fmt(st.R2,3)}`,true); }
+  else { const terms=model.w.map((w,j)=>`${w<0?'-':'+'}${fmt(Math.abs(w),2)}\\,\\tilde z_{${j+1}}`).join(''); $('#eqBox').innerHTML=ML.tex(`\\hat y=${fmt(model.b0,2)}${terms}`,true)+`<p class="hint" style="margin:0">\\(\\tilde z_j\\) is the standardised feature \\(x^j\\) (after centring and scaling \\(x\\)), which keeps high degrees numerically stable and makes the penalty fair across features.</p>`; ML.renderMath($('#eqBox')); }
+  drawMaths(); }
+
+/* pointer editing */
+let pressT=0, pressI=-1, moved=false;
+fitPlot.pointer({
+  down(x,y,px,py,e){ const i=fitPlot.nearest(S.pts,px,py,14); moved=false; pressT=Date.now(); pressI=i;
+    if(e.button===2) return; if(i>=0){ dragI=i; } else { S.pts.push([x,y]); dragI=S.pts.length-1; } scheduleAll(); },
+  move(x,y){ if(dragI>=0){ moved=true; S.pts[dragI]=[Math.max(B.x0,Math.min(B.x1,x)), Math.max(B.y0,Math.min(B.y1,y))]; scheduleAll(); } },
+  up(){ if(dragI>=0 && !moved && pressI>=0 && Date.now()-pressT>550){ S.pts.splice(pressI,1); } dragI=-1; scheduleAll(); },
+  hover(x,y,px,py){ const i=fitPlot.nearest(S.pts,px,py,14); if(i!==hoverI){ hoverI=i; fitPlot.cv.style.cursor=i>=0?'grab':'crosshair'; drawFit(); } },
+  context(x,y,px,py){ const i=fitPlot.nearest(S.pts,px,py,14); if(i>=0 && S.pts.length>2){ S.pts.splice(i,1); dragI=-1; scheduleAll(); } }
+});
+
+/* ---------- maths panel ---------- */
+function drawMaths(){
+  const xs=S.pts.map(p=>p[0]), ys=S.pts.map(p=>p[1]); if(xs.length<3) return; const st=Mo.olsStats(xs,ys), f=v=>fmt(v,3);
+  $('#liveNormal').innerHTML = ML.tex(`X^\\top X=\\begin{bmatrix}${st.XtX[0][0]}&${f(st.XtX[0][1])}\\\\ ${f(st.XtX[1][0])}&${f(st.XtX[1][1])}\\end{bmatrix},\\quad X^\\top y=\\begin{bmatrix}${f(st.XtY[0])}\\\\ ${f(st.XtY[1])}\\end{bmatrix}\\ \\Rightarrow\\ \\hat\\beta=\\begin{bmatrix}${fmt(st.beta[0],4)}\\\\ ${fmt(st.beta[1],4)}\\end{bmatrix}`, true);
+  const Xe=[st.e.reduce((a,b)=>a+b,0), st.e.reduce((a,b,i)=>a+b*xs[i],0)];
+  $('#liveOrth').innerHTML = ML.tex(`X^\\top e=\\begin{bmatrix}\\sum e_i\\\\ \\sum x_ie_i\\end{bmatrix}=\\begin{bmatrix}${fmt(Xe[0],6)}\\\\ ${fmt(Xe[1],6)}\\end{bmatrix}\\approx 0\\ \\checkmark`, true);
+  $('#liveR2').innerHTML = ML.tex(`${fmt(st.TSS,2)}=${fmt(st.MSS,2)}+${fmt(st.RSS,2)},\\qquad R^2=1-\\tfrac{${fmt(st.RSS,2)}}{${fmt(st.TSS,2)}}=${fmt(st.R2,4)},\\qquad \\hat\\sigma^2=\\tfrac{${fmt(st.RSS,2)}}{${st.n}-2}=${fmt(st.s2,4)}`, true);
+  $('#coefTbl').innerHTML = `<tr><th>Coefficient</th><th>Estimate</th><th>Std. error</th><th>t-statistic</th></tr>` +
+    ['β₀ (intercept)','β₁ (slope)'].map((nm,j)=>`<tr${Math.abs(st.t[j])>2?' class="best"':''}><td>${nm}</td><td>${fmt(st.beta[j],4)}</td><td>${fmt(st.se[j],4)}</td><td>${fmt(st.t[j],2)}</td></tr>`).join('');
+}
+
+/* ---------- gradient descent ---------- */
+const gdPlot=new ML.Plot('#gdPlot',{equal:false}), gdLoss=new ML.Plot('#gdLoss',{equal:false});
+const G={path:[], timer:null, start:null};
+function gdSetup(){ const xs=S.pts.map(p=>p[0]), ys=S.pts.map(p=>p[1]), n=xs.length; const std=$('#stdX').checked;
+  const mx=xs.reduce((a,b)=>a+b,0)/n, sx=Math.sqrt(xs.reduce((a,b)=>a+(b-mx)**2,0)/n)||1; const u=std? xs.map(v=>(v-mx)/sx) : xs.slice();
+  const H=[[1, u.reduce((a,b)=>a+b,0)/n],[u.reduce((a,b)=>a+b,0)/n, u.reduce((a,b)=>a+b*b,0)/n]]; const ev=LA.eigSym(H).values;
+  const st=Mo.olsStats(u,ys), ry=Math.sqrt(ys.reduce((a,b)=>a+(b-st.ybar)**2,0)/n)||1, su=Math.sqrt(u.reduce((a,b)=>a+b*b,0)/n - (u.reduce((a,b)=>a+b,0)/n)**2)||1;
+  const r0=Math.max(2*ry,Math.abs(st.beta[0])*0.8,1), r1=Math.max(2*ry/su, Math.abs(st.beta[1])*0.8);
+  return {u,ys,n,H,ev,opt:st.beta,r0,r1,std, J:(b0,b1)=>{ let s=0; for(let i=0;i<n;i++) s+=(ys[i]-b0-b1*u[i])**2; return s/(2*n); }}; }
+let GS=null;
+function gdReset(keepStart){ clearInterval(G.timer); G.timer=null; $('#gdRun').textContent='Run'; GS=gdSetup();
+  const b={x0:GS.opt[0]-1.6*GS.r0, x1:GS.opt[0]+1.6*GS.r0, y0:GS.opt[1]-1.6*GS.r1, y1:GS.opt[1]+1.6*GS.r1}; gdPlot.setBounds(b); GS.b=b;
+  if(!keepStart || !G.start) G.start=[GS.opt[0]-1.3*GS.r0, GS.opt[1]+1.3*GS.r1]; G.path=[G.start.slice()]; drawGD(); }
+function gdStep(){ const [b0,b1]=G.path[G.path.length-1], {u,ys,n}=GS; let g0=0,g1=0; for(let i=0;i<n;i++){ const r=ys[i]-b0-b1*u[i]; g0-=r; g1-=r*u[i]; } g0/=n; g1/=n;
+  const eta=(+$('#lr').value)*2/GS.ev[0]; const nb=[b0-eta*g0, b1-eta*g1]; G.path.push(nb);
+  if(!isFinite(nb[0])||Math.abs(nb[0])>1e9){ clearInterval(G.timer); G.timer=null; $('#gdRun').textContent='Run'; } }
+function drawGD(){ const P=ML.palette(), c=gdPlot.ctx, J=GS.J, jmin=J(GS.opt[0],GS.opt[1]); gdPlot.clear();
+  // filled log-contour background
+  const res=6, gw=Math.ceil(gdPlot.w/res)+1, gh=Math.ceil(gdPlot.h/res)+1, k1=ML.rgb(P.c1), bg=ML.rgb(P.bg), off=document.createElement('canvas'); off.width=gw; off.height=gh;
+  const oc=off.getContext('2d'), img=oc.createImageData(gw,gh); let mx=0; const V=new Float64Array(gw*gh);
+  for(let j=0;j<gh;j++) for(let i=0;i<gw;i++){ const v=Math.log(J(gdPlot.ix(i*res),gdPlot.iy(j*res))-jmin+1e-9); V[j*gw+i]=v; }
+  let lo=Infinity,hi=-Infinity; V.forEach(v=>{lo=Math.min(lo,v);hi=Math.max(hi,v);});
+  for(let t=0;t<V.length;t++){ const a=0.42*(1-(V[t]-lo)/(hi-lo)); img.data[4*t]=bg[0]*(1-a)+k1[0]*a; img.data[4*t+1]=bg[1]*(1-a)+k1[1]*a; img.data[4*t+2]=bg[2]*(1-a)+k1[2]*a; img.data[4*t+3]=255; }
+  oc.putImageData(img,0,0); c.save(); c.imageSmoothingEnabled=true; c.drawImage(off,0,0,gw,gh,0,0,gw*res,gh*res); c.restore();
+  for(let L=0;L<14;L++){ const lev=lo+(hi-lo)*(L+0.5)/14; gdPlot.contour((x,y)=>Math.log(J(x,y)-jmin+1e-9), lev, {color:P.c1, width:1, alpha:.55, res:5}); }
+  // path
+  c.save(); c.strokeStyle=P.c4; c.fillStyle=P.c4; c.lineWidth=2.2; c.beginPath(); G.path.forEach((p,i)=>{ const X=gdPlot.X(p[0]),Y=gdPlot.Y(p[1]); i?c.lineTo(X,Y):c.moveTo(X,Y); }); c.stroke();
+  G.path.forEach((p,i)=>{ if(i%Math.max(1,Math.floor(G.path.length/60))===0||i===G.path.length-1){ c.beginPath(); c.arc(gdPlot.X(p[0]),gdPlot.Y(p[1]),i===G.path.length-1?5:2.5,0,7); c.fill(); } }); c.restore();
+  // optimum star
+  const ox=gdPlot.X(GS.opt[0]), oy=gdPlot.Y(GS.opt[1]); c.save(); c.fillStyle=P.star; c.strokeStyle=P.ink; c.lineWidth=1; c.beginPath(); for(let k=0;k<10;k++){ const r=k%2?4:9, a=-Math.PI/2+k*Math.PI/5; c.lineTo(ox+r*Math.cos(a),oy+r*Math.sin(a)); } c.closePath(); c.fill(); c.stroke(); c.restore();
+  gdPlot.text('β₀ →', GS.b.x1, GS.b.y0, {align:'right',dx:-6,dy:-8,color:P.muted}); gdPlot.text('β₁ ↑', GS.b.x0, GS.b.y1, {dx:6,dy:16,color:P.muted});
+  // loss curve
+  const pts=G.path.map((p,i)=>[i, Math.log10(J(p[0],p[1])-jmin+1e-12)]); ML.chart(gdLoss,[{pts,color:P.c4}],{yfmt:v=>'1e'+v.toFixed(0),xl:'iteration  (log₁₀ of J − J*)'});
+  const last=G.path[G.path.length-1], kappa=GS.ev[0]/GS.ev[1], eta=(+$('#lr').value)*2/GS.ev[0];
+  $('#gdPos').textContent=`iteration ${G.path.length-1}`;
+  $('#gdStats').innerHTML=[['c1',fmt(kappa,kappa>100?0:2),'condition number κ'],['c4',fmt(eta,4),'step size η'],['c3',fmt(last[0],3),'β₀'],['c3',fmt(last[1],4),'β₁'],['c2',fmt(J(last[0],last[1])-jmin,4),'J − J*']]
+    .map(([c,v,l])=>`<div class="stat ${c}"><b>${v}</b><span>${l}</span></div>`).join('');
+  const lrF=+$('#lr').value;
+  $('#gdNote').innerHTML = lrF>1 ? '<b>Diverging.</b> With \\(\\eta>2/\\lambda_{\\max}\\) the step overshoots along the steepest direction and the error grows every step.'
+    : kappa>50 ? `<b>Ill-conditioned bowl (κ = ${fmt(kappa,0)}).</b> The surface is a long, thin valley because \\(x\\) is not centred or is on a large scale. The step size is limited by the steep direction, so progress along the flat direction is painfully slow. Tick <i>Standardise x</i> and run again.`
+    : `<b>Well-conditioned (κ = ${fmt(kappa,2)}).</b> The contours are close to circles, so gradient descent heads almost straight for \\(\\hat\\beta\\). Convergence speed depends on κ: error shrinks by about \\((1-1/\\kappa)\\) per step at a good step size.`;
+  ML.renderMath($('#gdNote')); }
+gdPlot.pointer({down(x,y){ G.start=[x,y]; G.path=[[x,y]]; drawGD(); }});
+$('#gdRun').onclick=()=>{ if(G.timer){ clearInterval(G.timer); G.timer=null; $('#gdRun').textContent='Run'; return; } $('#gdRun').textContent='Pause';
+  G.timer=setInterval(()=>{ for(let k=0;k<(G.path.length>200?5:1);k++) gdStep(); drawGD(); if(G.path.length>3000){ clearInterval(G.timer); G.timer=null; $('#gdRun').textContent='Run'; } }, 40); };
+$('#gdStep').onclick=()=>{ gdStep(); drawGD(); };
+$('#gdReset').onclick=()=>gdReset(false);
+ML.bindRange('lr',()=>{ gdReset(true); }, v=>v.toFixed(2)+'×');
+$('#stdX').onchange=()=>{ G.start=null; gdReset(false); };
+
+/* ---------- bias-variance ---------- */
+const bvPlot=new ML.Plot('#bvPlot',{equal:false});
+function drawBV(){ const P=ML.palette(), xs=S.pts.map(p=>p[0]), ys=S.pts.map(p=>p[1]), tr=[], te=[], maxD=Math.min(12, xs.length-2);
+  if(S.data.id==='adv' || !S.data.f){ // leave-one-out CV on real data
+    for(let d=1;d<=maxD;d++){ const m=fit(d,S.pen,S.lam); tr.push([d, xs.reduce((s,x,i)=>s+(ys[i]-m.f(x))**2,0)/xs.length]);
+      let cv=0; for(let i=0;i<xs.length;i++){ const rest=S.pts.filter((_,k)=>k!==i), mi=fit(d,S.pen,S.lam,rest); cv+=(ys[i]-mi.f(xs[i]))**2; } te.push([d,cv/xs.length]); }
+    $('#bvNote').innerHTML='Real data has no "fresh" sample, so the red curve is <b>leave-one-out cross-validation</b> error: refit without each point and predict it.'; }
+  else { const r=ML.rng(99), sTe=[]; const s=0.15+1.1*S.noise; for(let i=0;i<300;i++){ const x=-2.8+5.6*r(); let e=s*r.gauss(); if(S.data.id==='hetero') e*=(0.15+0.55*Math.abs(x)); sTe.push([x,S.data.f(x)+e]); }
+    for(let d=1;d<=maxD;d++){ const m=fit(d,S.pen,S.lam); tr.push([d, xs.reduce((s2,x,i)=>s2+(ys[i]-m.f(x))**2,0)/xs.length]); te.push([d, sTe.reduce((s2,p)=>s2+(p[1]-m.f(p[0]))**2,0)/sTe.length]); }
+    const best=te.reduce((a,b)=>b[1]<a[1]?b:a); $('#bvNote').innerHTML=`On this sample the test error is lowest at <b>degree ${best[0]}</b> (MSE ${fmt(best[1],3)}). The noise floor is \\(\\sigma^2\\approx${fmt(s*s,3)}\\): no model can go below it on average.`; ML.renderMath($('#bvNote')); }
+  const hi=Math.max(...tr.map(p=>p[1]))*1.15+3*Math.min(...te.map(p=>p[1]));
+  ML.chart(bvPlot,[{pts:tr,color:P.c3,dots:true,width:2.5},{pts:te,color:P.c2,dots:true,width:2.5}],{y0:0,y1:hi,vline:S.deg,xl:'polynomial degree'}); }
+
+/* ---------- shrinkage geometry ---------- */
+const geo=new ML.Plot('#geoPlot',{bounds:{x0:-3.2,x1:3.2,y0:-3.2,y1:3.2}}); const GE={ols:[1.9,0.8], dragging:false};
+const Aq=[[1.0,0.55],[0.55,0.8]]; // RSS(β) ∝ (β-ols)^T A (β-ols)
+function qform(b){ const d=[b[0]-GE.ols[0],b[1]-GE.ols[1]]; return d[0]*(Aq[0][0]*d[0]+Aq[0][1]*d[1])+d[1]*(Aq[1][0]*d[0]+Aq[1][1]*d[1]); }
+function projL2(b,t){ const r=Math.hypot(b[0],b[1]); return r<=t?b:[b[0]*t/r,b[1]*t/r]; }
+function projL1(v,t){ const a=v.map(Math.abs); if(a[0]+a[1]<=t) return v; const u=a.slice().sort((x,y)=>y-x); let th=0; // projection onto L1 ball
+  for(let k=1;k<=2;k++){ const s=u.slice(0,k).reduce((p,q)=>p+q,0); const th2=(s-t)/k; if(u[k-1]>th2) th=th2; } return v.map(x=>Math.sign(x)*Math.max(0,Math.abs(x)-th)); }
+function constrained(proj,t){ let b=proj(GE.ols.slice(),t); for(let it=0;it<4000;it++){ const g=[2*(Aq[0][0]*(b[0]-GE.ols[0])+Aq[0][1]*(b[1]-GE.ols[1])), 2*(Aq[1][0]*(b[0]-GE.ols[0])+Aq[1][1]*(b[1]-GE.ols[1]))]; b=proj([b[0]-0.2*g[0],b[1]-0.2*g[1]],t); } return b; }
+function drawGeo(){ const P=ML.palette(), c=geo.ctx, t=+$('#budget').value; geo.clear(); geo.grid(1);
+  const r2=constrained(projL2,t), r1=constrained(projL1,t);
+  [qform(r2),qform(r1)].forEach((lv,k)=>geo.contour(b=>qform([b[0],b[1]])-lv, 0, {color:k?P.c4:P.c3, width:1.6, alpha:.9, dash:[5,4]}));
+  for(let L=1;L<=5;L++) geo.contour(b=>qform(b), L*L*0.12, {color:P.muted, width:1, alpha:.35});
+  c.save(); c.fillStyle=P.c3; c.globalAlpha=.16; c.beginPath(); c.arc(geo.X(0),geo.Y(0),geo.X(t)-geo.X(0),0,7); c.fill(); c.globalAlpha=1; c.strokeStyle=P.c3; c.lineWidth=2; c.stroke();
+  c.fillStyle=P.c4; c.globalAlpha=.16; c.beginPath(); c.moveTo(geo.X(t),geo.Y(0)); c.lineTo(geo.X(0),geo.Y(t)); c.lineTo(geo.X(-t),geo.Y(0)); c.lineTo(geo.X(0),geo.Y(-t)); c.closePath(); c.fill(); c.globalAlpha=1; c.strokeStyle=P.c4; c.stroke(); c.restore();
+  const dot=(b,col,lab)=>{ c.save(); c.fillStyle=col; c.strokeStyle=P.bg; c.lineWidth=2; c.beginPath(); c.arc(geo.X(b[0]),geo.Y(b[1]),6.5,0,7); c.fill(); c.stroke(); c.restore(); geo.text(lab,b[0],b[1],{dx:9,dy:-8,color:col,halo:true}); };
+  dot(r2,P.c3,'ridge'); dot(r1,P.c4,'lasso');
+  const ox=geo.X(GE.ols[0]), oy=geo.Y(GE.ols[1]); c.save(); c.fillStyle=P.star; c.strokeStyle=P.ink; c.beginPath(); for(let k=0;k<10;k++){ const r=k%2?4.5:10, a=-Math.PI/2+k*Math.PI/5; c.lineTo(ox+r*Math.cos(a),oy+r*Math.sin(a)); } c.closePath(); c.fill(); c.stroke(); c.restore();
+  geo.text('OLS (drag me)',GE.ols[0],GE.ols[1],{dx:12,dy:4,color:P.ink,halo:true}); geo.text('β₁',3.0,0,{dy:-6,color:P.muted}); geo.text('β₂',0,3.0,{dx:6,color:P.muted});
+  $('#geoStats').innerHTML=[['c3',`(${fmt(r2[0],2)}, ${fmt(r2[1],2)})`,'ridge β'],['c4',`(${fmt(r1[0],2)}, ${fmt(r1[1],2)})`,'lasso β'],['c5',[r1[0],r1[1]].filter(v=>Math.abs(v)<1e-6).length,'lasso zeros']]
+    .map(([c2,v,l])=>`<div class="stat ${c2}"><b style="font-size:15px">${v}</b><span>${l}</span></div>`).join(''); }
+geo.pointer({down(x,y){ GE.ols=[x,y]; drawGeo(); }, move(x,y){ GE.ols=[x,y]; drawGeo(); }});
+ML.bindRange('budget', drawGeo, v=>v.toFixed(2));
+
+/* ---------- coefficient paths ---------- */
+const pR=new ML.Plot('#pathRidge',{equal:false}), pL=new ML.Plot('#pathLasso',{equal:false});
+function drawPaths(){ const P=ML.palette(), d=Math.max(S.deg,6); $('#pathDeg').textContent=d; const lams=[]; for(let e=-4;e<=1.5001;e+=0.1) lams.push(Math.pow(10,e));
+  ['ridge','lasso'].forEach((pen,k)=>{ const W=lams.map(l=>fit(d,pen,l).w); const series=[]; for(let j=0;j<d;j++) series.push({pts:lams.map((l,i)=>[l,W[i][j]]),color:ML.SERIES[j%ML.SERIES.length],width:2});
+    ML.chart(k?pL:pR, series, {logx:true, vline:S.lam, xl:'λ'}); }); }
+
+/* ---------- wiring ---------- */
+let raf=0; function scheduleAll(){ if(raf) return; raf=requestAnimationFrame(()=>{ raf=0; drawFit(); }); clearTimeout(scheduleAll.t); scheduleAll.t=setTimeout(()=>{ gdReset(true); drawBV(); drawPaths(); }, 120); }
+function full(){ load(); drawFit(); gdReset(false); drawBV(); drawPaths(); drawGeo(); }
+sel.onchange=()=>{ S.ds=sel.value; full(); };
+ML.bindRange('nPts',v=>{ S.n=v; full(); });
+ML.bindRange('noise',v=>{ S.noise=v; full(); }, v=>v.toFixed(2));
+ML.bindRange('deg',v=>{ S.deg=v; scheduleAll(); });
+ML.bindRange('lam',v=>{ S.lam=Math.pow(10,v); scheduleAll(); }, v=>Math.pow(10,v).toPrecision(2));
+S.lam=Math.pow(10,+$('#lam').value);
+ML.bindSeg('penSeg',v=>{ S.pen=v; scheduleAll(); });
+$('#showSq').onchange=$('#showTrue').onchange=drawFit;
+$('#resample').onclick=()=>{ S.seed++; full(); };
+$('#reset').onclick=()=>full();
+fitPlot.onResize=drawFit; gdPlot.onResize=()=>GS&&drawGD(); gdLoss.onResize=()=>GS&&drawGD(); bvPlot.onResize=drawBV; geo.onResize=drawGeo; pR.onResize=pL.onResize=drawPaths;
+ML.onTheme(full);
+full();
+})();
+</script>
+</body>
+</html>

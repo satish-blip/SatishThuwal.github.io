@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Support Vector Machine Lab</title>
+<meta name="description" content="Interactive support vector machines in the browser: drag points and see which ones are support vectors, how C and the kernel change the margin, a kernel-by-dataset gallery, the kernel trick in 3D and the full primal/dual maths.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/ml.css">
+</head>
+<body>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../#ml">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Algorithms"></nav></div></header>
+
+<main class="wrap">
+<section class="hero">
+  <p class="kicker">Traditional ML &middot; Classification</p>
+  <h1>Support Vector <span class="grad">Machines</span></h1>
+  <p class="lede">An SVM picks the boundary with the widest possible margin, and that boundary depends only on a handful of points: the support vectors. Move points around and watch which ones matter. Then swap kernels to bend the boundary, and see which kernel suits which kind of data.</p>
+  <div class="toc"><a href="#lab">1 · Live SVM</a><a href="#sv">2 · Support vectors</a><a href="#maths">3 · The maths</a><a href="#trick">4 · Kernel trick in 3D</a><a href="#gallery">5 · Kernel × dataset</a><a href="#cg">6 · C and γ</a><a href="#code">7 · Python</a></div>
+</section>
+
+<section id="lab" class="lab">
+  <div class="card hl">
+    <h2><span class="num">1</span>Live SVM</h2>
+    <p class="sub">Drag any point. Click empty space to add a point of the selected class. Right-click a point to delete it.</p>
+    <div class="plot sq" id="mainPlot"></div>
+    <div class="legend">
+      <span><i class="sw k0"></i>class −1</span><span><i class="sw k1"></i>class +1</span>
+      <span><i class="sw" style="background:transparent;box-shadow:0 0 0 2px var(--ink)"></i>support vector on the margin (0 &lt; α &lt; C)</span>
+      <span><i class="sw" style="background:transparent;box-shadow:0 0 0 2px var(--c4)"></i>margin violator (α = C)</span>
+      <span>solid line \(f(x)=0\), dashed \(f(x)=\pm1\)</span>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="controls">
+        <div class="ctl"><span class="lbl">Dataset</span><div class="dsrow" id="dsPick"></div></div>
+        <div class="ctl"><span class="lbl">Kernel</span><div class="seg" id="kSeg" role="radiogroup"><button data-v="linear">Linear</button><button data-v="poly">Polynomial</button><button data-v="rbf" class="on">RBF (Gaussian)</button><button data-v="sigmoid">Sigmoid</button></div></div>
+        <div class="ctl"><label for="C"><span>C (penalty on margin violations)</span><output id="COut"></output></label><input type="range" id="C" min="-2" max="3" step="0.05" value="0"></div>
+        <div class="ctl" id="gWrap"><label for="gam"><span>γ (kernel width: bigger = more local)</span><output id="gamOut"></output></label><input type="range" id="gam" min="-2" max="1.7" step="0.05" value="0"></div>
+        <div class="ctl" id="dWrap" hidden><label for="deg"><span>Polynomial degree d</span><output id="degOut"></output></label><input type="range" id="deg" min="1" max="6" value="3"></div>
+        <div class="grid2" style="gap:12px">
+          <div class="ctl"><label for="nPts">Points <output id="nPtsOut"></output></label><input type="range" id="nPts" min="10" max="300" step="10" value="120"></div>
+          <div class="ctl"><label for="noise">Noise <output id="noiseOut"></output></label><input type="range" id="noise" min="0" max="1" step="0.05" value="0.3"></div>
+        </div>
+        <div class="ctl"><span class="lbl">Clicking adds</span><div class="seg" id="addSeg"><button data-v="0" class="on">● class −1</button><button data-v="1">● class +1</button></div></div>
+        <div class="row"><label class="toggle"><input type="checkbox" id="sizeA">Size points by α</label><label class="toggle"><input type="checkbox" id="showM" checked>Margins</label></div>
+        <div class="row"><button class="btn" id="resample">New sample</button></div>
+      </div>
+    </div>
+    <div class="card"><div class="stats" id="stats"></div><p class="hint" id="kHint"></p></div>
+  </div>
+</section>
+
+<section id="sv" class="card">
+  <h2><span class="num">2</span>Support vectors: only a few points decide the boundary</h2>
+  <div class="grid2">
+    <div class="prose">
+      <p>After training, every point gets a dual weight \(\alpha_i\in[0,C]\). The decision function is</p>
+      <div class="mathbox c1">$$f(x)=\sum_{i=1}^{n}\alpha_i\,y_i\,K(x_i,x)+b=\sum_{i\,\in\,\mathrm{SV}}\alpha_i\,y_i\,K(x_i,x)+b$$</div>
+      <p>Points with \(\alpha_i=0\) drop out of the sum, so they have <b>no influence at all</b>. The KKT conditions sort every point into one of three groups:</p>
+      <div class="tblwrap"><table class="tbl" id="kktTbl"></table></div>
+      <h3>Try these experiments</h3>
+      <ol>
+        <li>Drag a plain point (no ring) around inside its own region. The boundary does not move, because its \(\alpha=0\).</li>
+        <li>Drag a ringed point. The boundary follows it.</li>
+        <li>Press the button below: every non-support vector is deleted and the SVM is retrained. The boundary is identical.</li>
+      </ol>
+      <div class="row"><button class="btn primary" id="dropNon">Delete all non-support vectors and refit</button><button class="btn" id="dropSV">Delete one support vector</button></div>
+      <div class="note" id="dropNote" hidden></div>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Dual weights \(\alpha_i\) (sorted)</h3>
+      <div class="plot short" id="alphaPlot"></div>
+      <p class="hint">The dashed line is \(C\). Bars that hit it are margin violators. As you lower \(C\), more points become support vectors and the margin widens; as you raise it, the SVM tolerates fewer violations (closer to a hard margin).</p>
+      <h3>Functional margins \(y_i f(x_i)\)</h3>
+      <div class="plot short" id="marginPlot"></div>
+      <p class="hint">Every point, sorted. Values above 1 are safely outside the margin; between 0 and 1 inside the margin; below 0 misclassified. Hinge loss is \(\max(0,1-y_if(x_i))\), the shaded area.</p>
+    </div>
+  </div>
+</section>
+
+<section id="maths" class="card">
+  <h2><span class="num">3</span>The maths, from the lecture and TA notebooks</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>Hard margin (separable data)</h3>
+      <p>The distance from \(x_i\) to the hyperplane \(w^\top x+b=0\) is \(|w^\top x_i+b|/\lVert w\rVert\). Fix the scale so the closest points satisfy \(y_i(w^\top x_i+b)=1\); then the margin is \(2/\lVert w\rVert\) and maximising it is</p>
+      <div class="mathbox c1">$$\min_{w,b}\ \tfrac12\lVert w\rVert^2\quad\text{s.t.}\quad y_i(w^\top x_i+b)\ge1\ \ \forall i$$</div>
+      <h3>Soft margin (overlapping data)</h3>
+      <p>Slack variables \(\xi_i\ge0\) let points violate the margin, at a price \(C\):</p>
+      <div class="mathbox c4">$$\min_{w,b,\xi}\ \tfrac12\lVert w\rVert^2+C\sum_i\xi_i\ \ \text{s.t.}\ \ y_i(w^\top x_i+b)\ge1-\xi_i,\ \xi_i\ge0$$</div>
+      <p>which is the same as minimising the <b>hinge loss</b> plus an L2 penalty: \(\tfrac12\lVert w\rVert^2+C\sum_i\max(0,1-y_if(x_i))\). Small \(C\) = wide, forgiving margin (more bias). Large \(C\) = narrow margin that tries to classify every training point (more variance).</p>
+      <h3>KKT conditions</h3>
+      <div class="mathbox c5">$$w=\sum_i\alpha_iy_ix_i,\qquad \sum_i\alpha_iy_i=0,\qquad \alpha_i\big[y_if(x_i)-1+\xi_i\big]=0,\qquad (C-\alpha_i)\,\xi_i=0$$</div>
+      <p>Complementary slackness is what makes the solution sparse: if a point is strictly outside the margin, its \(\alpha_i\) must be zero.</p>
+    </div>
+    <div>
+      <h3>The dual problem</h3>
+      <div class="mathbox c3">$$\max_{\alpha}\ \sum_i\alpha_i-\tfrac12\sum_{i,j}\alpha_i\alpha_jy_iy_j\,\langle x_i,x_j\rangle\quad\text{s.t.}\quad 0\le\alpha_i\le C,\ \ \sum_i\alpha_iy_i=0$$</div>
+      <p>The data appear <b>only through inner products</b> \(\langle x_i,x_j\rangle\). Replace them with a kernel \(K(x_i,x_j)=\langle\phi(x_i),\phi(x_j)\rangle\) and the SVM works in the feature space of \(\phi\) without ever computing \(\phi\). That is the <b>kernel trick</b>.</p>
+      <h3>Kernels on this page</h3>
+      <div class="mathbox c2">$$\begin{aligned}\text{Linear: }&K(x,z)=x^\top z\\ \text{Polynomial: }&K(x,z)=(\gamma\,x^\top z+r)^d\\ \text{RBF: }&K(x,z)=\exp(-\gamma\lVert x-z\rVert^2)\\ \text{Sigmoid: }&K(x,z)=\tanh(\gamma\,x^\top z+r)\end{aligned}$$</div>
+      <p>The RBF kernel is a similarity that decays with distance; \(1/\sqrt{\gamma}\) is roughly its radius of influence. Each support vector puts a Gaussian bump of height \(\alpha_iy_i\) on the plane, and \(f\) is their sum.</p>
+      <h3>How this page solves it</h3>
+      <p>The dual is solved in your browser with <b>SMO</b> (sequential minimal optimisation) using LIBSVM's second-order working-set selection: repeatedly pick the two \(\alpha\)'s that most violate the KKT conditions and solve that two-variable problem in closed form. The bias \(b\) is the average over free support vectors of \(y_i-\sum_j\alpha_jy_jK(x_j,x_i)\).</p>
+      <div id="liveDual"></div>
+    </div>
+  </div>
+</section>
+
+<section id="trick" class="card">
+  <h2><span class="num">4</span>The kernel trick, seen in 3D</h2>
+  <div class="grid2">
+    <div><div class="plot sq" id="liftPlot"></div><p class="hint">Drag to rotate. Lifting with \(\phi(x_1,x_2)=(x_1,\,x_2,\,x_1^2+x_2^2)\) pushes the outer ring up. A flat plane (a <i>linear</i> separator in 3D) now splits the classes, and that plane cuts back down to a circle in 2D.</p></div>
+    <div class="prose">
+      <p>The circles dataset cannot be split by a line in the plane. But add a third coordinate \(z=x_1^2+x_2^2\) (squared distance from the origin) and the inner class sits low while the outer ring sits high.</p>
+      <div class="mathbox c3">$$\phi(x)^\top\phi(z)=x_1z_1+x_2z_2+(x_1^2+x_2^2)(z_1^2+z_2^2)$$</div>
+      <p>A kernel lets the SVM use a feature map like this one, or even an infinite-dimensional one (RBF), at the cost of evaluating \(K\) on pairs of points. The polynomial kernel of degree 2 contains exactly these squared terms, which is why it handles circles well in the gallery below.</p>
+      <div class="ctl"><label for="planeZ"><span>Height of the separating plane</span><output id="planeZOut"></output></label><input type="range" id="planeZ" min="0.2" max="4" step="0.05" value="1.9"></div>
+      <div class="row"><button class="btn" id="spin">Auto-rotate</button></div>
+      <div class="stats" id="liftStats" style="margin-top:10px"></div>
+    </div>
+  </div>
+</section>
+
+<section id="gallery" class="card">
+  <h2><span class="num">5</span>Which kernel for which data?</h2>
+  <p class="sub">Every cell is a separate SVM trained live on 200 points (C = <span id="gC"></span>) and scored on 100 held-out points. The number is test accuracy; the small number is the count of support vectors. Click a cell to load it into the lab above.</p>
+  <div class="tblwrap"><div id="gal" style="display:grid;gap:6px;min-width:820px"></div></div>
+  <div class="grid3" style="margin-top:14px">
+    <div class="note"><b>Linear</b>: best when the classes really are separated by a line (linear blobs, noisy labels). Fewest knobs, hardest to overfit, and gives an interpretable \(w\).</div>
+    <div class="note"><b>Polynomial</b>: captures interactions such as \(x_1x_2\) (XOR) and \(x_1^2+x_2^2\) (circles). High degrees get numerically wild far from the data.</div>
+    <div class="note ok"><b>RBF</b>: the default for unknown shapes (moons, spirals). Tune \(\gamma\) and \(C\) together with cross-validation; large \(\gamma\) memorises noise.</div>
+  </div>
+</section>
+
+<section id="cg" class="card">
+  <h2><span class="num">6</span>C and γ together (RBF kernel)</h2>
+  <p class="sub">The same 2 × 2 idea as Part 5 of the TA notebook, extended to 3 × 3, on the dataset currently in the lab. Rows raise \(C\), columns raise \(\gamma\).</p>
+  <div id="cgGrid" style="max-width:860px;margin:0 auto;display:grid;grid-template-columns:70px repeat(3,minmax(0,1fr));gap:8px;align-items:center"></div>
+  <p class="hint">Small \(\gamma\) + small \(C\): nearly linear and smooth (underfits). Large \(\gamma\) + large \(C\): little islands around individual points (overfits). The sweet spot is usually in between, chosen by cross-validation.</p>
+</section>
+
+<section id="code" class="card">
+  <h2><span class="num">7</span>The same thing in Python</h2>
+<pre class="code"><span class="k">from</span> sklearn.svm <span class="k">import</span> SVC
+<span class="k">from</span> sklearn.model_selection <span class="k">import</span> GridSearchCV
+
+svm = SVC(kernel=<span class="s">"rbf"</span>, C=<span class="s">1.0</span>, gamma=<span class="s">1.0</span>).<span class="f">fit</span>(X, y)        <span class="c"># kernel: "linear" | "poly" (degree, coef0) | "rbf" | "sigmoid"</span>
+svm.support_            <span class="c"># indices of the support vectors</span>
+svm.dual_coef_          <span class="c"># alpha_i * y_i for each support vector</span>
+svm.intercept_          <span class="c"># b</span>
+svm.<span class="f">decision_function</span>(X_new)   <span class="c"># f(x) = sum alpha_i y_i K(x_i, x) + b</span>
+
+<span class="c"># choose C and gamma by cross-validation</span>
+grid = GridSearchCV(SVC(kernel=<span class="s">"rbf"</span>), {<span class="s">"C"</span>: [<span class="s">0.1</span>, <span class="s">1</span>, <span class="s">10</span>, <span class="s">100</span>], <span class="s">"gamma"</span>: [<span class="s">0.1</span>, <span class="s">1</span>, <span class="s">10</span>]}, cv=<span class="s">5</span>).<span class="f">fit</span>(X, y)</pre>
+  <p class="hint">The TA notebook solves the same dual with <code>scipy.optimize.minimize</code>; SMO (used here and inside LIBSVM, which scikit-learn wraps) is the specialised algorithm that scales to large \(n\).</p>
+</section>
+
+<p class="foot">Part of the <a href="../">ML algorithms lab</a>. Everything is computed in your browser in plain JavaScript.</p>
+</main>
+
+<script src="../assets/core.js"></script>
+<script src="../assets/models.js"></script>
+<script>
+(function(){
+const {$, fmt} = ML, Mo=ML.models;
+ML.nav('svm'); ML.renderMath(document.body);
+const S={ds:'moons', n:120, noise:0.3, seed:7, kernel:'rbf', C:1, gamma:1, degree:3, add:0, X:[], y:[], m:null};
+function load(){ const d=ML.dataset(S.ds,S.n,S.noise,S.seed); S.X=d.X.map(p=>p.slice()); S.y=d.y.slice(); $('#dropNote').hidden=true; }
+const opts=()=>({kernel:S.kernel, C:S.C, gamma:S.gamma, degree:S.degree, coef0:1});
+const main=new ML.Plot('#mainPlot'); let dragI=-1, hoverI=-1;
+
+function refit(){ S.m = Mo.SVM(S.X, S.y, opts()); }
+function drawMain(){ const P=ML.palette(), m=S.m; main.clear();
+  main.regions((x,y)=>ML.sigmoid(1.6*m.score([x,y])), 5); main.grid(1);
+  const f=(x,y)=>m.score([x,y]);
+  if($('#showM').checked){ main.contour(f,1,{color:P.k1,width:1.6,dash:[6,5]}); main.contour(f,-1,{color:P.k0,width:1.6,dash:[6,5]}); }
+  main.contour(f,0,{color:P.ink,width:2.6});
+  if(S.kernel==='linear' && m.w){ const mid=[0,0]; const wn=Math.hypot(m.w[0],m.w[1]); if(wn>1e-9){ const p0=[-m.b*m.w[0]/(wn*wn), -m.b*m.w[1]/(wn*wn)]; main.arrow(p0[0],p0[1],p0[0]+m.w[0]/wn*0.9,p0[1]+m.w[1]/wn*0.9,{color:P.c1,width:2.5}); main.text('w',p0[0]+m.w[0]/wn*0.95,p0[1]+m.w[1]/wn*0.95,{color:P.c1,dx:4,halo:true}); } }
+  const sizeA=$('#sizeA').checked, amax=Math.max(1e-9,...m.alpha);
+  main.points(S.X,S.y,{r:4.6, size: sizeA ? i=>3+9*Math.sqrt(m.alpha[i]/amax) : null,
+    ring:i=>{ const a=m.alpha[i]; if(a<=1e-8) return i===hoverI||i===dragI?P.muted:false; return a>=S.C-1e-6 ? P.c4 : P.ink; }});
+  stats(); }
+function stats(){ const m=S.m, n=S.X.length; const sv=m.sv.length, bound=m.sv.filter(i=>m.alpha[i]>=S.C-1e-6).length; let ok=0; S.X.forEach((x,i)=>{ if((m.score(x)>=0?1:0)===S.y[i]) ok++; });
+  const cells=[['c1',sv,'support vectors'],['c3',sv-bound,'on the margin'],['c4',bound,'violators (α = C)'],['c5',ML.pct(ok/n),'training accuracy'],['c2',m.iters,'SMO iterations']];
+  if(S.kernel==='linear') cells.push(['c1',fmt(2/m.wnorm,3),'margin width 2/‖w‖']);
+  $('#stats').innerHTML=cells.map(([c,v,l])=>`<div class="stat ${c}"><b>${v}</b><span>${l}</span></div>`).join('');
+  const H={linear:'Linear kernel: the boundary is a straight line and \\(w=\\sum\\alpha_iy_ix_i\\) is drawn as the arrow.', poly:'Polynomial kernel \\((\\gamma x^\\top z+1)^d\\): degree 2 gives conics (circles, ellipses, hyperbolas); higher degrees give wigglier curves.', rbf:'RBF kernel: each support vector adds a Gaussian bump of radius about \\(1/\\sqrt\\gamma\\)\\(\\,=\\,\\)'+fmt(1/Math.sqrt(S.gamma),2)+'.', sigmoid:'Sigmoid kernel \\(\\tanh(\\gamma x^\\top z+1)\\): inspired by neural nets, but not positive semi-definite for all settings, so it can behave oddly. Usually a poor choice.'};
+  $('#kHint').innerHTML=H[S.kernel]; ML.renderMath($('#kHint')); drawSide(); }
+
+function drawSide(){ const m=S.m, P=ML.palette();
+  // KKT table
+  const g={zero:0,free:0,bound:0}, chk={zero:true,free:true,bound:true}; const tol=1e-2;
+  m.alpha.forEach((a,i)=>{ const mg=m.margins[i]; if(a<=1e-8){g.zero++; if(mg<1-tol*3) chk.zero=false;} else if(a>=S.C-1e-6){g.bound++; if(mg>1+tol*3) chk.bound=false;} else {g.free++; if(Math.abs(mg-1)>0.05) chk.free=false;} });
+  $('#kktTbl').innerHTML=`<tr><th>Group</th><th>\\(\\alpha_i\\)</th><th>\\(y_if(x_i)\\)</th><th>Count now</th><th>Check</th></tr>`+
+   [['Outside the margin','\\(\\alpha_i=0\\)','\\(\\ge1\\)',g.zero,chk.zero],['On the margin (free SV)','\\(0<\\alpha_i<C\\)','\\(=1\\)',g.free,chk.free],['Inside / wrong side (bound SV)','\\(\\alpha_i=C\\)','\\(\\le1\\)',g.bound,chk.bound]]
+   .map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]?'✓':'≈'}</td></tr>`).join('');
+  ML.renderMath($('#kktTbl'));
+  const sa=m.alpha.map((a,i)=>[a,i]).filter(p=>p[0]>1e-8).sort((a,b)=>b[0]-a[0]);
+  const ap=alphaPlot; ap.clear(); const c=ap.ctx, L=40,R=10,T=12,B=22, W=ap.w-L-R, Hh=ap.h-T-B, top=Math.max(S.C*1.1, ...sa.map(p=>p[0]));
+  c.save(); c.font='11px Inter,system-ui,sans-serif'; c.fillStyle=P.muted; c.textAlign='right'; c.fillText(fmt(top,2),L-4,T+8); c.fillText('0',L-4,T+Hh);
+  const bw=Math.max(1,Math.min(14,W/Math.max(sa.length,1)-1)); sa.forEach((p,k)=>{ const h=p[0]/top*Hh; c.fillStyle=S.y[p[1]]?P.k1:P.k0; c.fillRect(L+k*(bw+1),T+Hh-h,bw,h); });
+  c.strokeStyle=P.c4; c.setLineDash([5,4]); c.lineWidth=1.5; const yc=T+Hh-S.C/top*Hh; c.beginPath(); c.moveTo(L,yc); c.lineTo(L+W,yc); c.stroke(); c.setLineDash([]); c.fillStyle=P.c4; c.textAlign='left'; c.fillText('C = '+fmt(S.C,2),L+W-60,yc-4);
+  c.fillStyle=P.muted; c.fillText(sa.length+' non-zero α out of '+m.alpha.length+'   (Σ αᵢyᵢ = '+fmt(m.alpha.reduce((s,a,i)=>s+a*(S.y[i]?1:-1),0),5)+')',L,ap.h-6); c.restore();
+  // margins plot
+  const mp=marginPlot, ms=m.margins.map((v,i)=>[v,i]).sort((a,b)=>a[0]-b[0]); mp.clear(); const c2=mp.ctx; const lo=Math.max(-3,Math.min(-0.5,ms[0][0])), hi=Math.min(4,Math.max(2,ms[ms.length-1][0]));
+  const fy=v=>T+Hh-(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*(mp.h-T-B), fx=k=>L+k/(ms.length-1||1)*(mp.w-L-R);
+  c2.save(); c2.fillStyle=P.c2; c2.globalAlpha=.15; c2.beginPath(); c2.moveTo(fx(0),fy(1)); ms.forEach((p,k)=>c2.lineTo(fx(k),fy(Math.min(1,p[0])))); c2.lineTo(fx(ms.length-1),fy(1)); c2.closePath(); c2.fill(); c2.globalAlpha=1;
+  [[1,P.ink,'1'],[0,P.c2,'0']].forEach(([v,col,l])=>{ c2.strokeStyle=col; c2.setLineDash([4,4]); c2.beginPath(); c2.moveTo(L,fy(v)); c2.lineTo(mp.w-R,fy(v)); c2.stroke(); c2.setLineDash([]); c2.fillStyle=col; c2.font='11px Inter,system-ui,sans-serif'; c2.textAlign='right'; c2.fillText(l,L-4,fy(v)+4); });
+  ms.forEach((p,k)=>{ c2.fillStyle=S.y[p[1]]?P.k1:P.k0; c2.beginPath(); c2.arc(fx(k),fy(p[0]),2.6,0,7); c2.fill(); }); c2.restore();
+  $('#liveDual').innerHTML='<div class="mathbox c5">'+ML.tex(`\\text{Now: } \\sum_i\\alpha_i-\\tfrac12\\sum_{i,j}\\alpha_i\\alpha_jy_iy_jK_{ij}=${fmt(m.dual,4)},\\quad b=${fmt(m.b,4)},\\quad \\#\\mathrm{SV}=${m.sv.length}`,true)+'</div>';
+}
+const alphaPlot=new ML.Plot('#alphaPlot',{equal:false}), marginPlot=new ML.Plot('#marginPlot',{equal:false});
+
+let raf=0; function update(){ if(raf) return; raf=requestAnimationFrame(()=>{ raf=0; refit(); drawMain(); }); }
+main.pointer({
+  down(x,y,px,py,e){ if(e.button===2) return; const i=main.nearest(S.X,px,py,12); if(i>=0) dragI=i; else { S.X.push([x,y]); S.y.push(S.add); dragI=S.X.length-1; update(); } },
+  move(x,y){ if(dragI>=0){ S.X[dragI]=[x,y]; update(); } },
+  up(){ dragI=-1; },
+  hover(x,y,px,py){ const i=main.nearest(S.X,px,py,12); if(i!==hoverI){ hoverI=i; main.cv.style.cursor=i>=0?'grab':'crosshair'; drawMain(); } },
+  context(x,y,px,py){ const i=main.nearest(S.X,px,py,12); if(i>=0 && S.X.length>3){ S.X.splice(i,1); S.y.splice(i,1); update(); } }
+});
+$('#dropNon').onclick=()=>{ const m=S.m, before=S.X.length, keep=m.sv; const old=S.m; const grid=[]; for(let i=0;i<25;i++) for(let j=0;j<25;j++) grid.push([-3+6*i/24,-3+6*j/24]);
+  S.X=keep.map(i=>S.X[i]); S.y=keep.map(i=>S.y[i]); refit(); let agree=0; grid.forEach(g=>{ if((old.score(g)>=0)===(S.m.score(g)>=0)) agree++; });
+  const maxd=Math.max(...grid.map(g=>Math.abs(old.score(g)-S.m.score(g))));
+  $('#dropNote').hidden=false; $('#dropNote').className='note ok'; $('#dropNote').innerHTML=`Deleted <b>${before-keep.length}</b> of ${before} points and retrained on the ${keep.length} support vectors alone. The new boundary agrees with the old one on <b>${(100*agree/grid.length).toFixed(1)}%</b> of a 25 × 25 grid (largest change in \\(f\\): ${fmt(maxd,4)}).`; ML.renderMath($('#dropNote')); drawMain(); };
+$('#dropSV').onclick=()=>{ const m=S.m; const free=m.sv.filter(i=>m.alpha[i]<S.C-1e-6); const pick=(free.length?free:m.sv)[0]; if(pick===undefined) return; const old=S.m;
+  S.X.splice(pick,1); S.y.splice(pick,1); refit(); let diff=0; for(let i=0;i<25;i++) for(let j=0;j<25;j++){ const g=[-3+6*i/24,-3+6*j/24]; diff=Math.max(diff,Math.abs(old.score(g)-S.m.score(g))); }
+  $('#dropNote').hidden=false; $('#dropNote').className='note warn'; $('#dropNote').innerHTML=`Deleted one support vector. The boundary moved (largest change in \\(f\\) on the grid: <b>${fmt(diff,3)}</b>) and the SVM now has ${S.m.sv.length} support vectors.`; ML.renderMath($('#dropNote')); drawMain(); };
+
+/* controls */
+ML.datasetPicker('dsPick', S.ds, id=>{ S.ds=id; load(); update(); drawCG(); drawLiftIfNeeded(); });
+ML.bindSeg('kSeg', v=>{ S.kernel=v; $('#gWrap').hidden=(v==='linear'); $('#dWrap').hidden=(v!=='poly'); update(); });
+ML.bindRange('C', v=>{ S.C=Math.pow(10,v); update(); }, v=>Math.pow(10,v).toPrecision(2));
+ML.bindRange('gam', v=>{ S.gamma=Math.pow(10,v); update(); }, v=>Math.pow(10,v).toPrecision(2));
+ML.bindRange('deg', v=>{ S.degree=v; update(); });
+ML.bindRange('nPts', v=>{ S.n=v; load(); update(); });
+ML.bindRange('noise', v=>{ S.noise=v; load(); update(); }, v=>v.toFixed(2));
+ML.bindSeg('addSeg', v=>{ S.add=+v; });
+$('#sizeA').onchange=$('#showM').onchange=drawMain;
+$('#resample').onclick=()=>{ S.seed++; load(); update(); };
+
+/* ---------- 3D lift ---------- */
+const lift=new ML.Plot('#liftPlot',{bounds:{x0:-1,x1:1,y0:-1,y1:1}}); const LI={yaw:0.6,pitch:0.45,spin:null,data:ML.dataset('circles',220,0.2,4)};
+function drawLift(){ const P=ML.palette(), c=lift.ctx, d=LI.data, zc=+$('#planeZ').value; lift.clear();
+  const pr=(x,y,z)=>{ const cy=Math.cos(LI.yaw), sy=Math.sin(LI.yaw), cp=Math.cos(LI.pitch), sp=Math.sin(LI.pitch); const zz=z-2;
+    let X=cy*x-sy*y, Y=sy*x+cy*y; let Y2=cp*zz - sp*Y, D=sp*zz+cp*Y; const s=lift.w/8.5; return [lift.w/2+X*s, lift.h/2 - Y2*s, D]; };
+  // plane
+  const corners=[[-3,-3],[3,-3],[3,3],[-3,3]].map(p=>pr(p[0],p[1],zc)); c.save(); c.fillStyle=P.c1; c.globalAlpha=.14; c.beginPath(); corners.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1])); c.closePath(); c.fill(); c.globalAlpha=.6; c.strokeStyle=P.c1; c.lineWidth=1.5; c.stroke(); c.restore();
+  // floor circle where plane meets paraboloid
+  c.save(); c.strokeStyle=P.c1; c.lineWidth=2.5; c.beginPath(); for(let k=0;k<=80;k++){ const t=k/80*2*Math.PI, r=Math.sqrt(zc), p=pr(r*Math.cos(t),r*Math.sin(t),zc); k?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]); } c.stroke();
+  c.setLineDash([4,4]); c.globalAlpha=.6; c.beginPath(); for(let k=0;k<=80;k++){ const t=k/80*2*Math.PI, r=Math.sqrt(zc), p=pr(r*Math.cos(t),r*Math.sin(t),0); k?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]); } c.stroke(); c.restore();
+  // axes
+  [[[0,0,0],[3,0,0],'x₁'],[[0,0,0],[0,3,0],'x₂'],[[0,0,0],[0,0,5],'z = x₁²+x₂²']].forEach(([a,b,l])=>{ const A=pr(...a), Bp=pr(...b); c.save(); c.strokeStyle=P.muted; c.lineWidth=1.2; c.beginPath(); c.moveTo(A[0],A[1]); c.lineTo(Bp[0],Bp[1]); c.stroke(); c.fillStyle=P.muted; c.font='600 12px Inter,system-ui,sans-serif'; c.fillText(l,Bp[0]+4,Bp[1]); c.restore(); });
+  const pts=d.X.map((x,i)=>{ const z=x[0]*x[0]+x[1]*x[1]; return {p:pr(x[0],x[1],z), q:pr(x[0],x[1],0), y:d.y[i], z}; }).sort((a,b)=>b.p[2]-a.p[2]);
+  pts.forEach(o=>{ c.save(); c.globalAlpha=.18; c.fillStyle=o.y?P.k1:P.k0; c.beginPath(); c.arc(o.q[0],o.q[1],2,0,7); c.fill(); c.restore(); });
+  pts.forEach(o=>{ c.beginPath(); c.arc(o.p[0],o.p[1],4,0,7); c.fillStyle=o.y?P.k1:P.k0; c.fill(); c.strokeStyle=P.bg; c.lineWidth=1; c.stroke(); });
+  let ok=0; d.X.forEach((x,i)=>{ const z=x[0]*x[0]+x[1]*x[1]; if((z<zc?1:0)===d.y[i]) ok++; });
+  $('#liftStats').innerHTML=[['c1',ML.pct(ok/d.X.length),'accuracy of the plane'],['c3','r = '+fmt(Math.sqrt(zc),2),'circle radius in 2D']].map(([c2,v,l])=>`<div class="stat ${c2}"><b>${v}</b><span>${l}</span></div>`).join(''); }
+let ld=null; lift.cv.addEventListener('pointerdown',e=>{ ld=[e.clientX,e.clientY,LI.yaw,LI.pitch]; lift.cv.setPointerCapture(e.pointerId); });
+lift.cv.addEventListener('pointermove',e=>{ if(!ld) return; LI.yaw=ld[2]+(e.clientX-ld[0])*0.01; LI.pitch=Math.max(-0.2,Math.min(1.5,ld[3]+(e.clientY-ld[1])*0.01)); drawLift(); });
+lift.cv.addEventListener('pointerup',()=>ld=null); lift.cv.style.cursor='grab';
+$('#spin').onclick=()=>{ if(LI.spin){ clearInterval(LI.spin); LI.spin=null; $('#spin').textContent='Auto-rotate'; } else { LI.spin=setInterval(()=>{ LI.yaw+=0.02; drawLift(); },30); $('#spin').textContent='Stop'; } };
+ML.bindRange('planeZ', drawLift, v=>v.toFixed(2)); lift.onResize=drawLift;
+function drawLiftIfNeeded(){}
+
+/* ---------- gallery ---------- */
+const KS=[['Linear',{kernel:'linear'}],['Poly d=2',{kernel:'poly',degree:2,gamma:0.5}],['Poly d=3',{kernel:'poly',degree:3,gamma:0.5}],['RBF γ=0.3',{kernel:'rbf',gamma:0.3}],['RBF γ=3',{kernel:'rbf',gamma:3}],['RBF γ=30',{kernel:'rbf',gamma:30}],['Sigmoid',{kernel:'sigmoid',gamma:0.3,coef0:-0.5}]];
+let galToken=0;
+function buildGallery(){ const gal=$('#gal'); const tok=++galToken; $('#gC').textContent='1'; gal.style.gridTemplateColumns=`110px repeat(${KS.length},minmax(0,1fr))`;
+  gal.innerHTML='<div></div>'+KS.map(k=>`<div style="font-size:12px;font-weight:700;text-align:center">${k[0]}</div>`).join('');
+  const jobs=[]; ML.DATASETS.forEach(d=>{ const lab=document.createElement('div'); lab.style.cssText='font-size:12px;font-weight:700'; lab.innerHTML=`${d.name}<br><span class="pill">${d.level}</span>`; gal.appendChild(lab);
+    KS.forEach(k=>{ const cell=document.createElement('div'); cell.className='thumb'; cell.innerHTML='<div class="plot sq" style="border:0;border-radius:0"></div><div>…</div>'; gal.appendChild(cell); jobs.push({d,k,cell}); }); });
+  const run=()=>{ if(tok!==galToken) return; const j=jobs.shift(); if(!j) return; const data=ML.dataset(j.d.id,300,0.3,21), s=ML.split(data,1/3,2), o=Object.assign({C:1,coef0:1},j.k[1]);
+    const m=Mo.SVM(s.Xtr,s.ytr,o), acc=ML.accuracy(m,s.Xte,s.yte); const pl=new ML.Plot(j.cell.firstChild); const dr=()=>{ pl.clear(); pl.regions((x,y)=>ML.sigmoid(1.6*m.score([x,y])),4); pl.contour((x,y)=>m.score([x,y]),0,{width:1.5,res:4}); pl.points(s.Xtr,s.ytr,{r:1.8}); }; dr(); pl.onResize=dr;
+    j.cell.lastChild.innerHTML=`<b style="color:${acc>0.9?'var(--c5)':acc>0.75?'var(--c4)':'var(--c2)'}">${ML.pct(acc)}</b> · ${m.sv.length} SV`; j.cell.title=`${j.d.name}, ${j.k[0]}: test accuracy ${ML.pct(acc)}, ${m.sv.length} support vectors`;
+    j.cell.onclick=()=>{ S.ds=j.d.id; ML.datasetPicker('dsPick', S.ds, id=>{ S.ds=id; load(); update(); drawCG(); }); const k=j.k[1]; S.kernel=k.kernel; ML.setSeg('kSeg',k.kernel); $('#gWrap').hidden=k.kernel==='linear'; $('#dWrap').hidden=k.kernel!=='poly';
+      if(k.gamma){ S.gamma=k.gamma; $('#gam').value=Math.log10(k.gamma); $('#gamOut').textContent=k.gamma; } if(k.degree){ S.degree=k.degree; $('#deg').value=k.degree; $('#degOut').textContent=k.degree; } S.C=1; $('#C').value=0; $('#COut').textContent='1';
+      load(); update(); drawCG(); document.getElementById('lab').scrollIntoView({behavior:'smooth'}); };
+    setTimeout(run,0); }; run(); }
+
+/* ---------- C x gamma grid ---------- */
+let cgToken=0;
+function drawCG(){ const g=$('#cgGrid'), tok=++cgToken, Cs=[0.1,1,100], Gs=[0.1,1,10]; g.innerHTML='<div></div>'+Gs.map(v=>`<div style="text-align:center;font-weight:700;font-size:13px">γ = ${v}</div>`).join('');
+  const data=ML.dataset(S.ds,200,S.noise,S.seed), s=ML.split(data,0.3,3); const jobs=[];
+  Cs.forEach(C=>{ const l=document.createElement('div'); l.style.cssText='font-weight:700;font-size:13px'; l.textContent='C = '+C; g.appendChild(l);
+    Gs.forEach(G=>{ const cell=document.createElement('div'); cell.className='thumb'; cell.style.cursor='default'; cell.innerHTML='<div class="plot sq" style="border:0;border-radius:0"></div><div>…</div>'; g.appendChild(cell); jobs.push({C,G,cell}); }); });
+  const run=()=>{ if(tok!==cgToken) return; const j=jobs.shift(); if(!j) return; const m=Mo.SVM(s.Xtr,s.ytr,{kernel:'rbf',C:j.C,gamma:j.G}); const pl=new ML.Plot(j.cell.firstChild);
+    const dr=()=>{ pl.clear(); pl.regions((x,y)=>ML.sigmoid(1.6*m.score([x,y])),4); pl.contour((x,y)=>m.score([x,y]),0,{width:1.8,res:4}); pl.points(s.Xtr,s.ytr,{r:2.6,ring:i=>m.alpha[i]>1e-8?ML.palette().ink:false}); }; dr(); pl.onResize=dr;
+    j.cell.lastChild.innerHTML=`train ${ML.pct(ML.accuracy(m,s.Xtr,s.ytr))} · <b>test ${ML.pct(ML.accuracy(m,s.Xte,s.yte))}</b> · ${m.sv.length} SV`; setTimeout(run,0); }; run(); }
+
+main.onResize=()=>S.m&&drawMain(); alphaPlot.onResize=marginPlot.onResize=()=>S.m&&drawSide();
+ML.onTheme(()=>{ drawMain(); drawLift(); buildGallery(); drawCG(); });
+load(); refit(); drawMain(); drawLift(); setTimeout(()=>{ buildGallery(); drawCG(); }, 50);
+})();
+</script>
+</body>
+</html>
