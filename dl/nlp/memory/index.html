@@ -20,7 +20,25 @@
   <p class="kicker">Deep Learning &middot; NLP</p>
   <h1>Memory in RNNs: <span class="grad">LSTM and GRU</span></h1>
   <p class="lede">A plain RNN overwrites its whole hidden state at every step, so old information fades and its gradient vanishes. Gated cells add a separate memory lane that is changed only by small, deliberate edits: forget a little, write a little, read a little. That simple change lets them carry information across hundreds of steps.</p>
-  <div class="toc"><a href="#cell">1 · The LSTM cell</a><a href="#race">2 · RNN vs LSTM vs GRU</a><a href="#inside">3 · Inside a trained LSTM</a><a href="#highway">4 · The gradient highway</a><a href="#gru">5 · GRU and parameter counts</a><a href="#code">6 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#cell">1 · The LSTM cell</a><a href="#race">2 · RNN vs LSTM vs GRU</a><a href="#inside">3 · Inside a trained LSTM</a><a href="#highway">4 · The gradient highway</a><a href="#gru">5 · GRU and parameter counts</a><a href="#code">6 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What are LSTM and GRU, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p><a class="term" data-t="lstm">LSTMs</a> and <a class="term" data-t="gru">GRUs</a> are RNNs with <a class="term" data-t="gate">gates</a>: small sigmoid switches, learned from data, that decide what to forget, what to write and what to read. The LSTM keeps a separate <a class="term" data-t="cell-state">cell state</a> that is updated by adding, not multiplying, so information and gradients can travel through hundreds of steps.</p>
+      <h3>How it works</h3><ol class="steps2"><li>Forget gate: how much of the old memory to keep.</li><li>Input gate: how much new information to write.</li><li>Output gate: how much of the memory to show as the hidden state.</li><li>The GRU merges these into two gates (update and reset) and has no separate cell.</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>A notebook with a pencil and an eraser. A plain RNN rewrites the whole page every step; an LSTM decides line by line what to erase and what to add, so an important early note can survive.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Remembers across long gaps</li><li>Trains far more reliably than a plain RNN</li><li>GRU gets similar results with fewer parameters</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Still sequential, so slow on long texts</li><li>Four times the parameters of a plain RNN (LSTM)</li><li>Attention does long-range memory better</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="lstm">LSTM</a><a class="term" data-t="gru">GRU</a><a class="term" data-t="gate">Gate</a><a class="term" data-t="cell-state">Cell state</a><a class="term" data-t="sigmoid">Sigmoid</a><a class="term" data-t="vanishing-gradient">Vanishing gradient</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section id="cell" class="card">
@@ -96,13 +114,13 @@
       <p class="hint">Weights per layer, ignoring the output layer. One weight block is \(h(d+h)+h\); an LSTM has 4 blocks (f, i, c̃, o), a GRU 3 (r, z, h̃), a plain RNN 1. PyTorch stores two bias vectors per block, so its counts are slightly higher.</p>
     </div>
   </div>
-  <table class="tbl txt" style="margin-top:12px">
+  <div class="tblwrap" style="margin-top:12px"><table class="tbl txt">
     <tr><th></th><th>Plain RNN</th><th>LSTM</th><th>GRU</th></tr>
     <tr><td><b>Memory</b></td><td>hidden state only</td><td>separate cell state + hidden state</td><td>hidden state, gated</td></tr>
     <tr><td><b>Gates</b></td><td>none</td><td>forget, input, output</td><td>reset, update</td></tr>
     <tr><td><b>Long-range memory</b></td><td>poor (vanishing gradients)</td><td>good</td><td>good</td></tr>
     <tr><td><b>Where you see it</b></td><td>teaching, tiny models</td><td>speech recognition, ELMo, Google Translate (2016)</td><td>lighter-weight sequence models</td></tr>
-  </table>
+  </table></div>
   <p class="hint">Since 2017, <a href="../transformers/">transformers</a> have replaced recurrent cells in most of NLP: attention connects every step to every other step directly and trains in parallel, instead of one step at a time.</p>
 </section>
 

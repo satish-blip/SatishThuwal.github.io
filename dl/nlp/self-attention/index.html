@@ -20,7 +20,25 @@
   <p class="kicker">Deep Learning &middot; NLP</p>
   <h1>Self-attention: <span class="grad">every word looks at every word</span></h1>
   <p class="lede">In self-attention a sentence attends to itself. Each word makes a query ("what am I looking for?"), a key ("what do I offer?") and a value ("what I pass on"). Every word scores every other word, and its new vector is a mix of the values of the words that matched. One layer replaces the slow step-by-step reading of an RNN with a single parallel operation.</p>
-  <div class="toc"><a href="#heads">1 · Heads you can inspect</a><a href="#mask">2 · Causal mask</a><a href="#scale">3 · Why divide by √d</a><a href="#multi">4 · Multi-head</a><a href="#cost">5 · The n² cost</a><a href="#py">6 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#heads">1 · Heads you can inspect</a><a href="#mask">2 · Causal mask</a><a href="#scale">3 · Why divide by √d</a><a href="#multi">4 · Multi-head</a><a href="#cost">5 · The n² cost</a><a href="#py">6 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What is self-attention, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p>In <a class="term" data-t="self-attention">self-attention</a> a sequence attends to itself: every token makes a query, a key and a value, and every token looks at every other token. Several <a class="term" data-t="multi-head">heads</a> run in parallel, each free to look for something different (the previous word, the noun a pronoun refers to). A <a class="term" data-t="causal-mask">causal mask</a> stops a token seeing the future when the model generates text.</p>
+      <h3>How it works</h3><ol class="steps2"><li>Multiply each token vector by three learned matrices to get Q, K and V.</li><li>Score every pair, divide by √d, mask the future if generating, softmax by row.</li><li>Each token’s output is the weighted mix of all values.</li><li>Do this in several heads and concatenate.</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>A meeting where everyone can hear everyone at once. Each person decides whom to listen to, and different people listen for different things.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Every pair of tokens is one step apart</li><li>Fully parallel, so fast to train on GPUs</li><li>Heads specialise into readable patterns</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Cost grows with the square of the length</li><li>Has no sense of order without positional encodings</li><li>Needs lots of data to learn good heads</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="self-attention">Self-attention</a><a class="term" data-t="multi-head">Multi-head attention</a><a class="term" data-t="causal-mask">Causal mask</a><a class="term" data-t="scaled-dot">Scaled dot product</a><a class="term" data-t="positional-encoding">Positional encoding</a><a class="term" data-t="qkv">Query, key, value</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section id="heads" class="card hl">
@@ -31,7 +49,7 @@
     <div class="seg" id="hSeg"><button data-v="0">Previous word</button><button data-v="1" class="on">Pronoun → living noun</button><button data-v="2">Adjective → its noun</button><button data-v="3">Everyone → nouns</button></div>
     <div class="seg" id="cSeg"><button data-v="0" class="on">Bidirectional (BERT)</button><button data-v="1">Causal (GPT)</button></div>
   </div>
-  <svg class="diagram" id="hSvg" viewBox="0 0 900 170" style="margin-top:10px"></svg>
+  <div style="overflow-x:auto;margin-top:10px"><svg class="diagram" id="hSvg" viewBox="0 0 900 170" style="min-width:640px"></svg></div>
   <div class="grid2">
     <div><div id="hHeat"></div><p class="hint">Row = the word doing the looking (query), column = the word looked at (key). Rows sum to 100%. Grey dots are masked.</p></div>
     <div>

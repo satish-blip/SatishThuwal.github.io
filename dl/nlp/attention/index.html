@@ -20,7 +20,25 @@
   <p class="kicker">Deep Learning &middot; NLP</p>
   <h1>Attention: <span class="grad">look back at what matters</span></h1>
   <p class="lede">A recurrent network has to squeeze everything it has read into one hidden vector. Attention removes that squeeze: at every step the model keeps all the earlier vectors and, for the job at hand, takes a weighted average of them, with the weights computed on the fly from how well each one matches what it is looking for.</p>
-  <div class="toc"><a href="#neck">1 · The bottleneck</a><a href="#score">2 · Query, keys, scores</a><a href="#align">3 · Alignment in translation</a><a href="#maths">4 · Q, K, V step by step</a><a href="#kinds">5 · Kinds of attention</a><a href="#py">6 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#neck">1 · The bottleneck</a><a href="#score">2 · Query, keys, scores</a><a href="#align">3 · Alignment in translation</a><a href="#maths">4 · Q, K, V step by step</a><a href="#kinds">5 · Kinds of attention</a><a href="#py">6 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What is attention, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p><a class="term" data-t="attention">Attention</a> lets a model look back at all the vectors it has, instead of a single summary, and take a weighted average of them. The weights come from comparing a <a class="term" data-t="qkv">query</a> (what I am looking for) with each key (what each item offers), then passing the scores through a <a class="term" data-t="softmax">softmax</a> so they are positive and add up to 1.</p>
+      <h3>How it works</h3><ol class="steps2"><li>Score each key against the query (for example a dot product).</li><li>Divide by \(\sqrt d\) (<a class="term" data-t="scaled-dot">scaled dot product</a>) and apply softmax to get weights.</li><li>Output the weighted average of the values.</li><li>Everything is differentiable, so the model learns what to look for.</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>Searching a library: your question is the query, the catalogue cards are the keys, the books are the values. Instead of picking one book, you take a blend, mostly from the best matches.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Removes the one-vector bottleneck</li><li>Direct path between any two positions</li><li>Weights are visible and often interpretable</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Cost grows with (queries × keys)</li><li>Weights are not a full explanation of the model</li><li>Needs position information added separately</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="attention">Attention</a><a class="term" data-t="qkv">Query, key, value</a><a class="term" data-t="softmax">Softmax</a><a class="term" data-t="scaled-dot">Scaled dot product</a><a class="term" data-t="seq2seq">Sequence to sequence</a><a class="term" data-t="encoder">Encoder</a><a class="term" data-t="decoder">Decoder</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section id="neck" class="card hl">

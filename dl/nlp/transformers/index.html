@@ -20,7 +20,25 @@
   <p class="kicker">Deep Learning &middot; NLP</p>
   <h1>Transformers: <span class="grad">attention plus everything around it</span></h1>
   <p class="lede">A transformer is a stack of identical blocks. Each block lets the tokens talk to each other (<a href="../self-attention/">self-attention</a>), then lets each token think on its own (an <a class="term" data-t="mlp">MLP</a>), with <a href="../../nn/residual/">residual connections</a> and <a href="../../nn/normalisation/">normalisation</a> keeping a stack of dozens of blocks trainable. Every part of this page uses pieces from the earlier pages.</p>
-  <div class="toc"><a href="#arch">1 · The architecture</a><a href="#pe">2 · Where am I? Positions</a><a href="#params">3 · Counting parameters</a><a href="#gen">4 · Generating text</a><a href="#family">5 · The family</a><a href="#py">6 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#arch">1 · The architecture</a><a href="#pe">2 · Where am I? Positions</a><a href="#params">3 · Counting parameters</a><a href="#gen">4 · Generating text</a><a href="#family">5 · The family</a><a href="#py">6 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What is a transformer, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p>A <a class="term" data-t="transformer">transformer</a> is a stack of identical blocks. Each block has a self-attention layer (tokens exchange information) and an MLP (each token is processed on its own), wrapped with <a class="term" data-t="residual">residual connections</a> and <a class="term" data-t="layernorm">normalisation</a>. Language models like <a class="term" data-t="gpt">GPT</a> are trained to predict the next token (<a class="term" data-t="autoregressive">autoregressive</a>); then they generate by sampling one token at a time, controlled by <a class="term" data-t="temperature">temperature</a>.</p>
+      <h3>How it works</h3><ol class="steps2"><li>Tokenise and embed the text, add position information.</li><li>Pass it through L blocks: attention then MLP, each with a residual add.</li><li>Turn the final vector into a probability for every vocabulary token.</li><li>Train on huge text (<a class="term" data-t="pretraining">pretraining</a>), then adapt (<a class="term" data-t="fine-tuning">fine-tuning</a>).</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>A relay of editors each reading the whole draft and adding notes in the margin. Nobody erases anyone else’s notes; by the last editor the margin says what comes next.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Scales to billions of parameters and very long training</li><li>One design for text, code, images and audio</li><li>Parallel training on GPUs</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Quadratic attention cost limits context length</li><li>Needs enormous data and compute</li><li>Generation is one token at a time</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="transformer">Transformer</a><a class="term" data-t="residual-stream">Residual stream</a><a class="term" data-t="layernorm">LayerNorm</a><a class="term" data-t="autoregressive">Autoregressive</a><a class="term" data-t="temperature">Temperature</a><a class="term" data-t="greedy">Greedy decoding</a><a class="term" data-t="perplexity">Perplexity</a><a class="term" data-t="pretraining">Pretraining</a><a class="term" data-t="fine-tuning">Fine-tuning</a><a class="term" data-t="llm">LLM</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section id="arch" class="card hl">

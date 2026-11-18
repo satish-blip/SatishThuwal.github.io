@@ -20,7 +20,25 @@
   <p class="kicker">Deep Learning &middot; NLP</p>
   <h1>Cross-attention: <span class="grad">one sequence reads another</span></h1>
   <p class="lede">In cross-attention the questions and the answers come from different places. The <b>queries</b> come from the sequence being produced (a translation, an image being drawn); the <b>keys and values</b> come from the input it should consult (the source sentence, the text prompt). It is the bridge between an encoder and a decoder.</p>
-  <div class="toc"><a href="#pic">1 · Self versus cross</a><a href="#train">2 · A translator, trained live</a><a href="#img">3 · Text guiding an image</a><a href="#maths">4 · The maths and shapes</a><a href="#where">5 · Where it is used</a><a href="#py">6 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#pic">1 · Self versus cross</a><a href="#train">2 · A translator, trained live</a><a href="#img">3 · Text guiding an image</a><a href="#maths">4 · The maths and shapes</a><a href="#where">5 · Where it is used</a><a href="#py">6 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What is cross-attention, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p><a class="term" data-t="cross-attention">Cross-attention</a> is attention between two different sequences. The queries come from the one being produced (a translation, a transcript, an image); the keys and values come from the input it should consult. It is how an <a class="term" data-t="decoder">decoder</a> reads an <a class="term" data-t="encoder">encoder</a>, and how a text prompt steers an image model.</p>
+      <h3>How it works</h3><ol class="steps2"><li>Encode the input once into vectors (keys and values).</li><li>At each output position, form a query from the output so far.</li><li>Attend over the input: score, softmax, weighted average.</li><li>Combine the result with the rest of the decoder layer.</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>An interpreter with the speech transcript in front of them: for each word they say, their eyes jump to the part of the transcript that matters, which is not always the next word in order.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Inputs and outputs can differ in length and kind (audio to text, text to image)</li><li>Input keys and values are computed once and reused</li><li>Learns alignments without labels</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Needs a separate encoder</li><li>Decoder-only models do not use it</li><li>Weights over a long input can be diffuse</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="cross-attention">Cross-attention</a><a class="term" data-t="encoder">Encoder</a><a class="term" data-t="decoder">Decoder</a><a class="term" data-t="qkv">Query, key, value</a><a class="term" data-t="seq2seq">Sequence to sequence</a><a class="term" data-t="attention">Attention</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section id="pic" class="card hl">

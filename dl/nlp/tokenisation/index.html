@@ -20,7 +20,25 @@
   <p class="kicker">Deep Learning &middot; NLP</p>
   <h1>Tokenisation: <span class="grad">text to numbers</span></h1>
   <p class="lede">A neural network only understands numbers. Before a model can read a sentence, the sentence is cut into pieces called tokens, and each piece is replaced by its id in a fixed vocabulary. How you cut matters: it decides what the model can see, how long its inputs are, and which words it can never spell.</p>
-  <div class="toc"><a href="#five">1 · Your text, five ways</a><a href="#bpe">2 · BPE, step by step</a><a href="#trade">3 · Vocabulary vs length</a><a href="#wordpiece">4 · WordPiece</a><a href="#quirks">5 · Quirks</a><a href="#code">6 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#five">1 · Your text, five ways</a><a href="#bpe">2 · BPE, step by step</a><a href="#trade">3 · Vocabulary vs length</a><a href="#wordpiece">4 · WordPiece</a><a href="#quirks">5 · Quirks</a><a href="#code">6 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What is tokenisation, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p>A neural network can only do arithmetic, so text must first become numbers. <a class="term" data-t="tokenisation">Tokenisation</a> cuts text into pieces called <a class="term" data-t="token">tokens</a> and gives each piece an id from a fixed <a class="term" data-t="vocabulary">vocabulary</a>. Whole words make the vocabulary huge and leave unknown words (<a class="term" data-t="oov">out of vocabulary</a>); single characters make sequences very long. Modern models use <a class="term" data-t="subword">subwords</a>: common words stay whole, rare words split into reusable parts.</p>
+      <h3>How it works</h3><ol class="steps2"><li>Pick a unit: word, character, byte or subword.</li><li>For subwords, learn merges from a corpus: <a class="term" data-t="bpe">BPE</a> repeatedly glues the most frequent neighbouring pair; <a class="term" data-t="wordpiece">WordPiece</a> picks the pair that most raises likelihood.</li><li>Apply the learned rules to new text to get a list of ids.</li><li>The model only ever sees those ids.</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>Like Lego: a small box of standard bricks can build any model. "unbelievable" becomes "un" + "believ" + "able", pieces that also appear in hundreds of other words.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Any text can be encoded, nothing is unknown</li><li>Common words cost one token</li><li>Vocabulary size is a dial you control</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Rare words and other languages cost more tokens</li><li>Numbers and spelling get split oddly</li><li>Tokeniser choices are fixed once the model is trained</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="token">Token</a><a class="term" data-t="tokenisation">Tokenisation</a><a class="term" data-t="vocabulary">Vocabulary</a><a class="term" data-t="subword">Subword</a><a class="term" data-t="bpe">BPE</a><a class="term" data-t="wordpiece">WordPiece</a><a class="term" data-t="oov">Out of vocabulary</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section id="five" class="card hl">

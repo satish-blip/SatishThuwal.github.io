@@ -20,7 +20,25 @@
   <p class="kicker">Deep Learning &middot; NLP</p>
   <h1>Recurrent networks: <span class="grad">reading in order</span></h1>
   <p class="lede">Text is a sequence: the meaning of a word depends on what came before it. A recurrent neural network reads one token at a time and carries a running summary, its hidden state, from each step to the next. The same small set of weights is reused at every step, so it can read sequences of any length.</p>
-  <div class="toc"><a href="#unroll">1 · Unrolled through time</a><a href="#memo">2 · Can it remember?</a><a href="#vanish">3 · Vanishing and exploding</a><a href="#lm">4 · A character language model</a><a href="#maths">5 · The maths</a><a href="#code">6 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#unroll">1 · Unrolled through time</a><a href="#memo">2 · Can it remember?</a><a href="#vanish">3 · Vanishing and exploding</a><a href="#lm">4 · A character language model</a><a href="#maths">5 · The maths</a><a href="#code">6 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What is a recurrent neural network, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p>An <a class="term" data-t="rnn">RNN</a> reads a sequence one item at a time and keeps a running summary, its <a class="term" data-t="hidden-state">hidden state</a>. At each step it mixes the new input with the old summary using the same weights, so it can handle sequences of any length. It is trained by <a class="term" data-t="bptt">backpropagation through time</a>, which runs the chain rule backwards through every step.</p>
+      <h3>How it works</h3><ol class="steps2"><li>Start with a hidden state of zeros.</li><li>For each token: new state = tanh(input weights × token + recurrent weights × old state + bias).</li><li>Read predictions off the hidden state.</li><li>Train with BPTT; clip big gradients, and expect the <a class="term" data-t="vanishing-gradient">vanishing gradient</a> for long gaps.</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>Reading a novel while keeping a one-line note of the plot so far, rewriting the note after every sentence. Anything that falls off the note is gone.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Handles any sequence length with fixed parameters</li><li>Natural fit for streaming input</li><li>Small and simple</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Forgets long-range information (vanishing gradients)</li><li>Must run step by step, so it is slow to train</li><li>Largely replaced by transformers for text</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="rnn">RNN</a><a class="term" data-t="hidden-state">Hidden state</a><a class="term" data-t="bptt">BPTT</a><a class="term" data-t="vanishing-gradient">Vanishing gradient</a><a class="term" data-t="tanh">tanh</a><a class="term" data-t="gradient">Gradient</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section id="unroll" class="card hl">
@@ -120,7 +138,7 @@ torch.nn.utils.clip_grad_norm_(params, max_norm=<span class="s">5.0</span>)   <s
 <script>
 (function(){
 const {$, fmt} = ML; const esc=NLP.esc;
-const f2=v=>(v>=0?' ':'')+v.toFixed(2);
+const f2=v=>(v>=0?'\\phantom{-}':'')+v.toFixed(2);
 
 /* ---------- 1. unrolled ---------- */
 const NH=6, ND=4, r0=ML.rng(42); const Wx=NLP.randM(NH,ND,r0,0.8), Wh=NLP.randM(NH,NH,r0,0.45), bh=Array.from({length:NH},()=>r0.gauss()*0.1);

@@ -20,7 +20,25 @@
   <p class="kicker">Deep Learning &middot; NLP</p>
   <h1>Embeddings: <span class="grad">bag of words to BERT</span></h1>
   <p class="lede">After tokenisation every word is just an id. An embedding turns that id into a list of numbers, and the whole history of NLP is a search for better lists: ones where similar meanings get similar numbers. This page walks the path from counting words, through word2vec, to vectors that change with context.</p>
-  <div class="toc"><a href="#onehot">1 · One-hot</a><a href="#bow">2 · Bag of words and TF-IDF</a><a href="#w2v">3 · word2vec, trained live</a><a href="#context">4 · Context changes meaning</a><a href="#timeline">5 · The timeline</a><a href="#code">6 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#onehot">1 · One-hot</a><a href="#bow">2 · Bag of words and TF-IDF</a><a href="#w2v">3 · word2vec, trained live</a><a href="#context">4 · Context changes meaning</a><a href="#timeline">5 · The timeline</a><a href="#code">6 · Python</a></div>
+</section>
+
+<section id="intro" class="card intro">
+  <p class="kick">Start here</p>
+  <h2>What is an embedding, in plain words?</h2>
+  <div class="grid2 prose">
+    <div>
+      <h3>The idea</h3><p>An <a class="term" data-t="embedding">embedding</a> is a list of numbers that stands for a word (or a sentence), chosen so that words with similar meanings get similar lists. Early methods counted words (<a class="term" data-t="one-hot">one-hot</a>, <a class="term" data-t="bag-of-words">bag of words</a>, <a class="term" data-t="tf-idf">TF-IDF</a>); <a class="term" data-t="word2vec">word2vec</a> learned one vector per word by predicting its neighbours; <a class="term" data-t="contextual">contextual</a> models such as <a class="term" data-t="bert">BERT</a> give a word a different vector in every sentence.</p>
+      <h3>How it works</h3><ol class="steps2"><li>Give every word a vector (random at first).</li><li>Train on a simple job, such as predicting nearby words.</li><li>Words used in similar contexts drift together; closeness is measured by <a class="term" data-t="cosine">cosine similarity</a>.</li><li>Contextual models then adjust each vector using the rest of the sentence.</li></ol>
+    </div>
+    <div>
+      <h3>An everyday picture</h3><p>A map of a city: cafés cluster near other cafés, banks near banks. A word’s position tells you what neighbourhood of meaning it lives in.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Turns meaning into geometry you can compute with</li><li>Learned from raw text, no labels needed</li><li>Feeds every later NLP model</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Static vectors blur words with two meanings ("bank")</li><li>Learns the biases present in its training text</li><li>Toy corpora give fragile analogies</li></ul></div></div>
+      
+      <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="embedding">Embedding</a><a class="term" data-t="one-hot">One-hot</a><a class="term" data-t="bag-of-words">Bag of words</a><a class="term" data-t="tf-idf">TF-IDF</a><a class="term" data-t="word2vec">word2vec</a><a class="term" data-t="cosine">Cosine similarity</a><a class="term" data-t="contextual">Contextual embedding</a><a class="term" data-t="bert">BERT</a></div>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+    </div>
+  </div>
 </section>
 
 <section id="onehot" class="card">
