@@ -45,14 +45,23 @@
 
   /* ---------- copy email ---------- */
   var cp = document.querySelector('.copy');
-  if (cp && navigator.clipboard) {
+  if (cp) {
     cp.hidden = false;
     var st = document.getElementById('copy-status'), t;
+    function flash(msg, ok) {
+      cp.textContent = msg; cp.classList.toggle('ok', ok); if (st) st.textContent = ok ? 'Email address copied' : 'Copy failed, the address is selected';
+      clearTimeout(t); t = setTimeout(function () { cp.textContent = 'Copy'; cp.classList.remove('ok'); if (st) st.textContent = ''; }, 1600);
+    }
+    function legacy(txt) { // older browsers, or when the clipboard permission is refused
+      var ta = document.createElement('textarea'); ta.value = txt; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); var ok = false; try { ok = document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta);
+      if (!ok) { var r = document.createRange(), s = window.getSelection(); r.selectNodeContents(document.querySelector('.mail-link')); s.removeAllRanges(); s.addRange(r); }
+      flash(ok ? 'Copied' : 'Press Ctrl+C', ok);
+    }
     cp.addEventListener('click', function () {
-      navigator.clipboard.writeText(cp.getAttribute('data-copy')).then(function () {
-        cp.textContent = 'Copied'; cp.classList.add('ok'); if (st) st.textContent = 'Email address copied';
-        clearTimeout(t); t = setTimeout(function () { cp.textContent = 'Copy'; cp.classList.remove('ok'); if (st) st.textContent = ''; }, 1600);
-      });
+      var txt = cp.getAttribute('data-copy');
+      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(txt).then(function () { flash('Copied', true); }, function () { legacy(txt); });
+      else legacy(txt);
     });
   }
 
