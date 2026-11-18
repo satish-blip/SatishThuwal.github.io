@@ -51,7 +51,7 @@
       <span><i class="sw k0"></i>class −1</span><span><i class="sw k1"></i>class +1</span>
       <span><i class="sw" style="background:transparent;box-shadow:0 0 0 2px var(--ink)"></i>support vector on the margin (0 &lt; α &lt; C)</span>
       <span><i class="sw" style="background:transparent;box-shadow:0 0 0 2px var(--c4)"></i>margin violator (α = C)</span>
-      <span>solid line \(f(x)=0\), dashed \(f(x)=\pm1\)</span>
+      <span>solid line \(f(x)=0\), dashed \(f(x)=\pm1\)</span><span><i class="sw" style="background:#eab308"></i>gold: hard-margin line, when ticked</span>
     </div>
   </div>
   <div>
@@ -67,7 +67,7 @@
           <div class="ctl"><label for="noise">Noise <output id="noiseOut"></output></label><input type="range" id="noise" min="0" max="1" step="0.05" value="0.3"></div>
         </div>
         <div class="ctl"><span class="lbl">Clicking adds</span><div class="seg" id="addSeg"><button data-v="0" class="on">● class −1</button><button data-v="1">● class +1</button></div></div>
-        <div class="row"><label class="toggle"><input type="checkbox" id="sizeA">Size points by α</label><label class="toggle"><input type="checkbox" id="showM" checked>Margins</label></div>
+        <div class="row"><label class="toggle"><input type="checkbox" id="sizeA">Size points by α</label><label class="toggle"><input type="checkbox" id="showM" checked>Margins</label><label class="toggle"><input type="checkbox" id="showH">Compare: hard margin (C → ∞)</label></div>
         <div class="row"><button class="btn" id="resample">New sample</button></div>
       </div>
     </div>
@@ -207,23 +207,28 @@ function load(){ const d=ML.dataset(S.ds,S.n,S.noise,S.seed); S.X=d.X.map(p=>p.s
 const opts=()=>({kernel:S.kernel, C:S.C, gamma:S.gamma, degree:S.degree, coef0:1});
 const main=new ML.Plot('#mainPlot'); let dragI=-1, hoverI=-1;
 
-function refit(){ S.m = Mo.SVM(S.X, S.y, opts()); }
+function refit(){ S.m = Mo.SVM(S.X, S.y, opts()); S.mh = $('#showH').checked ? Mo.SVM(S.X, S.y, Object.assign(opts(),{C:1e5,maxIter:60000})) : null; }
 function drawMain(){ const P=ML.palette(), m=S.m; main.clear();
   main.regions((x,y)=>ML.sigmoid(1.6*m.score([x,y])), 5); main.grid(1);
   const f=(x,y)=>m.score([x,y]);
   if($('#showM').checked){ main.contour(f,1,{color:P.k1,width:1.6,dash:[6,5]}); main.contour(f,-1,{color:P.k0,width:1.6,dash:[6,5]}); }
   main.contour(f,0,{color:P.ink,width:2.6});
+  if($('#showH').checked && S.mh){ const fh=(x,y)=>S.mh.score([x,y]); main.contour(fh,1,{color:P.star||'#eab308',width:1.4,dash:[3,4]}); main.contour(fh,-1,{color:P.star||'#eab308',width:1.4,dash:[3,4]}); main.contour(fh,0,{color:P.star||'#eab308',width:3}); }
   if(S.kernel==='linear' && m.w){ const mid=[0,0]; const wn=Math.hypot(m.w[0],m.w[1]); if(wn>1e-9){ const p0=[-m.b*m.w[0]/(wn*wn), -m.b*m.w[1]/(wn*wn)]; main.arrow(p0[0],p0[1],p0[0]+m.w[0]/wn*0.9,p0[1]+m.w[1]/wn*0.9,{color:P.c1,width:2.5}); main.text('w',p0[0]+m.w[0]/wn*0.95,p0[1]+m.w[1]/wn*0.95,{color:P.c1,dx:4,halo:true}); } }
   const sizeA=$('#sizeA').checked, amax=Math.max(1e-9,...m.alpha);
   main.points(S.X,S.y,{r:4.6, size: sizeA ? i=>3+9*Math.sqrt(m.alpha[i]/amax) : null,
     ring:i=>{ const a=m.alpha[i]; if(a<=1e-8) return i===hoverI||i===dragI?P.muted:false; return a>=S.C-1e-6 ? P.c4 : P.ink; }});
   stats(); }
 function stats(){ const m=S.m, n=S.X.length; const sv=m.sv.length, bound=m.sv.filter(i=>m.alpha[i]>=S.C-1e-6).length; let ok=0; S.X.forEach((x,i)=>{ if((m.score(x)>=0?1:0)===S.y[i]) ok++; });
-  const cells=[['c1',sv,'support vectors'],['c3',sv-bound,'on the margin'],['c4',bound,'violators (α = C)'],['c5',ML.pct(ok/n),'training accuracy'],['c2',m.iters,'SMO iterations']];
+  const cells=[['c1',sv,'support vectors'],['c3',sv-bound,'on the margin'],['c4',bound,'violators (α = C)'],['c5',ML.pct(ok/n),'training accuracy'],['c2',m.converged?m.iters.toLocaleString():m.iters.toLocaleString()+' (cap)','SMO iterations'+(m.converged?'':': stopped early')]];
   if(S.kernel==='linear') cells.push(['c1',fmt(2/m.wnorm,3),'margin width 2/‖w‖']);
   $('#stats').innerHTML=cells.map(([c,v,l])=>`<div class="stat ${c}"><b>${v}</b><span>${l}</span></div>`).join('');
   const H={linear:'Linear kernel: the boundary is a straight line and \\(w=\\sum\\alpha_iy_ix_i\\) is drawn as the arrow.', poly:'Polynomial kernel \\((\\gamma x^\\top z+1)^d\\): degree 2 gives conics (circles, ellipses, hyperbolas); higher degrees give wigglier curves.', rbf:'RBF kernel: each support vector adds a Gaussian bump of radius about \\(1/\\sqrt\\gamma\\)\\(\\,=\\,\\)'+fmt(1/Math.sqrt(S.gamma),2)+'.', sigmoid:'Sigmoid kernel \\(\\tanh(\\gamma x^\\top z+1)\\): inspired by neural nets, but not positive semi-definite for all settings, so it can behave oddly. Usually a poor choice.'};
-  $('#kHint').innerHTML=H[S.kernel]; ML.renderMath($('#kHint')); drawSide(); }
+  let extra='';
+  if(sv>0 && bound===sv) extra+=' <b>Every support vector has \\(\\alpha_i=C\\)</b>: C is so small that the SVM prefers a very wide margin over getting points right, and every point sits inside it.'+(S.kernel==='linear'?' Then \\(w=C\\sum_i y_ix_i\\) is just C times (sum of class +1 points minus sum of class −1 points), so the line is set by the class averages, not by the closest points. Raise C (try 100 or more) to get the maximum-margin line, or tick "Compare: hard margin".':'');
+  if(S.mh){ let okh=0; S.X.forEach((x,i)=>{ if((S.mh.score(x)>=0?1:0)===S.y[i]) okh++; }); extra+=` Gold: the same kernel with C = 100,000 (hard margin): training accuracy ${ML.pct(okh/n)}${S.kernel==='linear'?', margin width '+fmt(2/S.mh.wnorm,3):''}${okh<n?'. Not every point is separated, so a true hard margin does not exist for this data and kernel; this is the closest soft version.':'.'}`; }
+  if(!m.converged) extra+=' <b>The solver hit its 200,000-step cap</b>, so this boundary is approximate. Very large C with a large γ or high degree makes the problem badly conditioned (LIBSVM needs millions of steps too); lower C or γ.';
+  $('#kHint').innerHTML=H[S.kernel]+extra; ML.renderMath($('#kHint')); drawSide(); }
 
 function drawSide(){ const m=S.m, P=ML.palette();
   // KKT table
@@ -274,7 +279,7 @@ ML.bindRange('deg', v=>{ S.degree=v; update(); });
 ML.bindRange('nPts', v=>{ S.n=v; load(); update(); });
 ML.bindRange('noise', v=>{ S.noise=v; load(); update(); }, v=>v.toFixed(2));
 ML.bindSeg('addSeg', v=>{ S.add=+v; });
-$('#sizeA').onchange=$('#showM').onchange=drawMain;
+$('#sizeA').onchange=$('#showM').onchange=drawMain; $('#showH').onchange=update;
 $('#resample').onclick=()=>{ S.seed++; load(); update(); };
 
 /* ---------- 3D lift ---------- */

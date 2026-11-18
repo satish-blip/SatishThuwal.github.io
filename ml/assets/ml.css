@@ -244,3 +244,5 @@ textarea.txt,input.txt{color:var(--ink)}
 .method{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:8px 0;background:var(--card)}
 .method h4{margin:0 0 6px;font-size:14px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .method h4 span{font:500 12px "JetBrains Mono",monospace;color:var(--muted)}
+
+[hidden]{display:none!important}

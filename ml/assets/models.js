@@ -136,7 +136,7 @@ M.SVM = function(X, yb, o={}){
   const sv=[]; for(let t=0;t<n;t++) if(a[t]>1e-8) sv.push(t);
   const svX=sv.map(t=>X[t]), svC=sv.map(t=>a[t]*y[t]);
   const score = x => { let s=b; for(let k=0;k<svX.length;k++) s+=svC[k]*K(svX[k],x); return s; };
-  const m = { name:'SVM', alpha:Array.from(a), b, sv, C, kernel:o.kernel||'rbf', iters:it, K, score, proba:x=>ML.sigmoid(2.5*score(x)), y };
+  const m = { name:'SVM', alpha:Array.from(a), b, sv, C, kernel:o.kernel||'rbf', iters:it, converged:it<maxIt, K, score, proba:x=>ML.sigmoid(2.5*score(x)), y };
   if((o.kernel||'rbf')==='linear'){ m.w=[0,0]; sv.forEach(t=>{ m.w[0]+=a[t]*y[t]*X[t][0]; m.w[1]+=a[t]*y[t]*X[t][1]; }); }
   // dual objective and margins
   let dual=0; for(let t=0;t<n;t++) dual+=a[t]; let qq=0; for(const s of sv) for(const u of sv) qq+=a[s]*a[u]*Q(s,u); m.dual=dual-0.5*qq; m.wnorm=Math.sqrt(Math.max(0,qq));
