@@ -71,7 +71,7 @@
         <div class="row"><button class="btn" id="resample">New sample</button></div>
       </div>
     </div>
-    <div class="card"><div class="stats" id="stats"></div><p class="hint" id="kHint"></p></div>
+    <div class="card"><div class="stats" id="stats"></div><div class="note" id="sepNote" style="margin-top:10px"></div><p class="hint" id="kHint"></p></div>
   </div>
 </section>
 
@@ -207,13 +207,17 @@ function load(){ const d=ML.dataset(S.ds,S.n,S.noise,S.seed); S.X=d.X.map(p=>p.s
 const opts=()=>({kernel:S.kernel, C:S.C, gamma:S.gamma, degree:S.degree, coef0:1});
 const main=new ML.Plot('#mainPlot'); let dragI=-1, hoverI=-1;
 
-function refit(){ S.m = Mo.SVM(S.X, S.y, opts()); S.mh = $('#showH').checked ? Mo.SVM(S.X, S.y, Object.assign(opts(),{C:1e5,maxIter:60000})) : null; }
+function refit(){ S.m = Mo.SVM(S.X, S.y, opts()); clearTimeout(S.hT); S.hT=setTimeout(hardCheck, S.mh?40:160); }
+/* is the data separable with this kernel? fit with C = 10^6: if every point ends up with y f(x) >= 1, the hard margin exists and C* = max alpha */
+function hardCheck(){ const mh=Mo.SVM(S.X, S.y, Object.assign(opts(),{C:1e6,maxIter:60000}));
+  const sep = mh.converged && mh.margins.every(v=>v>=1-1e-3), Cstar = Math.max(...mh.alpha);
+  S.mh = mh; S.hard = {sep, Cstar, conv:mh.converged}; drawMain(); }
 function drawMain(){ const P=ML.palette(), m=S.m; main.clear();
   main.regions((x,y)=>ML.sigmoid(1.6*m.score([x,y])), 5); main.grid(1);
   const f=(x,y)=>m.score([x,y]);
   if($('#showM').checked){ main.contour(f,1,{color:P.k1,width:1.6,dash:[6,5]}); main.contour(f,-1,{color:P.k0,width:1.6,dash:[6,5]}); }
   main.contour(f,0,{color:P.ink,width:2.6});
-  if($('#showH').checked && S.mh){ const fh=(x,y)=>S.mh.score([x,y]); main.contour(fh,1,{color:P.star||'#eab308',width:1.4,dash:[3,4]}); main.contour(fh,-1,{color:P.star||'#eab308',width:1.4,dash:[3,4]}); main.contour(fh,0,{color:P.star||'#eab308',width:3}); }
+  if($('#showH').checked && S.mh && S.mh.kernel===S.kernel){ const fh=(x,y)=>S.mh.score([x,y]); main.contour(fh,1,{color:P.star||'#eab308',width:1.4,dash:[3,4]}); main.contour(fh,-1,{color:P.star||'#eab308',width:1.4,dash:[3,4]}); main.contour(fh,0,{color:P.star||'#eab308',width:3}); }
   if(S.kernel==='linear' && m.w){ const mid=[0,0]; const wn=Math.hypot(m.w[0],m.w[1]); if(wn>1e-9){ const p0=[-m.b*m.w[0]/(wn*wn), -m.b*m.w[1]/(wn*wn)]; main.arrow(p0[0],p0[1],p0[0]+m.w[0]/wn*0.9,p0[1]+m.w[1]/wn*0.9,{color:P.c1,width:2.5}); main.text('w',p0[0]+m.w[0]/wn*0.95,p0[1]+m.w[1]/wn*0.95,{color:P.c1,dx:4,halo:true}); } }
   const sizeA=$('#sizeA').checked, amax=Math.max(1e-9,...m.alpha);
   main.points(S.X,S.y,{r:4.6, size: sizeA ? i=>3+9*Math.sqrt(m.alpha[i]/amax) : null,
@@ -226,8 +230,14 @@ function stats(){ const m=S.m, n=S.X.length; const sv=m.sv.length, bound=m.sv.fi
   const H={linear:'Linear kernel: the boundary is a straight line and \\(w=\\sum\\alpha_iy_ix_i\\) is drawn as the arrow.', poly:'Polynomial kernel \\((\\gamma x^\\top z+1)^d\\): degree 2 gives conics (circles, ellipses, hyperbolas); higher degrees give wigglier curves.', rbf:'RBF kernel: each support vector adds a Gaussian bump of radius about \\(1/\\sqrt\\gamma\\)\\(\\,=\\,\\)'+fmt(1/Math.sqrt(S.gamma),2)+'.', sigmoid:'Sigmoid kernel \\(\\tanh(\\gamma x^\\top z+1)\\): inspired by neural nets, but not positive semi-definite for all settings, so it can behave oddly. Usually a poor choice.'};
   let extra='';
   if(sv>0 && bound===sv) extra+=' <b>Every support vector has \\(\\alpha_i=C\\)</b>: C is so small that the SVM prefers a very wide margin over getting points right, and every point sits inside it.'+(S.kernel==='linear'?' Then \\(w=C\\sum_i y_ix_i\\) is just C times (sum of class +1 points minus sum of class −1 points), so the line is set by the class averages, not by the closest points. Raise C (try 100 or more) to get the maximum-margin line, or tick "Compare: hard margin".':'');
-  if(S.mh){ let okh=0; S.X.forEach((x,i)=>{ if((S.mh.score(x)>=0?1:0)===S.y[i]) okh++; }); extra+=` Gold: the same kernel with C = 100,000 (hard margin): training accuracy ${ML.pct(okh/n)}${S.kernel==='linear'?', margin width '+fmt(2/S.mh.wnorm,3):''}${okh<n?'. Not every point is separated, so a true hard margin does not exist for this data and kernel; this is the closest soft version.':'.'}`; }
+  if(S.mh && $('#showH').checked){ let okh=0; S.X.forEach((x,i)=>{ if((S.mh.score(x)>=0?1:0)===S.y[i]) okh++; }); extra+=` Gold: the same kernel with C = 1,000,000 (hard margin): training accuracy ${ML.pct(okh/n)}${S.kernel==='linear'?', margin width '+fmt(2/S.mh.wnorm,3):''}${okh<n?'. Not every point is separated, so a true hard margin does not exist for this data and kernel; this is the closest soft version.':'.'}`; }
   if(!m.converged) extra+=' <b>The solver hit its 200,000-step cap</b>, so this boundary is approximate. Very large C with a large γ or high degree makes the problem badly conditioned (LIBSVM needs millions of steps too); lower C or γ.';
+  const hd=S.hard, kn={linear:'a straight line',poly:'this polynomial kernel',rbf:'this RBF kernel',sigmoid:'this sigmoid kernel'}[S.kernel];
+  $('#sepNote').className='note'+(hd?(hd.sep?' ok':' warn'):'');
+  $('#sepNote').innerHTML = !hd ? 'Checking whether these points can be separated perfectly…' : hd.sep
+    ? `<b>Separable with ${kn}.</b> A hard margin exists. Any C ≥ <b>C* = ${fmt(hd.Cstar,3)}</b> gives exactly the hard-margin (maximum-margin) boundary; you have C = ${fmt(S.C,3)}${S.C>=hd.Cstar-1e-9?', so this <b>is</b> the hard-margin solution.':', so the SVM is trading some violations for a wider margin. Move C above C* to get it.'}`
+    : hd.conv ? `<b>Not separable with ${kn}.</b> No line or surface of this kind puts every point on the right side with room to spare, so a hard margin does not exist; every C gives a compromise, and C sets how much it tolerates.`
+    : `Could not decide within 60,000 solver steps whether the points are separable with ${kn} (badly conditioned settings); lower γ or the degree.`;
   $('#kHint').innerHTML=H[S.kernel]+extra; ML.renderMath($('#kHint')); drawSide(); }
 
 function drawSide(){ const m=S.m, P=ML.palette();
@@ -279,7 +289,7 @@ ML.bindRange('deg', v=>{ S.degree=v; update(); });
 ML.bindRange('nPts', v=>{ S.n=v; load(); update(); });
 ML.bindRange('noise', v=>{ S.noise=v; load(); update(); }, v=>v.toFixed(2));
 ML.bindSeg('addSeg', v=>{ S.add=+v; });
-$('#sizeA').onchange=$('#showM').onchange=drawMain; $('#showH').onchange=update;
+$('#sizeA').onchange=$('#showM').onchange=drawMain; $('#showH').onchange=drawMain;
 $('#resample').onclick=()=>{ S.seed++; load(); update(); };
 
 /* ---------- 3D lift ---------- */
