@@ -246,3 +246,66 @@ textarea.txt,input.txt{color:var(--ink)}
 .method h4 span{font:500 12px "JetBrains Mono",monospace;color:var(--muted)}
 
 [hidden]{display:none!important}
+
+/* ==========================================================================
+   Shared frame with the homepage ("light touch", 2026-11-18):
+   paper background, Newsreader / Hanken Grotesk / IBM Plex Mono, vermilion for
+   links and actions, flatter cards. Data colours (--c1..--c6, --k0/--k1, --pos,
+   --negc, --star, --grad on bars) are deliberately left alone.
+   ========================================================================== */
+:root{
+  --bg:#faf7f2; --card:#fffdf9; --ink:#171512; --muted:#57524a; --line:#e3dccf; --soft:#f2ede4; --plotbg:#fffdf9;
+  --tail:#c2410c; --rule-strong:#bdb4a5;
+  --shadow:none;
+  --serif:"Newsreader","Iowan Old Style",Georgia,serif;
+  --sans:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#12110f; --card:#1a1916; --ink:#ede8df; --muted:#a8a196; --line:#2e2b26; --soft:#22201c; --plotbg:#161513; --tail:#fb7a45; --rule-strong:#4a453d}
+}
+:root[data-theme="dark"]{--bg:#12110f; --card:#1a1916; --ink:#ede8df; --muted:#a8a196; --line:#2e2b26; --soft:#22201c; --plotbg:#161513; --tail:#fb7a45; --rule-strong:#4a453d}
+
+body{font-family:var(--sans);background-image:none}
+h1,h2,h3,h4{font-family:var(--serif);font-optical-sizing:auto}
+h1{font-weight:500;letter-spacing:-.025em}
+.grad{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:var(--muted);font-style:italic;font-weight:400}
+.card h2,.card h3{font-weight:600}
+code,.mono,.ctl output,pre.code,.tok,.heat .c{font-family:var(--mono)}
+a{color:var(--ink);text-decoration-color:var(--tail);text-underline-offset:3px}
+a:hover{color:var(--tail)}
+a.term{color:inherit}
+:focus-visible{outline-color:var(--tail)}
+::selection{background:var(--tail);color:#fff}
+
+/* top bar: wordmark + section links, as on the homepage */
+.top{background:color-mix(in srgb,var(--bg) 90%,transparent);border-bottom:1px solid var(--line)}
+.top-in{height:58px}
+.home{font:500 18px/1 var(--serif);color:var(--ink);letter-spacing:-.01em}
+.home:hover{color:var(--tail)}
+.algnav a{font:500 13px/1 var(--sans);border-radius:0;padding:20px 2px 18px;margin:0 8px;color:var(--muted);position:relative}
+.algnav a:hover{background:none;color:var(--ink)}
+.algnav a.on{background:none;color:var(--ink)}
+.algnav a.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--tail)}
+
+/* page head */
+.kicker,.tag,.kick{font-family:var(--mono)!important;font-weight:500!important;letter-spacing:.08em!important;color:var(--tail)!important}
+.lede{font:400 19px/1.55 var(--serif)}
+.toc a{border-radius:3px;font:500 12.5px/1.2 var(--sans);background:transparent;border-color:var(--rule-strong)}
+.toc a:hover{border-color:var(--ink);color:var(--ink)}
+
+/* cards and controls: flatter, squarer */
+.card{border-radius:8px;box-shadow:none}
+.card.hl{background:var(--card);border:1px solid var(--ink)}
+.plot,.treebox,.mathbox,pre.code{border-radius:6px}
+.btn,select{border-radius:4px}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.seg{border-radius:5px}.seg button{border-radius:3px}
+.stat,.note,.step,.dsbtn,.thumb{border-radius:6px}
+.dsbtn.on,.thumb.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.step.on{border-color:var(--ink)}
+
+/* footer line as a small colophon */
+.foot{font:italic 400 15px/1.5 var(--serif);border-top:1px solid var(--ink)}
+.foot a{color:var(--muted)}
