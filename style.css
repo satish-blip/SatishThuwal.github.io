@@ -219,3 +219,16 @@ nav a[aria-current="page"]{color:var(--ink)}
 .ml-count{font-size:13px;color:var(--muted);margin:-8px 0 8px}
 @media (hover:none){.ml-arrow{display:none!important}}
 @media (max-width:600px){.ml-grid3>*{flex-basis:76vw}.ml-grid3{gap:12px}}
+
+/* Pricing Junction header */
+.pj-head{display:flex;align-items:center;gap:18px;margin:6px 0 26px}
+.building .sub+.sub{margin-top:14px!important}
+.pj-logo{width:64px;height:64px;flex:0 0 64px}
+.pj-head h2{margin:0}
+.pj-tag{margin:4px 0 0;color:#5eead4!important;font-weight:600;font-size:17px}
+/* experience stats in the career section */
+.cstats{list-style:none;margin:8px 0 34px;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.cstats li{border-left:2px solid var(--accent);padding:4px 0 4px 16px}
+.cstats strong{display:block;font-family:"Source Serif 4",Georgia,serif;font-size:30px;line-height:1.1;color:var(--ink)}
+.cstats span{font-size:13.5px;color:var(--muted)}
+@media (max-width:640px){.cstats{grid-template-columns:1fr;gap:12px}.pj-logo{width:52px;height:52px;flex-basis:52px}}
