@@ -21,7 +21,7 @@
   <p class="kicker">Traditional ML &middot; Classification</p>
   <h1>Support Vector <span class="grad">Machines</span></h1>
   <p class="lede">An SVM picks the boundary with the widest possible margin, and that boundary depends only on a handful of points: the support vectors. Move points around and watch which ones matter. Then swap kernels to bend the boundary, and see which kernel suits which kind of data.</p>
-  <div class="toc"><a href="#intro">0 · Start here</a><a href="#lab">1 · Live SVM</a><a href="#sv">2 · Support vectors</a><a href="#maths">3 · The maths</a><a href="#trick">4 · Kernel trick in 3D</a><a href="#gallery">5 · Kernel × dataset</a><a href="#cg">6 · C and γ</a><a href="#code">7 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#lab">1 · Live SVM</a><a href="#sv">2 · Support vectors</a><a href="#maths">3 · The maths</a><a href="#trick">4 · Kernel trick: 2D then 3D</a><a href="#gallery">5 · Kernel × dataset</a><a href="#cg">6 · C and γ</a><a href="#code">7 · Python</a></div>
 </section>
 
 <section id="intro" class="card intro">
@@ -133,7 +133,18 @@
 </section>
 
 <section id="trick" class="card">
-  <h2><span class="num">4</span>The kernel trick, seen in 3D</h2>
+  <h2><span class="num">4</span>The kernel trick: from 2D to 3D</h2>
+  <p class="sub">First look at the problem flat, in 2D, where no straight line can work. Then look at the same points after adding a third coordinate, first side-on and then in full 3D.</p>
+  <div class="grid2">
+    <div><h3 style="margin-top:0">Step 1 · The data in 2D: try a straight line</h3><div class="plot sq" id="flatPlot"></div>
+      <div class="ctl"><label for="lineA"><span>Line angle</span><output id="lineAOut"></output></label><input type="range" id="lineA" min="0" max="180" step="1" value="30"></div>
+      <div class="ctl"><label for="lineB"><span>Line offset</span><output id="lineBOut"></output></label><input type="range" id="lineB" min="-3" max="3" step="0.05" value="0"></div>
+      <div class="stats" id="flatStats"></div>
+      <p class="hint">Dashed: the straight line you control. Solid purple: the circle that the 3D plane below cuts out (set by the plane height slider). The middle number is the best any angle and offset can reach (found by trying them all): a line can only cut the ring off on one side, so many points stay wrong.</p></div>
+    <div><h3 style="margin-top:0">Step 2 · Add \(z=x_1^2+x_2^2\) and look from the side</h3><div class="plot sq" id="sidePlot"></div>
+      <p class="hint">Horizontal axis: distance from the centre \(r=\sqrt{x_1^2+x_2^2}\). Vertical axis: the new coordinate \(z=r^2\), so every point sits on the curve \(z=r^2\). The inner class is low, the ring is high, and a flat cut at one height (purple) now separates them. In 2D that cut is the circle on the left.</p></div>
+  </div>
+  <h3>Step 3 · The same lift in full 3D</h3>
   <div class="grid2">
     <div><div class="plot sq" id="liftPlot"></div><p class="hint">Drag to rotate. Lifting with \(\phi(x_1,x_2)=(x_1,\,x_2,\,x_1^2+x_2^2)\) pushes the outer ring up. A flat plane (a <i>linear</i> separator in 3D) now splits the classes, and that plane cuts back down to a circle in 2D.</p></div>
     <div class="prose">
@@ -287,7 +298,24 @@ let ld=null; lift.host.style.touchAction='none'; lift.cv.addEventListener('point
 lift.cv.addEventListener('pointermove',e=>{ if(!ld) return; LI.yaw=ld[2]+(e.clientX-ld[0])*0.01; LI.pitch=Math.max(-0.2,Math.min(1.5,ld[3]+(e.clientY-ld[1])*0.01)); drawLift(); });
 lift.cv.addEventListener('pointerup',()=>ld=null); lift.cv.style.cursor='grab';
 $('#spin').onclick=()=>{ if(LI.spin){ clearInterval(LI.spin); LI.spin=null; $('#spin').textContent='Auto-rotate'; } else { LI.spin=setInterval(()=>{ LI.yaw+=0.02; drawLift(); },30); $('#spin').textContent='Stop'; } };
-ML.bindRange('planeZ', drawLift, v=>v.toFixed(2)); lift.onResize=drawLift;
+ML.bindRange('planeZ', ()=>{ drawLift(); drawFlat(); }, v=>v.toFixed(2)); lift.onResize=drawLift;
+/* ---------- 2D views before the 3D lift ---------- */
+const flat=new ML.Plot('#flatPlot',{bounds:{x0:-3,x1:3,y0:-3,y1:3}}), side=new ML.Plot('#sidePlot',{bounds:{x0:0,x1:3,y0:0,y1:7},equal:false});
+function lineAcc(th,off){ const d=LI.data, n=[Math.cos(th),Math.sin(th)]; let a=0; d.X.forEach((x,i)=>{ if(((n[0]*x[0]+n[1]*x[1]-off)<0?1:0)===d.y[i]) a++; }); a/=d.X.length; return Math.max(a,1-a); }
+let bestLine=0; for(let t=0;t<180;t+=2) for(let o=-3;o<=3;o+=0.05) bestLine=Math.max(bestLine,lineAcc(t*Math.PI/180,o));
+function drawFlat(){ const P=ML.palette(), d=LI.data, th=+$('#lineA').value*Math.PI/180, off=+$('#lineB').value, zc=+$('#planeZ').value, r=Math.sqrt(zc);
+  flat.clear(); flat.grid(1,true); const c=flat.ctx;
+  c.save(); c.strokeStyle=P.c1; c.lineWidth=2.5; c.beginPath(); c.arc(flat.X(0),flat.Y(0),flat.X(r)-flat.X(0),0,7); c.stroke(); c.restore();
+  flat.hline(Math.cos(th),Math.sin(th),-off,{color:P.ink,width:2,dash:[6,5]});
+  flat.points(d.X,d.y);
+  let ok=0; d.X.forEach((x,i)=>{ if(((x[0]*x[0]+x[1]*x[1])<zc?1:0)===d.y[i]) ok++; });
+  $('#flatStats').innerHTML=[['c4',ML.pct(lineAcc(th,off)),'your straight line'],['c2',ML.pct(bestLine),'best any straight line can do'],['c1',ML.pct(ok/d.X.length),'the circle from the 3D plane']].map(([k,v,l])=>`<div class="stat ${k}"><b>${v}</b><span>${l}</span></div>`).join('');
+  side.clear(); side.grid(1,true); const sc=side.ctx;
+  sc.save(); sc.strokeStyle=P.muted; sc.lineWidth=1.5; sc.setLineDash([4,4]); sc.beginPath(); for(let k=0;k<=60;k++){ const rr=k/60*2.65; k?sc.lineTo(side.X(rr),side.Y(rr*rr)):sc.moveTo(side.X(rr),side.Y(rr*rr)); } sc.stroke(); sc.restore();
+  side.line(0,zc,3,zc,{color:P.c1,width:2.5}); side.text('plane z = '+zc.toFixed(2),0.05,zc,{dy:-6,color:P.c1,halo:true});
+  side.line(r,0,r,zc,{color:P.c1,width:1.2,dash:[3,4]}); side.text('r = '+r.toFixed(2),r,0,{dx:4,dy:-6,color:P.c1,halo:true});
+  side.points(d.X.map(x=>{ const q=Math.hypot(x[0],x[1]); return [q,q*q]; }),d.y); }
+ML.bindRange('lineA', drawFlat, v=>v+'\u00b0'); ML.bindRange('lineB', drawFlat, v=>v.toFixed(2)); flat.onResize=drawFlat; side.onResize=drawFlat;
 function drawLiftIfNeeded(){}
 
 /* ---------- gallery ---------- */
@@ -316,8 +344,8 @@ function drawCG(){ const g=$('#cgGrid'), tok=++cgToken, Cs=[0.1,1,100], Gs=[0.1,
     j.cell.lastChild.innerHTML=`train ${ML.pct(ML.accuracy(m,s.Xtr,s.ytr))} · <b>test ${ML.pct(ML.accuracy(m,s.Xte,s.yte))}</b> · ${m.sv.length} SV`; setTimeout(run,0); }; run(); }
 
 main.onResize=()=>S.m&&drawMain(); alphaPlot.onResize=marginPlot.onResize=()=>S.m&&drawSide();
-ML.onTheme(()=>{ drawMain(); drawLift(); buildGallery(); drawCG(); });
-load(); refit(); drawMain(); drawLift(); setTimeout(()=>{ buildGallery(); drawCG(); }, 50);
+ML.onTheme(()=>{ drawMain(); drawLift(); drawFlat(); buildGallery(); drawCG(); });
+load(); refit(); drawMain(); drawLift(); drawFlat(); setTimeout(()=>{ buildGallery(); drawCG(); }, 50);
 })();
 </script>
 </body>
