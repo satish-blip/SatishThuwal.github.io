@@ -240,6 +240,28 @@ const E = [
 ['pretraining','Pre-training','pretraining|pre-trained|pretrained','Training a large model on huge unlabelled text with a self-supervised goal (next token, masked word) before adapting it.'],
 ['fine-tuning','Fine-tuning','fine-tune|fine-tuned|finetuning','Continuing training of a pre-trained model on a smaller task-specific dataset.'],
 ['mlm','Masked language modelling','masked language model|MLM|[MASK]','Hide some tokens and train the model to predict them from both sides of context. BERT\u2019s pre-training task.','dl/nlp/transformers/'],
+/* ---------- retrieval-augmented generation ---------- */
+['rag','Retrieval-augmented generation','RAG|retrieval augmented generation|retrieval-augmented','A language model that first fetches relevant passages from a document store and then writes its answer conditioned on them, so its knowledge can be updated or cited without retraining.','dl/nlp/rag/#intro'],
+['retriever','Retriever','retrievers|retrieval|retrieve|retrieved','The search component of RAG: given a question, return the \\(k\\) passages most likely to help answer it.','dl/nlp/rag/#retrieval'],
+['sparse-retrieval','Sparse retrieval','sparse retriever|lexical search|keyword search','Search over high-dimensional, mostly-zero vectors of word counts (TF-IDF, BM25). Matches exact words only, but is fast, cheap and transparent.','dl/nlp/rag/#retrieval'],
+['dense-retrieval','Dense retrieval','dense retriever|semantic search|vector search','Search with learned embeddings: query and passages become short dense vectors and relevance is their dot product or cosine, so synonyms and paraphrases match.','dl/nlp/rag/#retrieval'],
+['bm25','BM25','Okapi BM25|best matching 25','The standard sparse ranking function: sums, over query words, IDF \\(\\times\\) a saturating term frequency, normalised for document length. Parameters \\(k_1\\) (saturation) and \\(b\\) (length).','dl/nlp/rag/#retrieval'],
+['idf','Inverse document frequency','IDF','\\(\\log\\) of how rare a word is across the collection: rare words are informative, words in every document are not.','dl/nlp/rag/#retrieval'],
+['bi-encoder','Bi-encoder','bi-encoders|dual encoder|two-tower','Two encoders that embed the query and the passage separately; relevance is the dot product of the two vectors. Passages can be embedded once, ahead of time.','dl/nlp/rag/#retrieval'],
+['dpr','Dense Passage Retrieval','DPR','A BERT bi-encoder retriever (Karpukhin et al., 2020) trained so that a question’s vector is close to the vectors of passages that answer it. The retriever inside the original RAG.','dl/nlp/rag/#rag'],
+['mips','Maximum inner product search','MIPS|approximate nearest neighbour|ANN search|nearest-neighbour search','Finding the stored vectors with the largest dot product with a query. Done approximately (FAISS, HNSW) to stay fast over millions of passages.','dl/nlp/rag/#retrieval'],
+['faiss','FAISS','HNSW|vector index|vector database','A library for fast (approximate) similarity search over large sets of vectors; HNSW is a graph-based index it supports.','dl/nlp/rag/#py'],
+['chunk','Chunk','chunks|chunking|passage|passages','A short piece of a document (the RAG paper uses 100-word passages) that is indexed and retrieved as one unit.','dl/nlp/rag/#pipeline'],
+['hybrid-search','Hybrid search','hybrid retrieval|reciprocal rank fusion|RRF','Combining sparse and dense rankings, for example a weighted sum of normalised scores or reciprocal rank fusion \\(\\sum 1/(60+\\text{rank})\\).','dl/nlp/rag/#retrieval'],
+['parametric-memory','Parametric memory','non-parametric memory|parametric knowledge','Knowledge stored in a model’s weights (parametric) versus in an external, swappable index of documents (non-parametric).','dl/nlp/rag/#rag'],
+['marginalise','Marginalise','marginalisation|marginal likelihood|marginalize|marginalized','Sum a probability over an unobserved variable: RAG sums over which passage was used, weighted by how likely the retriever thought it was.','dl/nlp/rag/#rag'],
+['fid','Fusion-in-Decoder','FiD|fusion in decoder','A reader that encodes each retrieved passage separately and lets the decoder attend over all of them at once (Izacard & Grave, 2021).','dl/nlp/rag/#fid'],
+['raft','RAFT','retrieval-augmented fine-tuning','Retrieval-Augmented Fine-Tuning (Zhang et al., 2024): fine-tune on questions paired with a golden document plus distractors and a cited chain-of-thought answer.','dl/nlp/rag/#raft'],
+['distractor','Distractor','distractors|distractor documents','A retrieved passage that looks relevant but does not contain the answer. RAFT trains with them so the model learns to ignore them.','dl/nlp/rag/#raft'],
+['golden-document','Golden document','oracle document|golden documents|oracle','The passage that actually contains the answer to a training question.','dl/nlp/rag/#raft'],
+['chain-of-thought','Chain of thought','CoT|chain-of-thought|reasoning chain','An answer that writes out its reasoning steps before the final answer; RAFT’s answers also quote the supporting passage.','dl/nlp/rag/#raft'],
+['hallucination','Hallucination','hallucinate|hallucinations','A fluent but false statement from a language model. Grounding answers in retrieved text reduces it, but does not remove it.'],
+['exact-match','Exact match','EM','The share of answers that equal a reference answer exactly after light normalisation (case, punctuation, articles). The main open-domain QA metric.'],
 ];
 
 const G = window.GLOSS = {}; const alias = [];

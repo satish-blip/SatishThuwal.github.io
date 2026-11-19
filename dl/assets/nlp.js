@@ -4,7 +4,7 @@
 const ML=window.ML, NLP=window.NLP={};
 NLP.GROUPS={
   nn:{name:'Neural nets',pages:[['neural-networks','Neural nets & XOR'],['activations','Activations'],['optimisers','GD → Adam'],['residual','Residual connections'],['normalisation','Normalisation']]},
-  nlp:{name:'NLP',pages:[['tokenisation','Tokenisation'],['embeddings','Embeddings'],['rnn','RNNs'],['memory','LSTM & GRU'],['attention','Attention'],['cross-attention','Cross-attention'],['self-attention','Self-attention'],['transformers','Transformers']]} };
+  nlp:{name:'NLP',pages:[['tokenisation','Tokenisation'],['embeddings','Embeddings'],['rnn','RNNs'],['memory','LSTM & GRU'],['attention','Attention'],['cross-attention','Cross-attention'],['self-attention','Self-attention'],['transformers','Transformers'],['rag','RAG']]} };
 NLP.nav=function(group,cur){ const n=document.getElementById('algnav'); if(!n) return; const G=NLP.GROUPS[group], other=group==='nn'?'nlp':'nn', base=cur==='hub'?'':'../';
   n.innerHTML=`<a href="${base}"${cur==='hub'?' class="on"':''}>${G.name}</a>`+G.pages.map(([id,t])=>`<a href="${base}${id}/"${id===cur?' class="on" aria-current="page"':''}>${t}</a>`).join('')+`<a href="${base}../${other}/">${NLP.GROUPS[other].name} →</a>`;
   const on=n.querySelector('.on'); if(on) requestAnimationFrame(()=>{ n.scrollLeft=on.offsetLeft-n.clientWidth/2+on.offsetWidth/2; }); };
