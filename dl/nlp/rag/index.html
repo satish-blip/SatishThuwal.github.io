@@ -20,7 +20,7 @@
   <p class="kicker">Deep Learning &middot; NLP &middot; Project</p>
   <h1>Retrieval-augmented generation: <span class="grad">look it up, then answer</span></h1>
   <p class="lede">A language model only knows what was in its training data, frozen at one date, and it cannot tell you where a fact came from. RAG fixes this with a search step: before answering, fetch the few passages most likely to help, put them in front of the model, and let it write an answer grounded in them. This page covers how that search works, the full pipeline, and three papers that shaped it.</p>
-  <div class="toc"><a href="#intro">0 · Start here</a><a href="#retrieval">1 · Sparse vs dense retrieval</a><a href="#pipeline">2 · The full pipeline &amp; LLM adaptation map</a><a href="#rag">3 · Paper: RAG (2020)</a><a href="#fid">4 · Paper: Fusion-in-Decoder (2021)</a><a href="#raft">5 · Paper: RAFT (2024)</a><a href="#compare">6 · Side by side</a><a href="#py">7 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#retrieval">1 · Sparse vs dense retrieval</a><a href="#pipeline">2 · The full pipeline &amp; LLM adaptation map</a><a href="#rag">3 · Paper: RAG (2020)</a><a href="#fid">4 · Paper: Fusion-in-Decoder (2021)</a><a href="#raft">5 · Paper: RAFT (2024)</a><a href="#compare">6 · Side by side</a><a href="#eval">7 · Evaluation</a><a href="#py">8 · Python</a></div>
 </section>
 
 <section id="intro" class="card intro">
@@ -253,8 +253,90 @@
   </table></div>
 </section>
 
+<section id="eval" class="card hl">
+  <h2><span class="num">7</span>Model evaluation: datasets and metrics</h2>
+  <p class="sub">A RAG system can fail in two places, so it is measured in two places: did the <b>retriever</b> find a passage that contains the answer, and did the <b>generator</b> produce the right answer from it? The three papers use the datasets below; every metric they report is explained, with a calculator you can type into.</p>
+
+  <h3>The datasets</h3>
+  <p class="hint">Example items are short illustrations written in the style of each dataset, not quotes from it.</p>
+  <div class="tblwrap"><table class="tbl txt dsets">
+    <tr><th>Dataset</th><th>Used by</th><th>What it tests</th><th>Example item (illustrative)</th><th>Metric</th></tr>
+    <tr><td data-l="Dataset"><b>Natural Questions</b> (NQ)</td><td data-l="Used by">RAG, FiD</td><td data-l="What it tests">Real Google search queries; answers are short spans from Wikipedia. The open-domain version gives only the question, not the page.</td><td data-l="Example"><i>Q:</i> who wrote the novel nineteen eighty-four<br><i>A:</i> George Orwell</td><td data-l="Metric">Exact match</td></tr>
+    <tr><td data-l="Dataset"><b>TriviaQA</b></td><td data-l="Used by">RAG, FiD</td><td data-l="What it tests">Trivia-quiz questions written by enthusiasts; longer, trickier wording, several accepted answer aliases.</td><td data-l="Example"><i>Q:</i> Which planet in our solar system has the most moons?<br><i>A:</i> Saturn</td><td data-l="Metric">Exact match</td></tr>
+    <tr><td data-l="Dataset"><b>WebQuestions</b></td><td data-l="Used by">RAG</td><td data-l="What it tests">Questions from the Google Suggest API, answers from the Freebase knowledge graph.</td><td data-l="Example"><i>Q:</i> what currency does japan use<br><i>A:</i> Japanese yen</td><td data-l="Metric">Exact match</td></tr>
+    <tr><td data-l="Dataset"><b>CuratedTrec</b></td><td data-l="Used by">RAG</td><td data-l="What it tests">TREC QA questions; answers are given as regular expressions, so several surface forms count.</td><td data-l="Example"><i>Q:</i> How tall is Mount Everest?<br><i>A:</i> <span class="mono">8,?8[0-9]{2} (m|metres)</span></td><td data-l="Metric">Exact match (regex)</td></tr>
+    <tr><td data-l="Dataset"><b>SQuAD</b> (open)</td><td data-l="Used by">FiD</td><td data-l="What it tests">Crowd-written questions about Wikipedia paragraphs, used here without the paragraph.</td><td data-l="Example"><i>Q:</i> In what year did the Normans conquer England?<br><i>A:</i> 1066</td><td data-l="Metric">Exact match, token F1</td></tr>
+    <tr><td data-l="Dataset"><b>MS MARCO</b> (NLG)</td><td data-l="Used by">RAG</td><td data-l="What it tests">Real Bing queries with free-form, human-written answers; tests abstractive answering.</td><td data-l="Example"><i>Q:</i> what is a reinsurance treaty<br><i>A:</i> An agreement in which a reinsurer accepts a share of an insurer’s risks.</td><td data-l="Metric">BLEU-1, ROUGE-L</td></tr>
+    <tr><td data-l="Dataset"><b>Jeopardy</b> question generation</td><td data-l="Used by">RAG</td><td data-l="What it tests">Reverse QA: given an answer entity, write a Jeopardy-style clue.</td><td data-l="Example"><i>Input:</i> Hemingway<br><i>Output:</i> “This author of ‘The Old Man and the Sea’ won the 1954 Nobel Prize.”</td><td data-l="Metric">Q-BLEU-1, BLEU-1, human judges</td></tr>
+    <tr><td data-l="Dataset"><b>FEVER</b></td><td data-l="Used by">RAG</td><td data-l="What it tests">Fact verification: is a claim supported, refuted, or is there not enough information in Wikipedia?</td><td data-l="Example"><i>Claim:</i> The Eiffel Tower is in Berlin.<br><i>Label:</i> REFUTES</td><td data-l="Metric">Label accuracy (3-way and 2-way)</td></tr>
+    <tr><td data-l="Dataset"><b>PubMedQA</b></td><td data-l="Used by">RAFT</td><td data-l="What it tests">Biomedical research questions answered yes / no / maybe from paper abstracts.</td><td data-l="Example"><i>Q:</i> Does regular exercise lower resting blood pressure in adults?<br><i>A:</i> yes</td><td data-l="Metric">Accuracy</td></tr>
+    <tr><td data-l="Dataset"><b>HotpotQA</b></td><td data-l="Used by">RAFT</td><td data-l="What it tests">Multi-hop questions: the answer needs facts from two Wikipedia paragraphs.</td><td data-l="Example"><i>Q:</i> In which country was the director of the film Parasite born?<br><i>A:</i> South Korea (needs director → birthplace)</td><td data-l="Metric">Accuracy</td></tr>
+    <tr><td data-l="Dataset"><b>Gorilla APIBench</b> (HuggingFace, Torch Hub, TensorFlow Hub)</td><td data-l="Used by">RAFT</td><td data-l="What it tests">Write the correct API call for a request, using retrieved API documentation.</td><td data-l="Example"><i>Q:</i> load a pretrained model to classify images<br><i>A:</i> <span class="mono">torch.hub.load('pytorch/vision', 'resnet50', pretrained=True)</span></td><td data-l="Metric">AST (code-structure) match accuracy</td></tr>
+  </table></div>
+
+  <h3>Answer metrics, with calculators</h3>
+  <div class="grid2">
+    <div class="prose">
+      <h4>Exact match and token F1 (NQ, TriviaQA, WebQuestions, SQuAD)</h4>
+      <p>Both answers are first <b>normalised</b>: lower-case, remove punctuation, drop the articles a / an / the, collapse spaces. Then</p>
+      <div class="mathbox c1">$$\text{EM}=\max_{g\in\text{gold}}\mathbb 1[\text{norm}(\hat y)=\text{norm}(g)]$$
+      $$P=\frac{|\hat y\cap g|}{|\hat y|},\;\;R=\frac{|\hat y\cap g|}{|g|},\;\;F_1=\frac{2PR}{P+R}$$</div>
+      <p>EM is all-or-nothing; F1 gives partial credit for overlapping words (counted as a multiset of tokens). Both take the best score over all accepted gold answers. The papers report EM averaged over the test set, as a percentage.</p>
+      <div class="ctl"><label for="emP"><span>Model answer</span></label><input id="emP" class="tin" type="text" value="the novelist George Orwell"></div>
+      <div class="ctl"><label for="emG"><span>Gold answers (separate with |)</span></label><input id="emG" class="tin" type="text" value="George Orwell | Eric Arthur Blair"></div>
+      <div class="row" id="emPre" style="flex-wrap:wrap;gap:6px;margin:6px 0"></div>
+    </div>
+    <div><div id="emOut"></div></div>
+  </div>
+
+  <div class="grid2" style="margin-top:18px">
+    <div class="prose">
+      <h4>BLEU-1 and ROUGE-L (MS MARCO, Jeopardy)</h4>
+      <p>For free-form answers exact match is too harsh, so we measure word overlap with a human reference.</p>
+      <div class="mathbox c2">$$\text{BLEU-1}=\text{BP}\cdot\frac{\sum_w\min\big(c_{\hat y}(w),\,c_{r}(w)\big)}{|\hat y|},\qquad \text{BP}=\begin{cases}1&|\hat y|>|r|\\ e^{\,1-|r|/|\hat y|}&\text{otherwise}\end{cases}$$</div>
+      <p><b>BLEU-1</b> is precision of single words, each word’s count <i>clipped</i> to how often it appears in the reference (so repeating “the” does not help), times a brevity penalty for answers that are too short.</p>
+      <div class="mathbox c3">$$P_{L}=\frac{\text{LCS}}{|\hat y|},\;\;R_{L}=\frac{\text{LCS}}{|r|},\;\;\text{ROUGE-L}=\frac{(1+\beta^2)P_LR_L}{R_L+\beta^2P_L}$$</div>
+      <p><b>ROUGE-L</b> uses the longest common subsequence: words that appear in the same order, not necessarily next to each other. With \(\beta=1\) it is the F1 of the LCS; MS MARCO’s official script uses \(\beta=1.2\), which leans towards recall. <b>Q-BLEU-1</b> (Jeopardy) is BLEU-1 re-weighted so that matching the named entities and question words counts more than matching filler words.</p>
+      <div class="ctl"><label for="blC"><span>Model answer</span></label><input id="blC" class="tin" type="text" value="a reinsurer accepts part of an insurer's risks under a treaty"></div>
+      <div class="ctl"><label for="blR"><span>Reference answer</span></label><input id="blR" class="tin" type="text" value="an agreement in which a reinsurer accepts a share of an insurer's risks"></div>
+      <div class="ctl"><label for="blB"><span>ROUGE-L \(\beta\)</span><output id="blBOut"></output></label><input type="range" id="blB" min="1" max="2" step="0.1" value="1.2"></div>
+    </div>
+    <div><div id="blOut"></div></div>
+  </div>
+
+  <div class="grid2" style="margin-top:18px">
+    <div class="prose">
+      <h4>Accuracy (FEVER, PubMedQA, HotpotQA)</h4>
+      <p>When the output is a label, or one short answer judged right or wrong, the metric is the share correct: \(\text{Acc}=\frac{\#\text{correct}}{\#\text{questions}}\). FEVER reports it two ways: <b>3-way</b> (supports / refutes / not enough info) and <b>2-way</b> (supports / refutes only). Worked example: 10 FEVER claims.</p>
+      <div id="accOut"></div>
+    </div>
+    <div class="prose">
+      <h4>AST match (Gorilla APIBench, used by RAFT)</h4>
+      <p>Code can be right with different spacing or argument order, so the generated call is <b>parsed into a syntax tree</b> and compared with the reference API: same function, and every argument the reference specifies must match. Extra optional arguments are allowed; a wrong model name or a call to an API that does not exist (a <a class="term" data-t="hallucination">hallucination</a>) fails.</p>
+      <div class="tblwrap"><table class="tbl txt">
+        <tr><th>Generated call</th><th>Match?</th></tr>
+        <tr><td class="mono">torch.hub.load(repo_or_dir='pytorch/vision', model='resnet50', pretrained=True)</td><td>✓ same function and arguments, written as keywords</td></tr>
+        <tr><td class="mono">torch.hub.load('pytorch/vision','resnet50', pretrained=True, verbose=False)</td><td>✓ extra optional argument is fine</td></tr>
+        <tr><td class="mono">torch.hub.load('pytorch/vision', 'resnet18', pretrained=True)</td><td>✗ wrong model</td></tr>
+        <tr><td class="mono">torchvision.load_pretrained('resnet50')</td><td>✗ API does not exist</td></tr>
+      </table></div>
+    </div>
+  </div>
+
+  <h3>Retrieval metrics, computed live on the search demo</h3>
+  <div class="grid2">
+    <div class="prose">
+      <p>Each preset question from section 1 has a passage we judge relevant. For a ranking, with \(\text{rank}_q\) the position of the first relevant passage:</p>
+      <div class="mathbox c4">$$\text{Recall@}k=\frac1{|Q|}\sum_{q}\mathbb 1[\text{rank}_q\le k],\qquad \text{MRR}=\frac1{|Q|}\sum_q\frac1{\text{rank}_q}$$</div>
+      <p>RAG and FiD report <b>answer recall@k</b>: is the gold answer string inside any of the top \(k\) passages? It is the same idea with “contains the answer” as the relevance test. FiD’s gains from 10 to 100 passages come from exactly this: recall keeps rising with \(k\). Move the BM25 and hybrid sliders in section 1 and the table updates.</p>
+      <div class="ctl"><label for="evK"><span>\(k\)</span><output id="evKOut"></output></label><input type="range" id="evK" min="1" max="5" value="1"></div>
+    </div>
+    <div><div id="evOut"></div></div>
+  </div>
+</section>
+
 <section id="py" class="card">
-  <h2><span class="num">7</span>The same thing in Python</h2>
+  <h2><span class="num">8</span>The same thing in Python</h2>
 <pre class="code"><span class="c"># pip install rank_bm25 sentence-transformers faiss-cpu</span>
 <span class="k">from</span> rank_bm25 <span class="k">import</span> BM25Okapi
 <span class="k">from</span> sentence_transformers <span class="k">import</span> SentenceTransformer
@@ -294,6 +376,15 @@ print(tok.batch_decode(out, skip_special_tokens=<span class="k">True</span>))</p
 <p class="foot">Part of the <a href="../">NLP series</a>. Papers: <a href="https://arxiv.org/abs/2005.11401">Lewis et al. 2020</a>, <a href="https://aclanthology.org/2021.eacl-main.74/">Izacard &amp; Grave 2021</a>, <a href="https://arxiv.org/abs/2403.10131">Zhang et al. 2024</a>. Everything on this page runs in your browser.</p>
 </main>
 <style>
+@media (max-width:700px){.dsets,.dsets tbody,.dsets tr,.dsets td{display:block;width:auto}
+.dsets tr:first-child{display:none}
+.dsets tr{border-bottom:1px solid var(--line);padding:10px 0}
+.dsets td{border:0!important;padding:2px 0!important}
+.dsets td[data-l]:not([data-l="Dataset"])::before{content:attr(data-l) ": ";font:500 11px var(--mono,monospace);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.dsets td[data-l="Dataset"]{font-size:16px}}
+.tin{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:var(--ink,inherit);font:500 14px var(--mono,monospace)}
+.mathbox mark{background:color-mix(in srgb,var(--c4) 28%,transparent);color:inherit;border-radius:2px;padding:0 2px}
+#eval .tbl td{vertical-align:top}
 .pipe{display:grid;gap:12px;margin-top:8px}
 .pipe-row{display:grid;grid-template-columns:88px 1fr;gap:12px;align-items:start}
 .pipe-lab{font:500 11px/1.4 var(--mono,monospace);text-transform:uppercase;letter-spacing:.08em;color:var(--tail,var(--c1));padding-top:10px}
@@ -375,7 +466,7 @@ $('#qPresets').addEventListener('click',e=>{ const b=e.target.closest('button');
 ['k1','bb','al'].forEach(id=>$('#'+id).addEventListener('input',drawR)); $('#qIn').addEventListener('input',drawR);
 ML.bindSeg('rSeg',v=>{ mode=v; drawR(); });
 const bar=document.createElement('style'); bar.textContent='.hit .bar{height:5px;background:var(--soft);border-radius:3px;overflow:hidden}.hit .bar span{display:block;height:100%}'; document.head.appendChild(bar);
-drawR(); loadVecs().then(drawR).catch(()=>{ $('#qNote').textContent='Could not load the word vectors, so only BM25 is available.'; });
+drawR(); loadVecs().then(()=>{ drawR(); drawEval(); }).catch(()=>{ $('#qNote').textContent='Could not load the word vectors, so only BM25 is available.'; });
 
 /* ---------- 3. RAG-Sequence vs RAG-Token ---------- */
 function drawMix(){ const P=P0(), a=+$('#pz').value, s=+$('#sup').value; $('#pzOut').textContent=a.toFixed(2); $('#supOut').textContent=s.toFixed(2);
@@ -403,6 +494,61 @@ function drawRaft(){ const P=P0(), p=+$('#rp').value, k=+$('#rk').value; $('#rpO
   $('#rNote').innerHTML=`100 training examples: <b>${p}</b> contain the golden document with ${k} distractor${k===1?'':'s'}, <b>${100-p}</b> contain only distractors. On average only <b>${ctxGold.toFixed(0)}%</b> of the passages a RAFT model reads in training are useful, which is close to what a real retriever serves up. `+(p===100?'With P = 100% the model may learn to always trust the context, even when retrieval fails.':p===0?'With P = 0% it never practises reading the right document: this is plain fine-tuning with noise.':'');
 }
 ['rp','rk'].forEach(id=>$('#'+id).addEventListener('input',drawRaft)); drawRaft();
+
+/* ---------- 7. evaluation ---------- */
+const normA=s=>s.toLowerCase().replace(/[^\w\s]/g,' ').replace(/\b(a|an|the)\b/g,' ').replace(/\s+/g,' ').trim();
+function f1(p,g){ const pt=p?p.split(' '):[], gt=g?g.split(' '):[]; if(!pt.length||!gt.length) return {f:+(pt.length===gt.length),pr:0,rc:0,c:0};
+  const cnt={}; gt.forEach(t=>cnt[t]=(cnt[t]||0)+1); let c=0; pt.forEach(t=>{ if(cnt[t]>0){ c++; cnt[t]--; } });
+  const pr=c/pt.length, rc=c/gt.length; return {f:c?2*pr*rc/(pr+rc):0,pr,rc,c}; }
+const EMPRE=[['the novelist George Orwell','George Orwell | Eric Arthur Blair'],['George Orwell.','George Orwell | Eric Arthur Blair'],['Eric Blair','George Orwell | Eric Arthur Blair'],['Saturn','Saturn'],['the planet Jupiter','Saturn'],['1066 AD','1066']];
+$('#emPre').innerHTML=EMPRE.map((x,i)=>`<button class="btn" data-i="${i}">${esc(x[0])}</button>`).join('');
+$('#emPre').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; const x=EMPRE[+b.dataset.i]; $('#emP').value=x[0]; $('#emG').value=x[1]; drawEM(); });
+function drawEM(){ const P=P0(), p=$('#emP').value, golds=$('#emG').value.split('|').map(s=>s.trim()).filter(Boolean), np=normA(p);
+  const rows=golds.map(g=>{ const ng=normA(g), o=f1(np,ng); return {g,ng,em:+(np===ng),...o}; }); const best=rows.reduce((a,r)=>r.f>a.f?r:a,rows[0]||{f:0,em:0});
+  const em=rows.some(r=>r.em)?1:0;
+  $('#emOut').innerHTML=`<div class="tblwrap"><table class="tbl txt"><tr><th></th><th>after normalising</th><th>EM</th><th>F1</th></tr><tr><td>model</td><td class="mono">${esc(np)||'∅'}</td><td></td><td></td></tr>`+rows.map(r=>`<tr${r===best?' class="best"':''}><td>gold</td><td class="mono">${esc(r.ng)||'∅'}</td><td>${r.em}</td><td>${r.f.toFixed(2)}</td></tr>`).join('')+`</table></div>`+
+  `<div class="stats" style="margin-top:10px"><div class="stat c1"><b>${em}</b><span>exact match</span></div><div class="stat c3"><b>${(best.f||0).toFixed(2)}</b><span>token F1 (best gold)</span></div></div>`+
+  (rows.length?`<p class="hint">Best gold “${esc(best.g)}”: ${best.c} shared token${best.c===1?'':'s'}, precision ${best.c}/${np?np.split(' ').length:0} = ${best.pr.toFixed(2)}, recall ${best.c}/${best.ng?best.ng.split(' ').length:0} = ${best.rc.toFixed(2)}, F1 = 2PR/(P+R) = ${best.f.toFixed(2)}.${em?'':' EM is 0 because no gold matches exactly, even though F1 gives partial credit.'}</p>`:''); }
+['emP','emG'].forEach(id=>$('#'+id).addEventListener('input',drawEM)); drawEM();
+
+const wt=s=>s.toLowerCase().match(/[a-z0-9']+/g)||[];
+function lcs(a,b){ const m=a.length,n=b.length,D=Array.from({length:m+1},()=>new Array(n+1).fill(0));
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++) D[i][j]=a[i-1]===b[j-1]?D[i-1][j-1]+1:Math.max(D[i-1][j],D[i][j-1]);
+  const ia=new Set(), ib=new Set(); let i=m,j=n; while(i&&j){ if(a[i-1]===b[j-1]){ ia.add(i-1); ib.add(j-1); i--; j--; } else if(D[i-1][j]>=D[i][j-1]) i--; else j--; }
+  return {L:D[m][n],ia,ib}; }
+function drawBL(){ const P=P0(), c=wt($('#blC').value), r=wt($('#blR').value), beta=+$('#blB').value; $('#blBOut').textContent=beta.toFixed(1);
+  const cc={}, rc={}; c.forEach(w=>cc[w]=(cc[w]||0)+1); r.forEach(w=>rc[w]=(rc[w]||0)+1);
+  let clip=0; const rows=Object.keys(cc).map(w=>{ const k=Math.min(cc[w],rc[w]||0); clip+=k; return [w,cc[w],rc[w]||0,k]; });
+  const prec=c.length?clip/c.length:0, bp=!c.length?0:c.length>r.length?1:Math.exp(1-r.length/c.length), bleu=bp*prec;
+  const {L,ia,ib}=lcs(c,r), pl=c.length?L/c.length:0, rl=r.length?L/r.length:0, rouge=(pl&&rl)?(1+beta*beta)*pl*rl/(rl+beta*beta*pl):0;
+  const hl=(ws,set)=>ws.map((w,i)=>set.has(i)?`<mark>${esc(w)}</mark>`:esc(w)).join(' ');
+  $('#blOut').innerHTML=`<div class="tblwrap"><table class="tbl"><tr><th>word</th><th>in answer</th><th>in reference</th><th>clipped</th></tr>${rows.map(x=>`<tr${x[3]?'':' style="opacity:.5"'}><td class="mono">${esc(x[0])}</td><td>${x[1]}</td><td>${x[2]}</td><td>${x[3]}</td></tr>`).join('')}</table></div>
+  <p class="hint">BLEU-1 = BP × ${clip}/${c.length} = ${bp.toFixed(3)} × ${prec.toFixed(3)}. ${bp<1?`The answer (${c.length} words) is shorter than the reference (${r.length}), so BP = e^(1 − ${r.length}/${c.length}).`:'The answer is longer than the reference, so BP = 1.'}</p>
+  <div class="mathbox" style="font-size:14px;line-height:1.7"><b>Longest common subsequence (${L} words)</b><br>answer: ${hl(c,ia)}<br>reference: ${hl(r,ib)}</div>
+  <div class="stats"><div class="stat c2"><b>${bleu.toFixed(3)}</b><span>BLEU-1</span></div><div class="stat c3"><b>${rouge.toFixed(3)}</b><span>ROUGE-L (β = ${beta.toFixed(1)}): P ${pl.toFixed(2)}, R ${rl.toFixed(2)}</span></div></div>`; }
+['blC','blR','blB'].forEach(id=>$('#'+id).addEventListener('input',drawBL)); drawBL();
+
+(function(){ const C=[['The Eiffel Tower is in Berlin.','REFUTES','REFUTES'],['Water boils at 100 °C at sea level.','SUPPORTS','SUPPORTS'],['Mumbai is the capital of India.','REFUTES','SUPPORTS'],['Hurricane Andrew hit Florida in 1992.','SUPPORTS','SUPPORTS'],['Saturn has rings.','SUPPORTS','SUPPORTS'],['A famous chef owns a red bicycle.','NOT ENOUGH INFO','REFUTES'],['The Pacific is the largest ocean.','SUPPORTS','SUPPORTS'],['Shakespeare wrote Don Quixote.','REFUTES','REFUTES'],['A town council met on a Tuesday in 1874.','NOT ENOUGH INFO','NOT ENOUGH INFO'],['Gold is a liquid at room temperature.','REFUTES','REFUTES']];
+  const ok=C.filter(x=>x[1]===x[2]).length, two=C.filter(x=>x[1]!=='NOT ENOUGH INFO'), ok2=two.filter(x=>x[1]===x[2]).length;
+  $('#accOut').innerHTML=`<div class="tblwrap"><table class="tbl txt"><tr><th>Claim</th><th>Gold</th><th>Model</th></tr>${C.map(x=>`<tr><td>${esc(x[0])}</td><td class="mono">${x[1]}</td><td class="mono" style="color:${x[1]===x[2]?'var(--pos)':'var(--negc)'}">${x[2]} ${x[1]===x[2]?'✓':'✗'}</td></tr>`).join('')}</table></div>
+  <div class="stats" style="margin-top:8px"><div class="stat c1"><b>${ok}/10 = ${(ok*10)}%</b><span>3-way accuracy</span></div><div class="stat c3"><b>${ok2}/${two.length} = ${(100*ok2/two.length).toFixed(0)}%</b><span>2-way: only claims whose gold label is supports or refutes</span></div></div>`; })();
+
+const REL={'car crash':[4,5],'typhoon damage':[0,1],'attachment point':[2],'people living longer':[11],'cyber attack on a clinic':[10],'soccer game':[9],'heavy rainfall flooding':[1]};
+function rankAll(qText){ const k1=+$('#k1').value, b=+$('#bb').value, al=+$('#al').value, q=tok(qText), sp=bm25(q,k1,b).map(x=>x.s);
+  let dn=DOCS.map(()=>0); if(W){ const o=vecOf(q); if(o.v) dn=DV.map(v=>{ let s=0; for(let j=0;j<DIM;j++) s+=v[j]*o.v[j]; return s; }); }
+  const norm=a=>{ const mx=Math.max(...a), mn=Math.min(...a); return a.map(x=>mx>mn?(x-mn)/(mx-mn):0); }; const sN=norm(sp), dN=norm(dn), hy=sN.map((x,i)=>al*dN[i]+(1-al)*x);
+  // ties (e.g. all-zero BM25) are broken pessimistically: a relevant passage tied with others sits after them
+  const rk=(sc,rel)=>{ const best=Math.max(...rel.map(i=>sc[i])); return 1+sc.filter((s,i)=>s>best||(s===best&&!rel.includes(i))).length; };
+  return rel=>({bm25:rk(sp,rel),dense:rk(dn,rel),hybrid:rk(hy,rel)}); }
+function drawEval(){ const k=+$('#evK').value; $('#evKOut').textContent=k; const Q=Object.keys(REL), R=Q.map(q=>rankAll(q)(REL[q]));
+  const agg=m=>({rec:R.filter(r=>r[m]<=k).length/Q.length, mrr:R.reduce((s,r)=>s+1/r[m],0)/Q.length});
+  const A={bm25:agg('bm25'),dense:agg('dense'),hybrid:agg('hybrid')}, cell=r=>`<td style="color:${r<=k?'var(--pos)':'var(--negc)'}">${r}</td>`;
+  $('#evOut').innerHTML=`<div class="tblwrap"><table class="tbl"><tr><th>Question (relevant passages)</th><th>BM25 rank</th><th>Dense rank</th><th>Hybrid rank</th></tr>${Q.map((q,i)=>`<tr><td>${esc(q)} <span class="mono" style="color:var(--muted)">#${REL[q].map(x=>x+1).join(', #')}</span></td>${cell(R[i].bm25)}${cell(R[i].dense)}${cell(R[i].hybrid)}</tr>`).join('')}
+  <tr class="best"><td>Recall@${k}</td><td>${(A.bm25.rec*100).toFixed(0)}%</td><td>${W?(A.dense.rec*100).toFixed(0)+'%':'…'}</td><td>${W?(A.hybrid.rec*100).toFixed(0)+'%':'…'}</td></tr>
+  <tr class="best"><td>MRR</td><td>${A.bm25.mrr.toFixed(2)}</td><td>${W?A.dense.mrr.toFixed(2):'…'}</td><td>${W?A.hybrid.mrr.toFixed(2):'…'}</td></tr></table></div>
+  <p class="hint">Rank of the first relevant passage among 12 (green = within the top ${k}). When BM25 shares no word with any passage, every score is 0 and the relevant passage is counted as tied for last.</p>`; }
+['evK','k1','bb','al'].forEach(id=>$('#'+id).addEventListener('input',drawEval)); drawEval();
+
 })();
 </script>
 <script>NLP.nav('nlp','rag'); ML.renderMath(document.body);</script>
