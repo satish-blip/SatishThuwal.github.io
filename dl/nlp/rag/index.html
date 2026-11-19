@@ -20,7 +20,7 @@
   <p class="kicker">Deep Learning &middot; NLP &middot; Project</p>
   <h1>Retrieval-augmented generation: <span class="grad">look it up, then answer</span></h1>
   <p class="lede">A language model only knows what was in its training data, frozen at one date, and it cannot tell you where a fact came from. RAG fixes this with a search step: before answering, fetch the few passages most likely to help, put them in front of the model, and let it write an answer grounded in them. This page covers how that search works, the full pipeline, and three papers that shaped it.</p>
-  <div class="toc"><a href="#intro">0 · Start here</a><a href="#retrieval">1 · Sparse vs dense retrieval</a><a href="#pipeline">2 · The full pipeline</a><a href="#rag">3 · Paper: RAG (2020)</a><a href="#fid">4 · Paper: Fusion-in-Decoder (2021)</a><a href="#raft">5 · Paper: RAFT (2024)</a><a href="#compare">6 · Side by side</a><a href="#py">7 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#retrieval">1 · Sparse vs dense retrieval</a><a href="#pipeline">2 · The full pipeline &amp; LLM adaptation map</a><a href="#rag">3 · Paper: RAG (2020)</a><a href="#fid">4 · Paper: Fusion-in-Decoder (2021)</a><a href="#raft">5 · Paper: RAFT (2024)</a><a href="#compare">6 · Side by side</a><a href="#py">7 · Python</a></div>
 </section>
 
 <section id="intro" class="card intro">
@@ -96,6 +96,10 @@
     <div class="pipe-row"><span class="pipe-lab">Evaluate</span><ol class="pipe-steps"><li><b>Retrieval</b><span>recall@k, MRR</span></li><li><b>Answer</b><span>exact match, F1</span></li><li><b>Faithfulness</b><span>is every claim supported?</span></li></ol></div>
   </div>
   </div>
+  <h3 style="margin-top:22px">Where RAG sits: the full LLM adaptation map</h3>
+  <p class="sub">RAG is one of four ways to adapt a foundation model, alongside further training, parameter-efficient fine-tuning (LoRA, adapters) and inference-time methods. The map below shows the whole journey and how the families relate. Click any card for its Q&amp;A, sample Python and Hugging Face usage, try the decision helper, or compare the approaches side by side.</p>
+  <div class="row" style="margin:8px 0 10px"><a class="btn primary" href="../llm-adaptation/" target="_blank" rel="noopener">Open the map full screen &nearr;</a></div>
+  <div class="mapframe"><iframe src="../llm-adaptation/" title="Interactive LLM adaptation map: training, PEFT, RAG and inference" loading="lazy"></iframe></div>
 </section>
 
 <section id="rag" class="card hl">
@@ -307,6 +311,8 @@ print(tok.batch_decode(out, skip_special_tokens=<span class="k">True</span>))</p
 .rgrid{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin:8px 0}
 .rgrid i{display:block;height:22px;border-radius:2px;position:relative;overflow:hidden;background:var(--soft)}
 .rgrid i b{position:absolute;left:0;top:0;bottom:0}
+.mapframe{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--card)}
+.mapframe iframe{display:block;width:100%;height:82vh;min-height:560px;border:0}
 @media (max-width:640px){.pipe-row{grid-template-columns:1fr}.pipe-lab{padding-top:0}.hit .sc{min-width:80px}}
 </style>
 <script src="../../../ml/assets/core.js"></script>
