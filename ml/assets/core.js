@@ -270,3 +270,7 @@ ML.nav = function(cur){ const n=document.getElementById('algnav'); if(!n) return
 /* run fn after fonts/katex are ready */
 ML.ready = function(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',fn); else fn(); };
 })();
+
+/* load the pseudocode animations when a page has pseudocode */
+(function(){ var me=document.currentScript; if(!me) return; var src=me.src.replace(/core\.js(\?.*)?$/,'algoanim.js');
+  ML.ready(function(){ if(!document.querySelector('.algo')) return; var s=document.createElement('script'); s.src=src; s.onload=function(){ window.AlgoAnim && AlgoAnim.init(); }; document.body.appendChild(s); }); })();
