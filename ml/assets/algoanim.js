@@ -894,6 +894,197 @@ AA.def('svdeig', T => {
   add(7,'Return U, Σ, V with A = UΣVᵀ: rotate (Vᵀ), stretch (Σ), rotate (U).',1700,(g)=>{ circ(g,{v:1}); img(g,{av:1,u:1}); bot(g,[['U',[[u1[0],u2[0]],[u1[1],u2[1]]]],['Σ',[[s1,0],[0,s2]]],['Vᵀ',[v1,v2]]]); });
   return S;
 });
+/* ================= DEEP LEARNING ANIMATIONS ================= */
+/* draw a small fully connected net. L = sizes, W[l] = matrix (L[l+1] x L[l]); o.act[l][i] values in [-1,1]; o.pulse = {l, p, back} */
+function drawNet(g, L, W, o={}){
+  const vp=g.vp(), nl=L.length, X=l=>vp.x+vp.w*(.1+.8*l/(nl-1)), Y=(l,i)=>vp.y+vp.h*((i+1)/(L[l]+1)), R=Math.min(vp.h/ (Math.max(...L)+1)*.32, 20);
+  for(let l=0;l<nl-1;l++) for(let i=0;i<L[l+1];i++) for(let j=0;j<L[l];j++){ const w=W[l][i][j]; g.ctx.save(); g.ctx.globalAlpha=.25+.6*Math.min(1,Math.abs(w)/4); g.pseg(X(l),Y(l,j),X(l+1),Y(l+1,i),w>=0?g.C.c1:g.C.c4,.8+Math.min(5,Math.abs(w)*1.1)); g.ctx.restore();
+    if(o.pulse && o.pulse.l===l){ const p=o.pulse.back?1-o.pulse.p:o.pulse.p; g.pdot(T.lerp(X(l),X(l+1),p),T.lerp(Y(l,j),Y(l+1,i),p),3.2,o.pulse.back?g.C.c2:g.C.c5); } }
+  for(let l=0;l<nl;l++) for(let i=0;i<L[l];i++){ const v=o.act&&o.act[l]?o.act[l][i]:null; const cx=X(l), cy=Y(l,i);
+    g.ctx.beginPath(); g.ctx.arc(cx,cy,R,0,7); g.ctx.fillStyle=g.C.card; g.ctx.fill(); if(v!=null){ g.ctx.save(); g.ctx.globalAlpha=Math.min(1,Math.abs(v)); g.ctx.fillStyle=v>=0?g.C.c1:g.C.c4; g.ctx.fill(); g.ctx.restore(); }
+    g.ctx.lineWidth=2; g.ctx.strokeStyle=o.ring&&o.ring[l]&&o.ring[l][i]!=null?g.C.c2:g.C.ink; g.ctx.stroke();
+    if(v!=null && o.vals!==false) g.ptxt(T.f(o.txt&&o.txt[l]?o.txt[l][i]:v,2),cx,cy+R+g.fs*.75,g.C.ink,{align:'center',mono:true,size:.72});
+    if(o.ring&&o.ring[l]&&o.ring[l][i]!=null) g.ptxt('δ '+T.f(o.ring[l][i],2),cx,cy-R-g.fs*.7,g.C.c2,{align:'center',mono:true,size:.72,bold:true}); }
+  if(o.labels) o.labels.forEach((s,l)=>g.ptxt(s,X(l),vp.y+vp.h-g.fs*.2,g.C.muted,{align:'center',size:.75}));
+}
+AA.drawNet = drawNet;
+const tanh=Math.tanh;
+function xorNet(){
+  const D=[[0,0,0],[0,1,1],[1,0,1],[1,1,0]]; let best=null;
+  for(let tr=0;tr<6;tr++){ let W1=T.range(3).map(()=>[T.g()*1.2,T.g()*1.2]), b1=T.range(3).map(()=>T.g()*.5), W2=[T.range(3).map(()=>T.g()*1.2)], b2=[0]; const snaps=[], losses=[];
+    const fwd=(x)=>{ const z1=W1.map((r,i)=>r[0]*x[0]+r[1]*x[1]+b1[i]), a1=z1.map(tanh), z2=W2[0].reduce((s,w,i)=>s+w*a1[i],b2[0]), p=T.sig(z2); return {a1,p}; };
+    for(let e=0;e<=1200;e++){ const gW1=W1.map(()=>[0,0]), gb1=[0,0,0], gW2=[0,0,0]; let gb2=0, L=0;
+      D.forEach(([x1,x2,y])=>{ const {a1,p}=fwd([x1,x2]); L-=(y?Math.log(p):Math.log(1-p))/4; const d2=(p-y)/4; gb2+=d2; a1.forEach((a,i)=>{ gW2[i]+=d2*a; const d1=d2*W2[0][i]*(1-a*a); gb1[i]+=d1; gW1[i][0]+=d1*x1; gW1[i][1]+=d1*x2; }); });
+      if(e%40===0){ snaps.push({W1:W1.map(r=>[...r]),b1:[...b1],W2:[[...W2[0]]],b2:[...b2]}); losses.push(L); }
+      const lr=1.2; W1=W1.map((r,i)=>[r[0]-lr*gW1[i][0],r[1]-lr*gW1[i][1]]); b1=b1.map((v,i)=>v-lr*gb1[i]); W2=[W2[0].map((v,i)=>v-lr*gW2[i])]; b2=[b2[0]-lr*gb2]; }
+    const r={snaps,losses,D}; if(!best||losses[losses.length-1]<best.losses[best.losses.length-1]) best=r; if(losses[losses.length-1]<.08) break; }
+  return best;
+}
+const netFwd=(s,x)=>{ const z1=s.W1.map((r,i)=>r[0]*x[0]+r[1]*x[1]+s.b1[i]), a1=z1.map(tanh), z2=s.W2[0].reduce((q,w,i)=>q+w*a1[i],s.b2[0]); return {a1,p:T.sig(z2)}; };
+AA.def('backprop', T => {
+  const S=[], add=F(S); const R=xorNet(), sn=R.snaps, D=R.D; const Ls=R.losses;
+  const net=(g,s,o={})=>{ g.view(.02,.08,.6,.84,0,1,0,1); drawNet(g,[2,3,1],[s.W1,s.W2],{...o,labels:['input x','hidden (tanh)','output p̂']}); };
+  const side=(g,s,k,hl)=>{ g.view(.66,.08,.32,.42,-.3,1.3,-.3,1.3); g.frame(); g.shade((x,y)=>netFwd(s,[x,y]).p,22,.45); D.forEach(([a,b,c],i)=>g.dot(a,b,i===hl?7:5,kc(g,c),{ring:i===hl?g.C.ink:null}));
+    g.ptxt('XOR: network output',g.vp().x,g.vp().y-g.fs*.7,g.C.muted,{size:.75}); g.view(.66,.6,.32,.3,0,Ls.length-1,0,Math.max(...Ls)*1.05); g.frame(); g.poly(Ls.slice(0,k+1).map((v,i)=>[i,v]),g.C.c4,2); g.ptxt('loss',g.vp().x,g.vp().y-g.fs*.7,g.C.muted,{size:.75}); };
+  const show=[0,3,8]; show.forEach((si,c)=>{ const s=sn[si], s2=sn[Math.min(sn.length-1,si+3)], ex=[1,2,3][c], [x1,x2,y]=D[ex], f=netFwd(s,[x1,x2]); const d2=f.p-y, d1=f.a1.map((a,i)=>d2*s.W2[0][i]*(1-a*a)); const slow=c===0;
+    const act0=[[x1,x2]], act1=[[x1,x2],f.a1], act2=[[x1,x2],f.a1,[f.p*2-1]]; const TX={2:[f.p]};
+    add(4,`Forward: feed input (${x1}, ${x2}) through. Each hidden neuron takes a weighted sum and bends it with tanh.`,slow?1600:900,(g,p)=>{ net(g,s,{act:p<.5?act0:act1,pulse:{l:p<.5?0:1,p:(p%.5)*2}}); side(g,s,si,ex); });
+    add(5,`Output p̂ = ${T.f(f.p,3)} for target y = ${y}. Loss = ${T.f(-(y?Math.log(f.p):Math.log(1-f.p)),3)}.`,slow?1100:600,(g)=>{ net(g,s,{act:act2,txt:TX}); side(g,s,si,ex); });
+    add(6,`Backward starts at the output: δ = p̂ − y = ${T.f(d2,3)}.`,slow?1000:600,(g)=>{ net(g,s,{act:act2,txt:TX,ring:[null,null,[d2]]}); side(g,s,si,ex); });
+    add([7,8,9],'Send δ back through the same weights, scaled by tanh′. Each weight\'s gradient = δ at its output end × activity at its input end.',slow?1700:900,(g,p)=>{ net(g,s,{act:act2,txt:TX,ring:[null,p>.5?d1:null,[d2]],pulse:{l:p<.5?1:0,p:(p%.5)*2,back:true}}); side(g,s,si,ex); });
+    add(10,'Update every weight a little against its gradient (shown sped up). Edge thickness = weight size; purple +, orange −.',slow?1400:900,(g,p)=>{ const m={W1:s.W1.map((r,i)=>r.map((v,j)=>T.lerp(v,s2.W1[i][j],p))),W2:[s.W2[0].map((v,i)=>T.lerp(v,s2.W2[0][i],p))],b1:s.b1.map((v,i)=>T.lerp(v,s2.b1[i],p)),b2:[T.lerp(s.b2[0],s2.b2[0],p)]};
+      net(g,m,{act:act2}); side(g,m,si+3*p,ex); }); });
+  add(11,'Repeat over and over: the hidden neurons become OR-like and NAND-like detectors, and the output solves XOR.',2600,(g,p)=>{ const k=Math.round(p*(sn.length-1)); net(g,sn[k]); side(g,sn[k],k); });
+  return S;
+});
+AA.title(/training a network with backpropagation/i,'backprop');
+/* ---- NN pages: vanishing gradients, Adam, normalisation, residual ---- */
+const mv=(W,x)=>W.map(r=>r.reduce((s,w,j)=>s+w*x[j],0));
+const mtv=(W,g)=>W[0].map((_,j)=>W.reduce((s,r,i)=>s+r[j]*g[i],0));
+const nrm=v=>Math.sqrt(v.reduce((s,x)=>s+x*x,0));
+const randM=(n,m,sd)=>T.range(n).map(()=>T.range(m).map(()=>T.g()*sd));
+
+AA.def('vanish', T => {
+  const S=[], add=F(S), L=8, n=12;
+  const run=(kind)=>{ const sd=kind==='sig'?Math.sqrt(1/n):Math.sqrt(2/n), Ws=T.range(L).map(()=>randM(n,n,sd)); const phi=kind==='sig'?T.sig:(z=>Math.max(0,z)), dphi=kind==='sig'?(z=>{const s=T.sig(z);return s*(1-s);}):(z=>z>0?1:0);
+    const norms=T.range(L).map(()=>0), acts=T.range(L+1).map(()=>T.range(4).map(()=>0)); const K=6;
+    for(let k=0;k<K;k++){ const a=[T.range(n).map(()=>T.g())], z=[null]; for(let l=1;l<=L;l++){ z[l]=mv(Ws[l-1],a[l-1]); a[l]=z[l].map(phi); }
+      for(let l=0;l<=L;l++) for(let i=0;i<4;i++) acts[l][i]+=a[l][i]/K;
+      let g=T.range(n).map(()=>T.g()); for(let l=L;l>=1;l--){ g=g.map((v,i)=>v*dphi(z[l][i])); norms[l-1]+=nrm(g)*nrm(a[l-1])/K; g=mtv(Ws[l-1],g); } }
+    return {norms,acts}; };
+  const A=run('sig'), B=run('relu'); const rows=[{k:'sigmoid',r:A,c:'c4'},{k:'ReLU',r:B,c:'c1'}];
+  const lg=v=>Math.log10(Math.max(v,1e-12)); const ref=r=>r.norms[L-1];
+  const draw=(g,o)=>{ const W=g.W,H=g.H, x0=.2*W, x1=.95*W, cx=l=>x0+(x1-x0)*l/L;
+    rows.forEach((R,ri)=>{ const top=(.05+ri*.46)*H, bh=.37*H, col=g.C[R.c]; g.ptxt(R.k,.02*W,top+bh*.18,col,{bold:true,size:.9}); 
+      const base=top+bh, barH=bh*.52;
+      g.pseg(x0-6,base,x1+6,base,g.C.line,1);
+      for(let l=0;l<=L;l++){ const x=cx(l); for(let i=0;i<4;i++){ const y=top+bh*.06+i*bh*.085; g.ctx.beginPath(); g.ctx.arc(x,y,Math.min(7,W*.012),0,7); g.ctx.fillStyle=g.C.card; g.ctx.fill();
+          if(o.fw!=null && l<=o.fw){ g.ctx.save(); g.ctx.globalAlpha=Math.min(1,.25+Math.abs(R.r.acts[l][i])*.8); g.ctx.fillStyle=col; g.ctx.fill(); g.ctx.restore(); }
+          g.ctx.lineWidth=1.2; g.ctx.strokeStyle=(o.top&&l===L)?g.C.c2:g.C.ink; g.ctx.stroke(); }
+        if(l>0 && o.bw!=null && l>=o.bw){ const v=lg(R.r.norms[l-1]/ref(R.r)); const h=barH*T.clamp((v+6)/6.5,0.02,1)*(l===o.bw?o.grow:1);
+          g.prect(x-W*.022,base-h,W*.044,h,col,null,{a:.85,r:2}); if(l===o.bw||l===1&&o.fin) g.ptxt('10'+sup(Math.round(v)),x,base-h-g.fs*.6,col,{align:'center',size:.7,mono:true,bold:true}); }
+        g.ptxt(l?'L'+l:'x',x,base+g.fs*.65,g.C.muted,{align:'center',size:.65,mono:true}); }
+      if(o.fw!=null && o.pulse!=null){ const px=x0+(x1-x0)*o.pulse; g.pdot(px,top+bh*.19,4,g.C.c5); }
+      if(o.back!=null){ const px=cx(o.back); g.pdot(px,top+bh*.19,4.5,g.C.c2); }
+    });
+    g.ptxt('bars: gradient size at each layer (log scale, top layer = 1)',.5*W,.985*H,g.C.muted,{align:'center',size:.68}); };
+  const sup=k=>String(k).split('').map(ch=>({'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'})[ch]).join('');
+  add(1,'Two identical 8-layer networks: the top one uses sigmoid, the bottom one ReLU (each with its matching initial weight scale).',1300,g=>draw(g,{}));
+  add(2,'Forward pass: a batch flows left to right, every layer storing its z and a.',1900,(g,p)=>draw(g,{fw:Math.floor(p*L+.001),pulse:p}));
+  add(3,'At the top we get the error signal g = ∂L/∂a. Now walk it back down.',900,g=>draw(g,{fw:L,top:true}));
+  const fmtx=v=>{ const x=Math.pow(10,v); return x>=.1?T.f(x,2):x.toExponential(0).replace('e-','×10⁻').replace(/⁻(\d)/,(m,d)=>'⁻'+'⁰¹²³⁴⁵⁶⁷⁸⁹'[d]); };
+  for(let l=L;l>=1;l--){ const a=lg(A.norms[l-1]/ref(A)), b=lg(B.norms[l-1]/ref(B));
+    add([5,6,7],`Layer ${l}: multiply by φ′, record the weight gradient, pass gᵀW down. Gradient size compared with the top layer: sigmoid ${fmtx(a)}, ReLU ${fmtx(b)}.`,l===L?1100:650,(g,p)=>draw(g,{fw:L,bw:l,grow:p,back:l-1+(1-p)})); }
+  const fa=Math.pow(10,lg(A.norms[0]/ref(A))/(L-1)), fb=Math.pow(10,lg(B.norms[0]/ref(B))/(L-1));
+  add(8,`Done. Sigmoid's signal shrank by about ×${T.f(fa,2)} per layer, so the first layers barely learn. ReLU keeps it near ×${T.f(fb,2)}.`,2600,g=>draw(g,{fw:L,bw:1,grow:1,fin:true}));
+  return S;
+});
+AA.title(/measuring gradient flow through depth/i,'vanish');
+
+AA.def('adam', T => {
+  const S=[], add=F(S); const a=.5, b=20; const fx=(x,y)=>.5*(a*x*x+b*y*y), gr=(x,y)=>[a*x+T.g()*.15,b*y+T.g()*.6];
+  const st=[T.u(-4.6,-3.8),(T.r()<.5?-1:1)*T.u(.9,1.3)];
+  const N=45; const P={gd:[st],mo:[st],ad:[st]}; const info=[];
+  let p=st, q=st, vel=[0,0], r=st, m=[0,0], v=[0,0]; const b1=.9,b2=.999,eta=.14;
+  for(let t=1;t<=N;t++){ let g=gr(...p); p=[p[0]-.09*g[0],p[1]-.09*g[1]]; P.gd.push(p);
+    g=gr(...q); vel=[.9*vel[0]+g[0],.9*vel[1]+g[1]]; q=[q[0]-.012*vel[0],q[1]-.012*vel[1]]; P.mo.push(q);
+    g=gr(...r); m=m.map((x,i)=>b1*x+(1-b1)*g[i]); v=v.map((x,i)=>b2*x+(1-b2)*g[i]*g[i]); const mh=m.map(x=>x/(1-b1**t)), vh=v.map(x=>x/(1-b2**t)); const step=mh.map((x,i)=>eta*x/(Math.sqrt(vh[i])+1e-8));
+    info.push({g,m:[...m],v:[...v],mh,vh,step,from:r}); r=[r[0]-step[0],r[1]-step[1]]; P.ad.push(r); }
+  const cols={gd:'c4',mo:'c3',ad:'c1'}, names={gd:'gradient descent',mo:'momentum',ad:'Adam'};
+  const scene=(g,k,o={})=>{ g.view(.02,.06,.62,.86,-5,1,-1.8,1.8); g.frame(); g.clip(true);
+    [.2,1,3,6,10,15].forEach(c=>g.ell(0,0,1/a,0,1/b,Math.sqrt(2*c),g.C.line,1));
+    g.dot(0,0,4,g.C.ink);
+    Object.keys(P).forEach(key=>{ const kk=Math.floor(k), pts=P[key].slice(0,kk+1); const fr=k-kk; if(fr>0&&kk<N){ const A=P[key][kk],B=P[key][kk+1]; pts.push([T.lerp(A[0],B[0],fr),T.lerp(A[1],B[1],fr)]); }
+      g.poly(pts,g.C[cols[key]],key==='ad'?2.6:1.8); const e=pts[pts.length-1]; g.dot(e[0],e[1],key==='ad'?5:4,g.C[cols[key]]); });
+    if(o.arrow){ const [x,y,dx,dy,c]=o.arrow; g.arrow(x,y,x+dx,y+dy,c,2.2); }
+    g.clip(false);
+    let ly=g.vp().y+g.fs*.9; Object.keys(names).forEach(key=>{ g.ptxt('● '+names[key],g.vp().x+g.fs*.6,ly,g.C[cols[key]],{size:.75,bold:key==='ad'}); ly+=g.fs*1.15; });
+    if(o.read){ const R=o.read, W=g.W, H=g.H, px=.68*W, cw=.14*W, ch=.075*H; g.ptxt('Adam, step t = '+o.t,px,.1*H,g.C.ink,{size:.82,bold:true});
+      g.ptxt('x',px+cw*.5+.05*W,.17*H,g.C.muted,{align:'center',size:.75}); g.ptxt('y',px+cw*1.5+.05*W,.17*H,g.C.muted,{align:'center',size:.75});
+      const rows=[['g',R.g],['m',R.m],['v',R.v],['m̂',R.mh],['v̂',R.vh],['step',R.step]];
+      rows.forEach(([lab,val],i)=>{ const y=.21*H+i*ch; g.ptxt(lab,px,y+ch/2,g.C.muted,{size:.8,mono:true});
+        val.forEach((x,j)=>{ const on=o.hl&&o.hl.includes(lab); g.prect(px+.05*W+j*cw+1,y+1,cw-2,ch-2,on?g.C.c2:g.C.soft,null,{r:3,a:on?.35:1}); g.ptxt(o.show&&o.show.includes(lab)?T.f(x,Math.abs(x)<.1?3:2):'·',px+.05*W+j*cw+cw/2,y+ch/2,g.C.ink,{align:'center',mono:true,size:.72}); }); });
+      g.ptxt('loss '+T.f(fx(...P.ad[Math.min(N,Math.floor(o.t))]),3),px,.21*H+6.6*ch,g.C.c1,{size:.75,mono:true}); } };
+  const zero={g:[0,0],m:[0,0],v:[0,0],mh:[0,0],vh:[0,0],step:[0,0]};
+  add(1,'A long, narrow valley: steep across (y), almost flat along (x). The minimum is the black dot. All three optimisers start at the same point.',1500,g=>scene(g,0));
+  add(2,'Adam starts with m = 0, v = 0 for every weight.',800,g=>scene(g,0,{read:zero,t:0,show:['m','v']}));
+  const sh=['g','m','v','m̂','v̂','step'];
+  for(let t=1;t<=3;t++){ const R=info[t-1], k=t-1, fr=R.from;
+    add(4,`t = ${t}: backprop gives the gradient g = (${T.f(R.g[0],2)}, ${T.f(R.g[1],2)}). It points mostly across the valley.`,t===1?1100:700,g=>scene(g,k,{read:R,t,show:sh.slice(0,1),hl:['g'],arrow:[fr[0],fr[1],-R.g[0]*.08,-R.g[1]*.08,g.C.c4]}));
+    add(5,'m: a smoothed direction (10% new gradient, 90% memory).',t===1?900:600,g=>scene(g,k,{read:R,t,show:sh.slice(0,2),hl:['m']}));
+    add(6,'v: a smoothed squared size, one per weight. The y-gradient is huge, so v_y is huge.',t===1?900:600,g=>scene(g,k,{read:R,t,show:sh.slice(0,3),hl:['v']}));
+    add(7,`Bias correction: divide by 1−β^t so early averages are not stuck near 0.`,t===1?900:550,g=>scene(g,k,{read:R,t,show:sh.slice(0,5),hl:['m̂','v̂']}));
+    add(8,'Step = η·m̂/√v̂: about η in each direction, however steep. Everyone takes one step.',t===1?1100:700,(g,p)=>scene(g,k+p,{read:R,t,show:sh,hl:['step']})); }
+  add([3,4,5,6,7,8],'Repeat for every mini-batch (sped up).',3600,(g,p)=>{ const k=3+p*(N-3), t=Math.max(1,Math.floor(k)); scene(g,k,{read:info[t-1],t,show:sh}); });
+  add(9,`Gradient descent zig-zags across the valley and crawls along it. Momentum smooths the zig-zag. Adam rescales each direction and heads for the minimum.`,2800,g=>scene(g,N,{read:info[N-1],t:N,show:sh}));
+  return S;
+});
+AA.title(/^\s*Algorithm: Adam\s*$/,'adam');
+
+AA.def('norm', T => {
+  const S=[], add=F(S); const B=6, D=5; const mu=T.range(D).map(()=>T.u(-3,6)), sd=T.range(D).map(j=>[.3,1,2.5,.6,4][j]*T.u(.7,1.3));
+  const Z=T.range(B).map(()=>T.range(D).map(j=>mu[j]+T.g()*sd[j]));
+  const st=a=>{ const m=T.mean(a), v=T.mean(a.map(x=>(x-m)**2)); return [m,Math.sqrt(v+1e-5)]; };
+  const cs=T.range(D).map(j=>st(Z.map(r=>r[j]))), rs=Z.map(r=>st(r));
+  const BN=Z.map(r=>r.map((x,j)=>(x-cs[j][0])/cs[j][1])), LN=Z.map((r,i)=>r.map(x=>(x-rs[i][0])/rs[i][1]));
+  const draw=(g,o)=>{ const W=g.W,H=g.H, cw=Math.min(.075*W,.1*H*1.3), ch=.085*H, ox=.07*W, oy=.15*H, px=.53*W;
+    const cell=(x,y,v,sc,on,show=true)=>{ const c=v>=0?g.C.c1:g.C.c4; g.prect(x+1,y+1,cw-2,ch-2,g.C.soft,null,{r:3}); if(show){ g.prect(x+1,y+1,cw-2,ch-2,c,null,{r:3,a:Math.min(.85,.12+Math.abs(v)/sc*.7)}); g.ptxt(T.f(v,1),x+cw/2,y+ch/2,g.C.ink,{align:'center',mono:true,size:.66}); }
+      if(on) g.prect(x+1,y+1,cw-2,ch-2,null,g.C.c2,{r:3,lw:2}); };
+    const amax=Math.max(...Z.flat().map(Math.abs));
+    g.ptxt('Z (B=6 examples × D=5 features)',ox,oy-g.fs*1.4,g.C.muted,{size:.75,semi:true});
+    Z.forEach((r,i)=>r.forEach((v,j)=>cell(ox+j*cw,oy+i*ch,v,amax,(o.col===j)||(o.row===i))));
+    T.range(D).forEach(j=>g.ptxt('f'+(j+1),ox+j*cw+cw/2,oy-g.fs*.45,g.C.muted,{align:'center',size:.62,mono:true}));
+    if(o.mode==='bn'){ T.range(D).forEach(j=>{ if(j<=o.statUpTo){ const y=oy+B*ch+3; g.ptxt('μ '+T.f(cs[j][0],1),ox+j*cw+cw/2,y+g.fs*.6,g.C.c2,{align:'center',size:.58,mono:true}); g.ptxt('σ '+T.f(cs[j][1],1),ox+j*cw+cw/2,y+g.fs*1.55,g.C.c2,{align:'center',size:.58,mono:true}); } }); }
+    if(o.mode==='ln'){ Z.forEach((r,i)=>{ if(i<=o.statUpTo) g.ptxt('μ '+T.f(rs[i][0],1)+'  σ '+T.f(rs[i][1],1),ox+D*cw+4,oy+i*ch+ch/2,g.C.c2,{size:.56,mono:true}); }); }
+    if(o.mode){ const M=o.mode==='bn'?BN:LN; g.ptxt((o.mode==='bn'?'BatchNorm':'LayerNorm')+' output Ẑ',px,oy-g.fs*1.4,o.mode==='bn'?g.C.c1:g.C.c3,{size:.75,bold:true});
+      M.forEach((r,i)=>r.forEach((v,j)=>{ const done=o.mode==='bn'?j<o.done:i<o.done; cell(px+j*cw,oy+i*ch,v,2.2,false,done); }));
+      const ar=(o.mode==='bn'?'↓ pool down each column':'→ pool along each row'); g.ptxt(ar,px,oy+B*ch+g.fs*1.1,g.C.muted,{size:.7});
+      if(o.check){ const ok=o.mode==='bn'?'every column: mean 0, sd 1':'every row: mean 0, sd 1'; g.ptxt('✓ '+ok,px,oy+B*ch+g.fs*2.3,g.C.c5,{size:.72,bold:true}); } }
+    if(o.run) g.ptxt('running μ̄ ← 0.9 μ̄ + 0.1 μ_batch (saved for test time)',ox,.95*H,g.C.muted,{size:.7}); };
+  add(1,'Z holds one row per example and one column per feature. The features live on very different scales.',1500,g=>draw(g,{}));
+  for(let j=0;j<D;j++){ add([2,3],`BatchNorm, feature ${j+1}: pool its 6 values down the column. μ = ${T.f(cs[j][0],2)}, σ = ${T.f(cs[j][1],2)}.`,j?650:1100,g=>draw(g,{mode:'bn',col:j,statUpTo:j,done:j}));
+    add(4,`Subtract μ and divide by σ, so this column now has mean 0 and spread 1.`,j?450:800,(g,p)=>draw(g,{mode:'bn',col:j,statUpTo:j,done:j+(p>.3?1:0)})); }
+  add(5,'Keep running averages of μ and σ: at test time BatchNorm uses those instead of the batch.',1300,g=>draw(g,{mode:'bn',statUpTo:D,done:D,run:true}));
+  add(9,'Finally Y = γ⊙Ẑ + β. γ starts at 1 and β at 0, and the network learns better values.',1500,g=>draw(g,{mode:'bn',statUpTo:D,done:D,check:true}));
+  for(let i=0;i<B;i++){ add([6,7],`LayerNorm, example ${i+1}: pool its 5 features along the row. μ = ${T.f(rs[i][0],2)}, σ = ${T.f(rs[i][1],2)}.`,i?550:1100,g=>draw(g,{mode:'ln',row:i,statUpTo:i,done:i}));
+    add(8,'Standardise the row. No other example is involved.',i?400:700,(g,p)=>draw(g,{mode:'ln',row:i,statUpTo:i,done:i+(p>.3?1:0)})); }
+  add(9,'Same last step, Y = γ⊙Ẑ + β. Each example is normalised on its own, so batch size does not matter.',2400,g=>draw(g,{mode:'ln',statUpTo:B,done:B,check:true}));
+  return S;
+});
+AA.title(/BatchNorm and LayerNorm forward pass/i,'norm');
+
+AA.def('resid', T => {
+  const S=[], add=F(S); const L=8, n=10;
+  const relu=z=>Math.max(0,z);
+  const plainW=T.range(L).map(()=>randM(n,n,Math.sqrt(1/n))), F1=T.range(L).map(()=>randM(n,n,Math.sqrt(2/n))), F2=T.range(L).map(()=>randM(n,n,.35*Math.sqrt(1/n)));
+  const K=5, gp=T.range(L+1).map(()=>0), grs=T.range(L+1).map(()=>0);
+  for(let k=0;k<K;k++){ const x0=T.range(n).map(()=>T.g());
+    let a=[x0], z=[null]; for(let l=1;l<=L;l++){ z[l]=mv(plainW[l-1],a[l-1]); a[l]=z[l].map(relu); }
+    let g=T.range(n).map(()=>T.g()); gp[L]+=nrm(g)/K; for(let l=L;l>=1;l--){ g=g.map((v,i)=>z[l][i]>0?v:0); g=mtv(plainW[l-1],g); gp[l-1]+=nrm(g)/K; }
+    const xs=[x0], hs=[null]; for(let l=1;l<=L;l++){ const h=mv(F1[l-1],xs[l-1]); hs[l]=h; const f=mv(F2[l-1],h.map(relu)); xs[l]=xs[l-1].map((v,i)=>v+f[i]); }
+    g=T.range(n).map(()=>T.g()); grs[L]+=nrm(g)/K; for(let l=L;l>=1;l--){ let gh=mtv(F2[l-1],g); gh=gh.map((v,i)=>hs[l][i]>0?v:0); const gF=mtv(F1[l-1],gh); g=g.map((v,i)=>v+gF[i]); grs[l-1]+=nrm(g)/K; } }
+  const relP=gp.map(v=>v/gp[L]), relR=grs.map(v=>v/grs[L]);
+  const draw=(g,o)=>{ const W=g.W,H=g.H, bw=.2*W, bh=.062*H, y=l=>.86*H-(l-1)*.093*H, cols=[{x:.08*W,res:false,rel:relP,c:g.C.c4,name:'plain stack'},{x:.56*W,res:true,rel:relR,c:g.C.c1,name:'residual stack'}];
+    cols.forEach(C=>{ g.ptxt(C.name,C.x+bw/2,.04*H,C.c,{align:'center',bold:true,size:.85}); g.ptxt('x₀',C.x+bw/2,.965*H,g.C.muted,{align:'center',size:.7,mono:true});
+      for(let l=1;l<=L;l++){ const yy=y(l), lit=o.fw!=null&&o.fw>=l, act=o.back===l;
+        g.pseg(C.x+bw/2,yy+bh/2,C.x+bw/2,yy+bh/2+.031*H,g.C.line,1.5);
+        g.prect(C.x,yy-bh/2,bw,bh,lit?C.c:g.C.soft,act?g.C.c2:g.C.line,{r:5,a:lit?.35:1,lw:act?2.5:1});
+        g.ptxt(C.res?'F'+l:'layer '+l,C.x+bw/2,yy,g.C.ink,{align:'center',size:.68,mono:true});
+        if(C.res){ const sx=C.x-.035*W; g.ctx.save(); g.ctx.strokeStyle=act?g.C.c2:C.c; g.ctx.globalAlpha=act?1:.55; g.ctx.lineWidth=act?2.6:1.6; g.ctx.beginPath(); g.ctx.moveTo(C.x+bw/2,yy+bh/2+.03*H); g.ctx.quadraticCurveTo(sx,yy+bh*.2,C.x+bw/2-bw*.3,yy-bh/2-.008*H); g.ctx.stroke(); g.ctx.restore();
+          g.ptxt('+',C.x+bw/2-bw*.36,yy-bh/2-.012*H,C.c,{align:'center',size:.8,bold:true}); }
+        }
+      if(o.bw!=null){ for(let l=L;l>=o.bw;l--){ const v=C.rel[l], gx=C.x+bw+.02*W, yb=l===L?y(L)-bh*.95:(y(l+1)+y(l))/2, len=T.clamp(v,0,1.6)*.13*W*(l===o.bw?o.grow:1);
+          g.prect(gx,yb-bh*.2,Math.max(1,len),bh*.4,C.c,null,{r:2,a:.85}); if(l===o.bw) g.ptxt(T.f(v,2),gx+len+4,yb,C.c,{size:.62,mono:true,bold:true}); } }
+      if(o.pulse!=null){ const yy=T.lerp(.93*H,y(L)-bh,o.pulse); g.pdot(C.x+bw/2,yy,4.5,o.dir<0?g.C.c2:g.C.c5); } });
+    if(o.bw!=null) g.ptxt('bars: gradient size ‖g‖ between blocks (top = 1)',.5*W,.995*H-g.fs*.2,g.C.muted,{align:'center',size:.62}); };
+  add(1,'Two 8-block networks. Left: plain layers. Right: each block F adds its output to a copy of its input (the curved skip).',1500,g=>draw(g,{}));
+  add(2,'Forward: x_l = x_{l−1} + F_l(x_{l−1}). The input travels up untouched along the skip, and each block adds a correction.',2000,(g,p)=>draw(g,{fw:Math.floor(p*L+.001),pulse:p}));
+  add(3,'Loss at the top, and its gradient g starts back down. Bars show ‖g‖ relative to the top.',900,g=>draw(g,{fw:L,bw:L,grow:1}));
+  for(let l=L;l>=1;l--){ add([5,6],`Block ${l}: backprop through F, then add the skip's copy: g ← g + g_F. Plain stack keeps ${Math.round(relP[l-1]*100)}%, residual ${Math.round(relR[l-1]*100)}%.`,l===L?1100:650,(g,p)=>draw(g,{fw:L,back:l,bw:l-1,grow:p,pulse:1-(L-l+p)/L,dir:-1})); }
+  add(7,`At the bottom the plain stack's gradient is ${T.f(relP[0],2)}× its top value; the residual one's is ${T.f(relR[0],2)}×. The identity path never shrinks the signal.`,2800,g=>draw(g,{fw:L,bw:0,grow:1}));
+  return S;
+});
+AA.title(/forward and backward through residual blocks/i,'resid');
 /* ---------- which animation goes with which pseudocode title ---------- */
 [[/ordinary least squares/i,'ols'],[/gradient descent for least squares/i,'gd'],[/lasso by coordinate descent/i,'lassocd'],
  [/logistic regression by gradient descent/i,'logreg'],[/Newton's method \(IRLS\)/i,'newton'],[/proximal gradient descent for L1/i,'proxlog'],[/ROC curve/i,'roc'],

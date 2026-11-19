@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nn">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nn">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; Foundations</p>
@@ -28,6 +28,7 @@
   <h2>What is normalisation, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>Imagine a 20-layer network halfway through training. Layer 12 has learned to expect inputs of a certain size. Then the layers below it update, and suddenly its inputs are three times bigger, or all shifted positive. Layer 12 has to re-adapt, and so does everything above it, every step. With saturating activations, big inputs also mean flat slopes and vanishing gradients. We would like each layer to receive inputs on a predictable scale no matter what the layers below are doing.</p>
       <h3>The idea</h3><p>Each layer’s outputs are the next layer’s inputs. If they drift to huge values, <a class="term" data-t="tanh">tanh</a> and <a class="term" data-t="sigmoid">sigmoid</a> units <a class="term" data-t="saturation">saturate</a>; if they shrink, the signal fades away. A <a class="term" data-t="normalisation">normalisation layer</a> rescales the numbers inside the network to a standard size (average 0, spread 1) at every step, then lets the network choose its own scale and shift with two learned numbers \(\gamma, \beta\).</p><p>The variants differ in <i>which numbers</i> they average over: <a class="term" data-t="batchnorm">BatchNorm</a> uses the same feature across a <a class="term" data-t="mini-batch">mini-batch</a>, <a class="term" data-t="layernorm">LayerNorm</a> uses all features of one example, <a class="term" data-t="rmsnorm">RMSNorm</a> skips the centring.</p>
       <h3>How it works</h3><ol class="steps2"><li>Compute the <a class="term" data-t="mean">mean</a> and <a class="term" data-t="variance">variance</a> over the chosen axis.</li><li>Subtract the mean and divide by the standard deviation.</li><li>Multiply by \(\gamma\) and add \(\beta\) (learned).</li><li>For BatchNorm, keep <a class="term" data-t="running-average">running averages</a> to use at test time.</li></ol>
     </div>
@@ -122,6 +123,29 @@
     <div><h3>RMSNorm (Zhang &amp; Sennrich, 2019)</h3>
       <div class="mathbox c5">$$y_{ij}=\gamma_j\dfrac{z_{ij}}{\sqrt{\tfrac1D\sum_k z_{ik}^2+\epsilon}}$$</div>
       <p>Drops the mean subtraction and \(\beta\). About as good as LayerNorm and cheaper, so LLaMA, Mistral and most recent LLMs use it.</p></div>
+  </div>
+  <div class="grid2 prose" style="margin-top:12px">
+    <div>
+      <h3>The same recipe, two directions</h3>
+      <p>All three methods do the same three things: measure a mean and a spread, standardise, then let the network rescale. The only difference is <i>which numbers are pooled together</i>: down a column of the batch (BatchNorm) or along a row, one example at a time (LayerNorm).</p>
+      <div class="algo"><h5 class="algo-h">Algorithm: BatchNorm and LayerNorm forward pass</h5><ol>
+        <li><span class="kw">input</span> activations \(Z\) (\(B\) examples × \(D\) features), learnable \(\gamma,\beta\in\mathbb R^D\), \(\epsilon\)</li>
+        <li><span class="kw">BatchNorm</span>: <span class="kw">for</span> each feature (column) \(j\) <span class="kw">do</span></li>
+        <li class="i1">\(\mu_j\leftarrow\) mean of column \(j\); \(\sigma_j^2\leftarrow\) its variance <span class="cm">pooled over the batch</span></li>
+        <li class="i1">\(\hat Z_{:,j}\leftarrow(Z_{:,j}-\mu_j)/\sqrt{\sigma_j^2+\epsilon}\)</li>
+        <li class="i1">update running averages of \(\mu_j,\sigma_j^2\) <span class="cm">used at test time instead</span></li>
+        <li><span class="kw">LayerNorm</span>: <span class="kw">for</span> each example (row) \(i\) <span class="kw">do</span></li>
+        <li class="i1">\(\mu_i\leftarrow\) mean of row \(i\); \(\sigma_i^2\leftarrow\) its variance <span class="cm">pooled over features</span></li>
+        <li class="i1">\(\hat Z_{i,:}\leftarrow(Z_{i,:}-\mu_i)/\sqrt{\sigma_i^2+\epsilon}\)</li>
+        <li><span class="kw">return</span> \(Y=\gamma\odot\hat Z+\beta\) <span class="cm">same final step for both</span></li>
+      </ol></div>
+    </div>
+    <div>
+      <details class="deeper" open><summary>Going deeper: why BatchNorm behaves differently at test time</summary><div>
+        <p>During training, each example's output depends on the other examples in its batch, through \(\mu_j\) and \(\sigma_j\). That is a mild source of noise (a regulariser) but a problem for prediction: the answer for one test image must not depend on which other images happen to be processed with it, and a batch of size 1 has no variance at all. So at test time BatchNorm switches to fixed population estimates, the running averages \(\bar\mu\leftarrow(1-m)\bar\mu+m\mu_{\text{batch}}\) collected in training. The train/test mismatch causes real bugs: forgetting <code>model.eval()</code>, tiny batches, or a distribution shift between training and deployment.</p>
+        <p>LayerNorm never looks across examples, so it is identical in training and testing and works with any batch size, including the one-token-at-a-time generation of a language model. That, plus variable sequence lengths, is why transformers use LayerNorm or RMSNorm.</p>
+      </div></details>
+    </div>
   </div>
   <div class="grid2 prose" style="margin-top:12px">
     <div><h3>Why \(\gamma\) and \(\beta\)?</h3><p>Forcing every layer to mean 0, variance 1 would limit what the network can represent (a sigmoid would only ever see its near-linear middle). The learnable \(\gamma,\beta\) let the layer undo the normalisation if that is best, with \(\gamma=\sigma,\beta=\mu\). What changes is the <i>parameterisation</i>: scale and shift are now two direct knobs instead of an emergent property of all the weights below.</p></div>

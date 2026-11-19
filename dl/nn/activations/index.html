@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nn">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nn">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; Foundations</p>
@@ -28,6 +28,7 @@
   <h2>What is an activation function, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>On the <a href="../neural-networks/">neural networks page</a>, a hidden layer solved XOR by bending space. But what does the bending? Matrix multiplications only rotate, stretch and shift; stack a hundred of them and you still have one matrix. Something between the layers has to be curved, and the choice of that curve turns out to decide whether a deep network learns quickly, slowly, or not at all.</p>
       <h3>The idea</h3><p>After each <a class="term" data-t="neuron">neuron</a> adds up its weighted inputs, it applies a fixed function to the total. That function is the <a class="term" data-t="activation">activation</a>. It must bend: if it were a straight line, a hundred layers would collapse into one linear model and could never solve <a class="term" data-t="xor">XOR</a>.</p><p>The shape matters for learning too. During <a class="term" data-t="backprop">backpropagation</a> every layer multiplies the gradient by the activation’s slope. Flat regions (<a class="term" data-t="saturation">saturation</a>) kill the signal, causing <a class="term" data-t="vanishing-gradient">vanishing gradients</a>; <a class="term" data-t="relu">ReLU</a> keeps slope 1 for positive inputs but can leave neurons <a class="term" data-t="dead-relu">dead</a>.</p>
       <h3>How it works</h3><ol class="steps2"><li>Each neuron computes \(z = w^\top x + b\).</li><li>It outputs \(a = \phi(z)\) for the chosen activation \(\phi\).</li><li>The backward pass multiplies the incoming gradient by \(\phi'(z)\).</li><li>Pick \(\phi\) so the network can bend and gradients survive.</li></ol>
     </div>
@@ -74,6 +75,20 @@
       <p>The gradient reaching layer \(l\) is a product of one factor per layer above it:</p>
       <div class="mathbox c2">$$\frac{\partial\mathcal L}{\partial a^{(l)}}=\frac{\partial\mathcal L}{\partial a^{(L)}}\prod_{k=l+1}^{L}W^{(k)\top}\operatorname{diag}\big(\phi'(z^{(k)})\big)$$</div>
       <p>Sigmoid's slope is at most \(\tfrac14\), so twenty layers can shrink the signal by \(4^{-20}\approx10^{-12}\): the early layers simply stop learning. tanh is better (slope up to 1 at 0) and ReLU passes gradients through unchanged wherever it is active. The chart shows the gradient norm \(\lVert\partial\mathcal L/\partial W^{(l)}\rVert\) in every layer of freshly initialised networks on the moons data (log scale).</p>
+      <p>Here is exactly how the chart is computed: run the network forward once, then walk backwards multiplying by one factor per layer, and record how big the signal is when it arrives.</p>
+      <div class="algo"><h5 class="algo-h">Algorithm: measuring gradient flow through depth</h5><ol>
+        <li><span class="kw">input</span> network with \(L\) layers, activation \(\phi\), a batch \(x\)</li>
+        <li><span class="kw">forward</span>: <span class="kw">for</span> \(l=1..L\): \(z^{(l)}\leftarrow W^{(l)}a^{(l-1)}+b^{(l)}\); \(a^{(l)}\leftarrow\phi(z^{(l)})\)</li>
+        <li>\(g\leftarrow\partial\mathcal L/\partial a^{(L)}\) <span class="cm">the error signal at the top</span></li>
+        <li><span class="kw">for</span> \(l=L\) <span class="kw">down to</span> 1 <span class="kw">do</span></li>
+        <li class="i1">\(g\leftarrow g\odot\phi'(z^{(l)})\) <span class="cm">shrinks wherever the slope is below 1</span></li>
+        <li class="i1">record \(\lVert g\,a^{(l-1)\top}\rVert\) <span class="cm">gradient size for layer l's weights</span></li>
+        <li class="i1">\(g\leftarrow W^{(l)\top}g\) <span class="cm">pass the signal one layer down</span></li>
+        <li><span class="kw">return</span> the recorded norms, one per layer</li>
+      </ol></div>
+      <details class="deeper"><summary>Going deeper: why sigmoid shrinks gradients and ReLU does not</summary><div>
+        <p>\(\sigma'(z)=\sigma(z)(1-\sigma(z))\) is a product of two numbers that add to 1, so it is at most \(\tfrac12\cdot\tfrac12=\tfrac14\), reached only at \(z=0\); away from 0 it is far smaller. \(\tanh'(z)=1-\tanh^2(z)\le1\). ReLU's slope is exactly 1 for every active unit and 0 otherwise. The backward signal is multiplied by \(W^{(k)\top}\operatorname{diag}(\phi'(z^{(k)}))\) at every layer, so its size behaves roughly like a product of \(L\) random factors. If the typical factor is \(c\), the signal scales like \(c^{L}\): any \(c&lt;1\) vanishes exponentially and any \(c&gt;1\) explodes. Good initialisation chooses the weight scale so that \(c\approx1\) for the chosen activation (Xavier: \(\operatorname{Var}W=1/n\) for tanh; He: \(2/n\) for ReLU, compensating for the half of units that are off). That is also why the "edge of chaos" is a narrow target, and why residual connections, which add an identity path with factor exactly 1, made very deep networks easy.</p>
+      </div></details>
       <div class="note">Fixes, in historical order: better activations (ReLU, 2011), careful initialisation (Xavier for tanh, He for ReLU, both used here), <a href="../normalisation/">normalisation</a> (2015) and <a href="../residual/">residual connections</a> (2015).</div>
     </div>
   </div>

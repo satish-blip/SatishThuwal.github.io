@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nn">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nn">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; Optimisation</p>
@@ -28,6 +28,7 @@
   <h2>What is an optimiser, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>Backpropagation tells us the slope of the loss at the current weights. It does not tell us how far to step. Step too little and training takes forever; too much and it bounces out of the valley. Worse, real loss surfaces are long, narrow ravines: steep across, almost flat along. A single step size cannot suit both directions at once. The optimisers on this page are different answers to "given the slope, where do I go next?".</p>
       <h3>The idea</h3><p>Training a model means finding the <a class="term" data-t="parameter">weights</a> where the <a class="term" data-t="loss">loss</a> is lowest. The loss is a landscape of hills and valleys, and the <a class="term" data-t="gradient">gradient</a> tells you which way is downhill from where you stand. An optimiser is the rule for how to step.</p><p><a class="term" data-t="gradient-descent">Gradient descent</a> steps straight downhill by a fixed amount, the <a class="term" data-t="learning-rate">learning rate</a>. <a class="term" data-t="momentum">Momentum</a> adds inertia like a rolling ball. <a class="term" data-t="adagrad">AdaGrad</a>, <a class="term" data-t="rmsprop">RMSProp</a> and <a class="term" data-t="adam">Adam</a> give each weight its own step size based on how big its recent gradients were, which helps on long, narrow valleys (<a class="term" data-t="condition-number">ill-conditioned</a> problems) and at <a class="term" data-t="saddle-point">saddle points</a>.</p>
       <h3>How it works</h3><ol class="steps2"><li>Compute the gradient of the loss (on the whole data or a mini-batch).</li><li>Update any running averages (velocity, squared gradients).</li><li>Step the weights: \(\theta \leftarrow \theta - \eta \times\) (direction from the rule).</li><li>Repeat for many <a class="term" data-t="iteration">iterations</a>, often lowering the rate on a <a class="term" data-t="lr-schedule">schedule</a>.</li></ol>
     </div>
@@ -71,6 +72,30 @@
     <div><h3>AdaGrad</h3><div class="mathbox c4">$$s_{t+1}=s_t+g_t^2,\quad \theta_{t+1}=\theta_t-\frac{\eta}{\sqrt{s_{t+1}}+\epsilon}\,g_t$$</div><p>Each parameter gets its own step: rarely-updated ones take big steps, frequent ones small. Great for sparse features, but \(s\) only grows, so learning eventually stalls.</p></div>
     <div><h3>RMSProp</h3><div class="mathbox c2">$$s_{t+1}=\rho s_t+(1-\rho)g_t^2,\quad \theta_{t+1}=\theta_t-\frac{\eta}{\sqrt{s_{t+1}}+\epsilon}\,g_t$$</div><p>AdaGrad with a forgetting factor \(\rho=0.9\): divide by a <i>recent</i> RMS of the gradient, so steps stay alive.</p></div>
     <div><h3>Adam</h3><div class="mathbox c1">$$\begin{aligned}m_{t+1}&=\beta_1m_t+(1-\beta_1)g_t\\ v_{t+1}&=\beta_2v_t+(1-\beta_2)g_t^2\\ \theta_{t+1}&=\theta_t-\eta\frac{\hat m_{t+1}}{\sqrt{\hat v_{t+1}}+\epsilon}\end{aligned}$$</div><p>Momentum + RMSProp, with bias correction \(\hat m=m/(1-\beta_1^t)\), \(\hat v=v/(1-\beta_2^t)\) because both start at zero. Defaults \(\beta_1=0.9,\beta_2=0.999\). AdamW applies weight decay separately from this rescaling.</p></div>
+  </div>
+  <div class="grid2 prose" style="margin-top:12px">
+    <div>
+      <h3>Putting the pieces together: Adam, line by line</h3>
+      <p>Adam is the default optimiser in deep learning, so it is worth reading slowly. It keeps two running averages per weight: the average gradient \(m\) (which direction have we been going?) and the average squared gradient \(v\) (how big are the gradients here, typically?). The step is their ratio, so a weight whose gradient is consistently in one direction moves at about \(\eta\) per step however steep or flat its own slope is.</p>
+      <div class="algo"><h5 class="algo-h">Algorithm: Adam</h5><ol>
+        <li><span class="kw">input</span> learning rate \(\eta\), \(\beta_1=0.9\), \(\beta_2=0.999\), \(\epsilon=10^{-8}\), initial \(\theta\)</li>
+        <li>\(m\leftarrow0\); \(v\leftarrow0\); \(t\leftarrow0\)</li>
+        <li><span class="kw">repeat</span> for each mini-batch</li>
+        <li class="i1">\(t\leftarrow t+1\); \(g\leftarrow\nabla_\theta\mathcal L\) <span class="cm">backprop</span></li>
+        <li class="i1">\(m\leftarrow\beta_1m+(1-\beta_1)g\) <span class="cm">momentum: smoothed direction</span></li>
+        <li class="i1">\(v\leftarrow\beta_2v+(1-\beta_2)g^2\) <span class="cm">smoothed size, per weight</span></li>
+        <li class="i1">\(\hat m\leftarrow m/(1-\beta_1^t)\); \(\hat v\leftarrow v/(1-\beta_2^t)\) <span class="cm">undo the bias from starting at 0</span></li>
+        <li class="i1">\(\theta\leftarrow\theta-\eta\,\hat m/(\sqrt{\hat v}+\epsilon)\)</li>
+        <li><span class="kw">until</span> converged</li>
+      </ol></div>
+    </div>
+    <div>
+      <details class="deeper" open><summary>Going deeper: why bias correction, and what momentum averages</summary><div>
+        <p><b>Momentum is an average.</b> Unrolling \(m_t=\beta m_{t-1}+(1-\beta)g_t\) gives \(m_t=(1-\beta)\sum_{k\le t}\beta^{t-k}g_k\): an exponentially weighted average of past gradients, with effective memory \(1/(1-\beta)\) steps (10 for \(\beta=0.9\), 1000 for \(0.999\)). Components that flip sign from step to step (across a ravine) cancel; components that agree (along it) add up.</p>
+        <p><b>Bias correction.</b> Because \(m_0=0\), the weights in that sum add up to \(1-\beta^t\), not 1, so early on \(m_t\) underestimates the gradient: after one step \(m_1=0.1\,g_1\). Dividing by \(1-\beta^t\) fixes the total weight to 1. For \(v\) with \(\beta_2=0.999\) the effect lasts for thousands of steps; without correction \(\sqrt{v}\) would be tiny early on and the first steps would be dangerously large.</p>
+        <p><b>Why the step is scale-free.</b> If every gradient of one weight were multiplied by 100, both \(\hat m\) and \(\sqrt{\hat v}\) would be multiplied by 100, and the step would not change. That is the sense in which Adam "partly undoes ill-conditioning": it acts like a diagonal preconditioner, which helps when the ravine is aligned with the axes but not when it is diagonal (where only a full curvature method like Newton's helps).</p>
+      </div></details>
+    </div>
   </div>
   <div class="note"><b>Why adaptive methods help on the banana and the bowl:</b> dividing by \(\sqrt{v}\) makes every coordinate move at roughly the same speed regardless of how steep it is, which partly undoes ill-conditioning. <b>Why GD escapes saddles slowly:</b> near a saddle the gradient is tiny in the escape direction; momentum and noise both help push off.</div>
 </section>

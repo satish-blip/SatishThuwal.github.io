@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nn">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nn">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; Foundations</p>
@@ -28,6 +28,7 @@
   <h2>What is a residual connection, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>Depth should only help: a 56-layer network can copy a 20-layer one and set its extra 36 layers to "do nothing". Yet in 2015 the deeper network trained to a <i>worse</i> training error. The extra layers could not even learn to do nothing, because "do nothing" means learning an exact identity map through weights and non-linearities, and the gradient reaching the early layers had faded away. The fix is almost embarrassingly simple: give every block a free copy of its input.</p>
       <h3>The idea</h3><p>In a plain deep network each <a class="term" data-t="layer">layer</a> must rebuild the whole signal from scratch. A <a class="term" data-t="residual">residual connection</a> (or skip connection) adds the block’s input straight to its output: \(x + F(x)\). The block now only has to learn a <i>correction</i> to its input, and doing nothing (<a class="term" data-t="identity">the identity</a>) is the easy default.</p><p>During training the gradient also gets a direct path back through the "+" to the early layers, so it does not <a class="term" data-t="vanishing-gradient">vanish</a>. This is what made 100+ layer <a class="term" data-t="residual">ResNets</a> and every <a class="term" data-t="transformer">transformer</a> trainable.</p>
       <h3>How it works</h3><ol class="steps2"><li>Compute the block’s usual output \(F(x)\) (layers and activations).</li><li>Add the untouched input: \(y = x + F(x)\).</li><li>Stack many such blocks.</li><li>On the way back, the gradient flows through both the block and the shortcut.</li></ol>
     </div>
@@ -86,6 +87,19 @@
       <p>In the plain network the gradient at layer \(l\) is a product of \(L-l\) factors \(W^{(k)\top}\operatorname{diag}\phi'(z^{(k)})\). If those factors are a bit smaller than 1 the product collapses geometrically, and the first layers receive almost nothing.</p>
       <p>In the residual network each factor becomes \(I+W^{(k)\top}\operatorname{diag}\phi'(z^{(k)})\). Even if the second part is small, the product stays near \(I\), so the curve stays <b>flat</b>: every layer learns at a similar rate.</p>
       <div class="stats" id="gStats"></div>
+      <div class="algo"><h5 class="algo-h">Algorithm: forward and backward through residual blocks</h5><ol>
+        <li><span class="kw">input</span> \(x_0\), blocks \(F_1,\dots,F_L\) (each e.g. norm → linear → ReLU → linear)</li>
+        <li><span class="kw">for</span> \(l=1\) <span class="kw">to</span> \(L\) <span class="kw">do</span> \(x_l\leftarrow x_{l-1}+F_l(x_{l-1})\) <span class="cm">skip: add the input back</span></li>
+        <li>\(\mathcal L\leftarrow\) loss on \(x_L\); \(g\leftarrow\partial\mathcal L/\partial x_L\)</li>
+        <li><span class="kw">for</span> \(l=L\) <span class="kw">down to</span> 1 <span class="kw">do</span></li>
+        <li class="i1">backprop \(g\) through \(F_l\) to get its weight gradients and \(g_F=J_{F_l}^\top g\)</li>
+        <li class="i1">\(g\leftarrow g+g_F\) <span class="cm">identity path: g passes through untouched</span></li>
+        <li><span class="kw">return</span> all weight gradients</li>
+      </ol></div>
+      <details class="deeper"><summary>Going deeper: a residual network as an ensemble of paths</summary><div>
+        <p>Expand \(x_L\) for three blocks: \(x_3=x_0+F_1+F_2(x_0+F_1)+F_3(\dots)\). Every block is either used or skipped, so there are \(2^L\) paths from input to output, of every length from 0 to \(L\). Veit, Wilber and Belongie (2016) measured that most of the gradient in a 110-layer ResNet flows through paths only 10 to 34 blocks long, and that deleting a single block at test time barely hurts (unlike a plain network, where it is fatal). Section 5 on this page lets you try that. The effective depth is far smaller than the nominal depth, which is one reason why such networks are easy to train.</p>
+        <p>In a transformer, the stream \(x_l\) is called the <i>residual stream</i>: every attention and MLP block reads from it and writes an update back into it, and pre-norm (normalise the input of \(F\), never the stream itself) keeps the identity path perfectly clean.</p>
+      </div></details>
       <div class="note warn">Residuals alone can let activations <i>grow</i> with depth (each block adds variance). That is why real ResNets pair them with <a href="../normalisation/">normalisation</a>, and why some initialisations (Fixup, "zero-init the last layer of each block") start every \(F\) at zero.</div>
     </div>
   </div>

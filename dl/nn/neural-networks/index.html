@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nn">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nn">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; Foundations</p>
@@ -28,6 +28,7 @@
   <h2>What is a neural network, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>Take the simplest puzzle that breaks linear models: two inputs that are each 0 or 1, and the answer is 1 when <i>exactly one</i> of them is 1 (XOR). Plot the four cases and the two "1" corners sit diagonally opposite each other. Logistic regression, LDA and a linear SVM all draw one straight line, and no straight line can put both "1" corners on the same side. We need a model that can build its own curved boundaries, and learn how from the data.</p>
       <h3>The idea</h3><p>A <a class="term" data-t="neuron">neuron</a> takes a few numbers, multiplies each by a <a class="term" data-t="parameter">weight</a>, adds them up with a <a class="term" data-t="bias-term">bias</a>, and passes the total through a simple bend, the <a class="term" data-t="activation">activation function</a>. On its own that is just logistic regression: one straight boundary.</p><p>A <a class="term" data-t="neural-network">neural network</a> stacks <a class="term" data-t="layer">layers</a> of such neurons. Each <a class="term" data-t="layer">hidden layer</a> turns the data into new features, and the bends let the network fold and stretch space until the classes become separable. That is how it solves <a class="term" data-t="xor">XOR</a>, which no single straight line can. All the weights are learned together: <a class="term" data-t="backprop">backpropagation</a> computes how each one should change, and <a class="term" data-t="gradient-descent">gradient descent</a> makes the change.</p>
       <h3>How it works</h3><ol class="steps2"><li>Forward pass: feed the input through every layer to get a prediction.</li><li>Measure the error with a <a class="term" data-t="loss">loss function</a> (here <a class="term" data-t="cross-entropy">cross-entropy</a>).</li><li>Backward pass: use the <a class="term" data-t="chain-rule">chain rule</a> to get the gradient for every weight.</li><li>Update all weights a little against their gradients (an <a class="term" data-t="adam">optimiser</a> such as Adam), and repeat.</li></ol>
     </div>
@@ -123,19 +124,46 @@
 
 <section id="maths" class="card">
   <h2><span class="num">5</span>Forward pass and backpropagation</h2>
+  <p class="sub">Training a network uses the same recipe as logistic regression: define the prediction, define the loss, then follow the gradient downhill. The only new problem is step three: with thousands of weights in several layers, how do we get every partial derivative efficiently? Backpropagation is the answer, and it is nothing more than the chain rule applied in a sensible order.</p>
   <div class="grid2 prose">
     <div>
-      <h3>Forward pass</h3>
+      <h3>Step 1: the forward pass</h3>
+      <p>Write \(a^{(0)}=x\) for the input. Each layer takes the previous layer's outputs, forms weighted sums \(z\) (one per neuron, so a matrix–vector product), and bends them with the activation \(\phi\):</p>
       <div class="mathbox c1">$$a^{(0)}=x,\qquad z^{(l)}=W^{(l)}a^{(l-1)}+b^{(l)},\qquad a^{(l)}=\phi\big(z^{(l)}\big),\qquad \hat p=\sigma\big(z^{(L)}\big)$$</div>
+      <p>Read it as a pipeline: \(W^{(l)}\) has one row per neuron in layer \(l\), and row \(j\) holds the weights neuron \(j\) gives to each input. The last layer is a single logistic-regression neuron on top of learned features.</p>
+      <h3>Step 2: the loss</h3>
       <p>Loss for binary classification is the same cross-entropy as logistic regression: \(\mathcal L=-\tfrac1n\sum_i\big[y_i\log\hat p_i+(1-y_i)\log(1-\hat p_i)\big]\).</p>
       <h3>Universal approximation</h3>
-      <p>With one hidden layer and enough neurons, a network with a non-polynomial activation can approximate any continuous function on a bounded region as closely as you like. Depth does not add expressive power in principle, but it often needs <b>exponentially fewer</b> neurons than width alone (each layer composes and reuses the previous layer's features).</p>
+      <p>How powerful is this family? With one hidden layer and enough neurons, a network with a non-polynomial activation can approximate any continuous function on a bounded region as closely as you like. Depth does not add expressive power in principle, but it often needs <b>exponentially fewer</b> neurons than width alone (each layer composes and reuses the previous layer's features).</p>
+      <details class="deeper"><summary>Going deeper: why weights must start random, and at what scale</summary><div>
+        <p>If every weight in a layer starts equal, every neuron in that layer computes the same thing, receives the same \(\delta\), and gets the same update: they stay clones forever. Random initialisation breaks this symmetry. The scale matters too. With \(n\) inputs of variance 1 and weights of variance \(v\), \(z\) has variance \(nv\). To keep signals from exploding or dying layer after layer we want \(nv\approx1\): Xavier/Glorot initialisation uses \(v=1/n_{\text{in}}\) (or \(2/(n_{\text{in}}+n_{\text{out}})\)) for tanh; He initialisation uses \(v=2/n_{\text{in}}\) for ReLU, because ReLU zeroes half of its inputs and so halves the variance.</p>
+      </div></details>
     </div>
     <div>
-      <h3>Backpropagation = the chain rule, organised</h3>
+      <h3>Step 3: backpropagation = the chain rule, organised</h3>
+      <p>Define \(\delta^{(l)}=\partial\mathcal L/\partial z^{(l)}\): "how much would the loss change if this neuron's weighted sum moved a little?". At the output it is simply the error. Each earlier layer's \(\delta\) is obtained from the next layer's by sending it back through the same weights, then scaling by the slope of the activation:</p>
       <div class="mathbox c3">$$\delta^{(L)}=\hat p-y,\qquad \delta^{(l)}=\big(W^{(l+1)\top}\delta^{(l+1)}\big)\odot\phi'\big(z^{(l)}\big)$$</div>
       <div class="mathbox c5">$$\frac{\partial\mathcal L}{\partial W^{(l)}}=\delta^{(l)}a^{(l-1)\top},\qquad \frac{\partial\mathcal L}{\partial b^{(l)}}=\delta^{(l)}$$</div>
       <p>One backward sweep reuses each layer's \(\delta\) for the layer below, so all gradients cost about the same as one forward pass. Then any <a href="../optimisers/">optimiser</a> updates the weights. With regularisation the loss gains \(\lambda_2\lVert W\rVert_2^2/2+\lambda_1\lVert W\rVert_1\), adding \(\lambda_2W+\lambda_1\operatorname{sign}(W)\) to each weight gradient (see <a href="../../../ml/regularisation/">L1 and L2</a>).</p>
+      <div class="algo"><h5 class="algo-h">Algorithm: training a network with backpropagation</h5><ol>
+        <li><span class="kw">input</span> data \((x_i,y_i)\), layer sizes, activation \(\phi\), learning rate \(\eta\)</li>
+        <li>initialise every \(W^{(l)}\) with small random numbers, \(b^{(l)}\leftarrow0\) <span class="cm">random, or all neurons stay identical</span></li>
+        <li><span class="kw">repeat</span> for each mini-batch</li>
+        <li class="i1"><span class="kw">forward</span>: \(a^{(0)}\leftarrow x\); <span class="kw">for</span> \(l=1..L\): \(z^{(l)}\leftarrow W^{(l)}a^{(l-1)}+b^{(l)}\), \(a^{(l)}\leftarrow\phi(z^{(l)})\) <span class="cm">store every z and a</span></li>
+        <li class="i1">\(\mathcal L\leftarrow\) cross-entropy of \(\hat p=\sigma(z^{(L)})\) against \(y\)</li>
+        <li class="i1"><span class="kw">backward</span>: \(\delta^{(L)}\leftarrow\hat p-y\)</li>
+        <li class="i1"><span class="kw">for</span> \(l=L\) <span class="kw">down to</span> 1 <span class="kw">do</span></li>
+        <li class="i2">\(\nabla W^{(l)}\leftarrow\delta^{(l)}a^{(l-1)\top}\); \(\nabla b^{(l)}\leftarrow\delta^{(l)}\)</li>
+        <li class="i2"><span class="kw">if</span> \(l&gt;1\): \(\delta^{(l-1)}\leftarrow(W^{(l)\top}\delta^{(l)})\odot\phi'(z^{(l-1)})\) <span class="cm">send the error one layer back</span></li>
+        <li class="i1"><span class="kw">update</span>: \(W\leftarrow W-\eta\nabla W\), \(b\leftarrow b-\eta\nabla b\) for every layer <span class="cm">or Adam</span></li>
+        <li><span class="kw">until</span> the loss stops improving</li>
+      </ol></div>
+      <details class="deeper"><summary>Going deeper: deriving the backprop equations</summary><div>
+        <p><b>Output layer.</b> With \(\hat p=\sigma(z^{(L)})\) and cross-entropy, exactly the same algebra as on the <a href="../../../ml/logistic-regression/#maths">logistic regression page</a> gives \(\partial\mathcal L/\partial z^{(L)}=\hat p-y\).</p>
+        <p><b>One layer back.</b> \(z^{(l)}\) affects the loss only through \(a^{(l)}\), which feeds every neuron \(k\) of the next layer via \(z^{(l+1)}_k=\sum_jW^{(l+1)}_{kj}a^{(l)}_j+b_k\). The multivariable chain rule sums over all those paths: \(\delta^{(l)}_j=\sum_k\frac{\partial\mathcal L}{\partial z^{(l+1)}_k}\frac{\partial z^{(l+1)}_k}{\partial a^{(l)}_j}\frac{\partial a^{(l)}_j}{\partial z^{(l)}_j}=\big(\sum_kW^{(l+1)}_{kj}\delta^{(l+1)}_k\big)\phi'(z^{(l)}_j)\). In matrix form that is \((W^{(l+1)\top}\delta^{(l+1)})\odot\phi'(z^{(l)})\).</p>
+        <p><b>Weights.</b> \(W^{(l)}_{jk}\) appears only in \(z^{(l)}_j\), with coefficient \(a^{(l-1)}_k\), so \(\partial\mathcal L/\partial W^{(l)}_{jk}=\delta^{(l)}_ja^{(l-1)}_k\): an outer product. "Error at the output end times activity at the input end", the same shape as the LMS rule.</p>
+        <p><b>Why it is cheap.</b> Computing each weight's derivative separately would repeat the work for every path through the network. Backprop is reverse-mode automatic differentiation: one backward sweep, cost about two forward passes, which is exactly what <code>loss.backward()</code> does in PyTorch.</p>
+      </div></details>
       <div class="note warn">Notice \(\phi'\) in every \(\delta\). If \(\phi'\) is small (saturated sigmoid) the signal shrinks layer after layer: the <b>vanishing gradient</b> problem that ReLU, <a href="../residual/">residual connections</a> and <a href="../normalisation/">normalisation</a> were invented to fix.</div>
     </div>
   </div>
