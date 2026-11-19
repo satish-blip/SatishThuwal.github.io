@@ -72,23 +72,23 @@ const E = [
 ['covariance','Covariance matrix','covariance|covariances|Σ','A \\(d\\times d\\) matrix whose \\((j,k)\\) entry is how features \\(j\\) and \\(k\\) vary together. Its diagonal holds the variances. It sets the shape and tilt of a Gaussian\u2019s ellipses.'],
 ['gaussian','Gaussian distribution','Gaussian|normal distribution|Gaussians|bell curve|multivariate normal','The bell-shaped distribution \\(\\mathcal N(\\mu,\\Sigma)\\). In 2-D its contours are ellipses.'],
 ['laplace','Laplace distribution','Laplace prior|Laplace','A distribution with a sharp peak at its centre, \\(p(w)\\propto e^{-|w|/b}\\). As a prior on weights it gives L1 regularisation.','ml/regularisation/#bayes'],
-['probability','Probability','probabilities','A number from 0 to 1 saying how likely something is.'],
-['likelihood','Likelihood','log-likelihood|maximum likelihood|MLE','How probable the observed data is under given parameters, \\(p(\\text{data}\\mid\\theta)\\). Maximum likelihood picks the parameters that make the data most probable.'],
-['prior','Prior','priors|prior distribution|class prior','What you believe before seeing the data. For classes: \\(\\pi_k=P(y=k)\\). For weights: \\(p(w)\\), e.g. Gaussian (gives L2) or Laplace (gives L1).'],
-['posterior','Posterior','posterior probability|posteriors','Belief after seeing the data: \\(P(y=k\\mid x)\\), or \\(p(w\\mid\\text{data})\\). Bayes\u2019 rule combines prior and likelihood into it.'],
-['bayes-rule','Bayes\u2019 rule','Bayes rule|Bayes\u2019 theorem|Bayes theorem','\\(P(A\\mid B)=P(B\\mid A)P(A)/P(B)\\): turns a likelihood and a prior into a posterior.'],
+['probability','Probability','probabilities','A number from 0 to 1 saying how likely something is.','math/probability/'],
+['likelihood','Likelihood','log-likelihood|maximum likelihood|MLE','How probable the observed data is under given parameters, \\(p(\\text{data}\\mid\\theta)\\). Maximum likelihood picks the parameters that make the data most probable.','math/inference/#mle'],
+['prior','Prior','priors|prior distribution|class prior','What you believe before seeing the data. For classes: \\(\\pi_k=P(y=k)\\). For weights: \\(p(w)\\), e.g. Gaussian (gives L2) or Laplace (gives L1).','math/probability/#bayes'],
+['posterior','Posterior','posterior probability|posteriors','Belief after seeing the data: \\(P(y=k\\mid x)\\), or \\(p(w\\mid\\text{data})\\). Bayes\u2019 rule combines prior and likelihood into it.','math/probability/#update'],
+['bayes-rule','Bayes\u2019 rule','Bayes rule|Bayes\u2019 theorem|Bayes theorem','\\(P(A\\mid B)=P(B\\mid A)P(A)/P(B)\\): turns a likelihood and a prior into a posterior.','math/probability/#bayes'],
 ['map','MAP estimate','MAP|maximum a posteriori','The parameters with the highest posterior probability. With a Gaussian prior it is ridge / L2; with a Laplace prior it is the lasso / L1.','ml/regularisation/#bayes'],
 ['generative','Generative model','generative|generative classifier','Models how each class generates data, \\(p(x\\mid y)\\) and \\(p(y)\\), then uses Bayes\u2019 rule. LDA, QDA and naive Bayes are generative.'],
 ['discriminative','Discriminative model','discriminative|discriminative classifier','Models \\(p(y\\mid x)\\) or the boundary directly, without modelling how \\(x\\) is generated. Logistic regression and SVMs are discriminative.'],
 ['outlier','Outlier','outliers','A data point far from the rest. Squared-error losses are pulled strongly by outliers.'],
 
 /* ---------- linear algebra ---------- */
-['vector','Vector','vectors','An ordered list of numbers, like a point or arrow in space.'],
-['matrix','Matrix','matrices','A rectangular table of numbers. Multiplying a vector by a matrix applies a linear transformation (rotate, stretch, project).'],
-['dot-product','Dot product','inner product|dot products','\\(a\\cdot b=\\sum_j a_jb_j\\). Large when the vectors point the same way; zero when they are perpendicular.'],
-['eigenvector','Eigenvector','eigenvectors|eigenvalue|eigenvalues|eigen-decomposition|eigendecomposition','A direction \\(v\\) that a matrix only stretches: \\(Av=\\lambda v\\). The stretch \\(\\lambda\\) is the eigenvalue. PCA uses the eigenvectors of the covariance matrix.','ml/pca/#maths'],
-['projection','Projection','project|projected|projecting|projections','Mapping a point onto a line or subspace by dropping the part that sticks out of it, like a shadow.'],
-['norm','Norm','‖w‖|vector norm','The length of a vector. The L2 norm is \\(\\sqrt{\\sum w_j^2}\\), the L1 norm is \\(\\sum|w_j|\\).'],
+['vector','Vector','vectors','An ordered list of numbers, like a point or arrow in space.','math/vectors/'],
+['matrix','Matrix','matrices','A rectangular table of numbers. Multiplying a vector by a matrix applies a linear transformation (rotate, stretch, project).','math/matrices/'],
+['dot-product','Dot product','inner product|dot products','\\(a\\cdot b=\\sum_j a_jb_j\\). Large when the vectors point the same way; zero when they are perpendicular.','math/vectors/#dot'],
+['eigenvector','Eigenvector','eigenvectors|eigenvalue|eigenvalues|eigen-decomposition|eigendecomposition','A direction \\(v\\) that a matrix only stretches: \\(Av=\\lambda v\\). The stretch \\(\\lambda\\) is the eigenvalue. PCA uses the eigenvectors of the covariance matrix.','math/decompositions/#eigen'],
+['projection','Projection','project|projected|projecting|projections','Mapping a point onto a line or subspace by dropping the part that sticks out of it, like a shadow.','math/projections/'],
+['norm','Norm','‖w‖|vector norm','The length of a vector. The L2 norm is \\(\\sqrt{\\sum w_j^2}\\), the L1 norm is \\(\\sum|w_j|\\).','math/vectors/#norms'],
 ['normal-equations','Normal equations','normal equation','\\(X^\\top X w=X^\\top y\\): the condition the least-squares solution satisfies (the residual is perpendicular to every feature column).','ml/linear-regression/#maths'],
 ['jacobian','Jacobian','Jacobians','The matrix of all partial derivatives of a vector-valued function. Backpropagation multiplies Jacobians layer by layer.'],
 
@@ -262,6 +262,38 @@ const E = [
 ['chain-of-thought','Chain of thought','CoT|chain-of-thought|reasoning chain','An answer that writes out its reasoning steps before the final answer; RAFT’s answers also quote the supporting passage.','dl/nlp/rag/#raft'],
 ['hallucination','Hallucination','hallucinate|hallucinations','A fluent but false statement from a language model. Grounding answers in retrieved text reduces it, but does not remove it.'],
 ['exact-match','Exact match','EM','The share of answers that equal a reference answer exactly after light normalisation (case, punctuation, articles). The main open-domain QA metric.'],
+/* ---------- mathematical concepts ---------- */
+['orthogonal','Orthogonal','perpendicular vectors','Two vectors are orthogonal when their dot product is zero, \\(a\\cdot b=0\\): they meet at a right angle and share no direction.','math/vectors/#dot'],
+['span','Span (of vectors)','linear span|linear combination|linear combinations','All the vectors you can reach by adding scaled copies of the given ones, \\(c_1v_1+\\dots+c_kv_k\\).','math/vectors/#arrows'],
+['linear-map','Linear transformation','linear map|linear maps|linear transformations','A function that keeps straight lines straight and the origin fixed: \\(L(\\alpha x+\\beta y)=\\alpha L(x)+\\beta L(y)\\). Every one is multiplication by a matrix.','math/matrices/#transform'],
+['determinant','Determinant','det|determinants','The factor by which a square matrix scales areas (volumes). Zero means space is flattened and the matrix has no inverse. For \\(2\\times2\\): \\(ad-bc\\).','math/matrices/#det'],
+['rank','Matrix rank','rank-deficient|full rank|full-rank','The number of independent columns (equivalently rows): how many dimensions survive the transformation. Computed by counting pivots or nonzero singular values.','math/matrices/#rank'],
+['null-space','Null space','kernel of a matrix|nullspace','All vectors \\(x\\) with \\(Ax=0\\): the directions the matrix crushes to zero. Its dimension is (number of columns) − rank.','math/matrices/#rank'],
+['inverse','Inverse matrix','matrix inverse|inverse of a matrix|invertible','\\(A^{-1}\\) undoes \\(A\\): \\(A^{-1}A=I\\). It exists only for square matrices with nonzero determinant (full rank).','math/matrices/#inverse'],
+['column-space','Column space','range of a matrix','All possible outputs \\(Ax\\): the span of the columns. Least squares projects the target onto it.','math/projections/#lsq'],
+['orthonormal','Orthonormal','orthonormal basis|orthonormal columns','Vectors of length 1 that are all mutually perpendicular. Coordinates in an orthonormal basis are just dot products.','math/projections/#ortho'],
+['orthogonal-matrix','Orthogonal matrix','rotation matrix|orthogonal matrices','A square matrix \\(Q\\) with orthonormal columns, so \\(Q^\\top Q=I\\) and \\(Q^{-1}=Q^\\top\\). It rotates or reflects without changing lengths.','math/decompositions/'],
+['diagonal-matrix','Diagonal matrix','diagonal matrices','A matrix that is zero off the diagonal. It just stretches each axis by its diagonal entry.','math/decompositions/'],
+['triangular','Triangular matrix','upper triangular|lower triangular|triangular matrices','A matrix that is zero above (lower triangular) or below (upper triangular) the diagonal. Systems with one are solved by substitution, one row at a time.','math/decompositions/#lu'],
+['positive-definite','Positive definite','positive semi-definite|positive-definite|PSD|SPD','A symmetric matrix with \\(x^\\top Ax>0\\) for every \\(x\\ne0\\): all eigenvalues positive, a bowl-shaped quadratic. Covariance matrices and \\(X^\\top X\\) are (semi-)definite.','math/decompositions/#chol'],
+['spectral-theorem','Spectral theorem','','Every real symmetric matrix can be written \\(Q\\Lambda Q^\\top\\): real eigenvalues and perpendicular eigenvectors.','math/decompositions/#eigen'],
+['svd','SVD','singular value decomposition','\\(A=U\\Sigma V^\\top\\): any matrix is a rotation, a stretch along perpendicular axes, then another rotation.','math/svd/'],
+['singular-value','Singular value','singular values','The stretch factors \\(\\sigma_1\\ge\\sigma_2\\ge\\dots\\ge0\\) in the SVD: the semi-axis lengths of the ellipse that the unit circle becomes.','math/svd/#geom'],
+['low-rank','Low-rank approximation','low-rank|truncated SVD|rank-k approximation','Keeping only the first \\(k\\) terms \\(\\sum_{i\\le k}\\sigma_iu_iv_i^\\top\\) of the SVD. By the Eckart–Young theorem it is the closest rank-\\(k\\) matrix.','math/svd/#lowrank'],
+['pseudo-inverse','Pseudo-inverse','Moore–Penrose|pseudoinverse','\\(A^+=V\\Sigma^+U^\\top\\): inverts every nonzero singular value. \\(A^+b\\) is the minimum-norm least-squares solution.','math/svd/#uses'],
+['sample-space','Sample space','','The set \\(\\Omega\\) of everything that can happen in a random experiment, e.g. the 36 outcomes of two dice.','math/probability/#basics'],
+['event','Event (probability)','','A set of outcomes, such as "the dice sum to 7". Its probability is the total probability of its outcomes.','math/probability/#basics'],
+['conditional-probability','Conditional probability','conditional probabilities|P(A|B)','\\(P(A\\mid B)=P(A\\cap B)/P(B)\\): the probability of \\(A\\) once you know \\(B\\) happened.','math/probability/#basics'],
+['independence','Independence','independent events|statistically independent','\\(A\\) and \\(B\\) are independent when knowing one does not change the chance of the other: \\(P(A\\cap B)=P(A)P(B)\\).','math/probability/#basics'],
+['random-variable','Random variable','random variables','A number determined by a random outcome, like the sum of two dice. Its distribution says how probability is spread over its values.','math/probability/#rv'],
+['estimator','Estimator','estimators|estimate from data','A rule that turns data into a guess of an unknown quantity, like the sample mean for \\(\\mu\\). Being computed from random data, it is itself random.','math/inference/#sampling'],
+['standard-error','Standard error','standard errors|SE','The standard deviation of an estimate across repeated samples: how far off it typically is. For a mean, \\(\\sigma/\\sqrt n\\).','math/inference/#sampling'],
+['clt','Central limit theorem','CLT','Averages of many independent draws are approximately normally distributed, \\(\\bar x\\approx\\mathcal N(\\mu,\\sigma^2/n)\\), whatever the original distribution.','math/inference/#sampling'],
+['confidence-interval','Confidence interval','confidence intervals|CI','A range computed from data by a procedure that captures the true value in, say, 95% of repeated samples: \\(\\bar x\\pm1.96\\,s/\\sqrt n\\).','math/inference/#ci'],
+['null-hypothesis','Null hypothesis','H0|null hypotheses','The "nothing is going on" explanation a test tries to reject, e.g. "the two models are equally accurate".','math/inference/#test'],
+['p-value','p-value','p-values|p value','If the null hypothesis were true, the probability of data at least as extreme as what was seen. Small means surprising; it is not the probability that the null is true.','math/inference/#test'],
+['type-i-error','Type I and II errors','Type I error|Type II error|false alarm|false positive rate','Type I: rejecting a true null (false alarm, rate \\(\\alpha\\)). Type II: missing a real effect (rate \\(\\beta\\)).','math/inference/#power'],
+['power','Statistical power','power of a test','The probability a test detects an effect that is really there, \\(1-\\beta\\). It grows with sample size and effect size.','math/inference/#power'],
 ];
 
 const G = window.GLOSS = {}; const alias = [];
@@ -295,14 +327,14 @@ window.addEventListener('resize',close);
 /* ---- automatic linking: first mention of each term in the page's prose ---- */
 /* aliases too generic to auto-link (still usable as data-t on a manual .term) */
 const NOAUTO=new Set(['step','steps','iteration','iterations','forward','value','values','key','keys','query','queries','head','heads','mask','masking','attend','attends','unit','units','root','average','information','depth','shrink','shrinks','shrunk','schedule','schedules','tree','trees','network','networks','boundary','project','projected','projecting','identity','vanish','vanishes','causal','contextual','recurrent','stochastic','torch','leaky','saddle','pure','impure','Σ','φ','η','eta','‖w‖','∇','##','h_t','c_t','ξ','α_i','δ_k','Q, K, V','Q/K/V','minimum','minima','split','splits','splitting','target','mean','expectation','probability','probabilities','schedule','tree depth','unknown word','recall','sensitivity','specificity','UNK','[UNK]','[MASK]','init','convexity','regularise','regularize','regularised','regularized','normalise','normalize','normalised','normalized','curvature','second derivative','residuals','bootstrap sample','resampling','dataset','datasets','classify','tokenise','tokenize','tokenised','fine-tune','generalise','generalize','generalises','reconstruct','reconstructed','saturate','saturates','saturated','saturating','standardised','standardized']);
-const SKIP='A,BUTTON,CODE,PRE,SCRIPT,STYLE,LABEL,OUTPUT,SELECT,TEXTAREA,H1,SVG,CANVAS,KBD';
+const SKIP='A,BUTTON,CODE,PRE,SCRIPT,STYLE,LABEL,OUTPUT,SELECT,TEXTAREA,H1,H2,H3,H4,H5,SUMMARY,SVG,CANVAS,KBD';
 function autolink(root){ root=root||document;
   const scopes=[...root.querySelectorAll('.lede,.intro,.prose,.sub,.note,.hint,td,.mathbox ~ p')].filter(el=>!el.closest('header,.top,.gpop,.code,.toc,.algnav'));
   const done=new Set([...document.querySelectorAll('.term')].map(t=>find(t.dataset.t||t.textContent)).filter(Boolean));
   const list=alias.filter(([s])=>s.length>1 && !NOAUTO.has(s)).sort((a,b)=>b[0].length-a[0].length);
   const rx=new RegExp('(^|[^\\p{L}\\p{N}_\u2019\'-])('+list.map(([s])=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')(?=$|[^\\p{L}\\p{N}_-])','giu');
   const bySurface=new Map(list.map(([s,k])=>[s.toLowerCase(),[s,k]]));
-  scopes.forEach(scope=>{ const walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT,{acceptNode:n=>{ for(let p=n.parentElement;p&&p!==scope.parentElement;p=p.parentElement){ if(SKIP.includes(p.tagName)||p.classList.contains('katex')||p.classList.contains('term')||p.classList.contains('stat')||p.classList.contains('heat')) return NodeFilter.FILTER_REJECT; } return /\S/.test(n.data)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT; }});
+  scopes.forEach(scope=>{ const walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT,{acceptNode:n=>{ for(let p=n.parentElement;p&&p!==scope.parentElement;p=p.parentElement){ if(SKIP.includes(p.tagName)||p.classList.contains('katex')||p.classList.contains('term')||p.classList.contains('stat')||p.classList.contains('heat')||p.classList.contains('cm')) return NodeFilter.FILTER_REJECT; } return /\S/.test(n.data)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT; }});
     const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
     nodes.forEach(n=>{ let txt=n.data, m, last=0, frag=null; rx.lastIndex=0;
       while((m=rx.exec(txt))){ const word=m[2], hit=bySurface.get(word.toLowerCase()); if(!hit) continue; const [surf,key]=hit; if(done.has(key)) continue;

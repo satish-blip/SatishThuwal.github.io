@@ -4,9 +4,12 @@
 const ML=window.ML, NLP=window.NLP={};
 NLP.GROUPS={
   nn:{name:'Neural nets',pages:[['neural-networks','Neural nets & XOR'],['activations','Activations'],['optimisers','GD → Adam'],['residual','Residual connections'],['normalisation','Normalisation']]},
-  nlp:{name:'NLP',pages:[['tokenisation','Tokenisation'],['embeddings','Embeddings'],['rnn','RNNs'],['memory','LSTM & GRU'],['attention','Attention'],['cross-attention','Cross-attention'],['self-attention','Self-attention'],['transformers','Transformers'],['rag','RAG']]} };
-NLP.nav=function(group,cur){ const n=document.getElementById('algnav'); if(!n) return; const G=NLP.GROUPS[group], other=group==='nn'?'nlp':'nn', base=cur==='hub'?'':'../';
-  n.innerHTML=`<a href="${base}"${cur==='hub'?' class="on"':''}>${G.name}</a>`+G.pages.map(([id,t])=>`<a href="${base}${id}/"${id===cur?' class="on" aria-current="page"':''}>${t}</a>`).join('')+`<a href="${base}../${other}/">${NLP.GROUPS[other].name} →</a>`;
+  nlp:{name:'NLP',pages:[['tokenisation','Tokenisation'],['embeddings','Embeddings'],['rnn','RNNs'],['memory','LSTM & GRU'],['attention','Attention'],['cross-attention','Cross-attention'],['self-attention','Self-attention'],['transformers','Transformers'],['rag','RAG']]},
+  math:{name:'Maths',pages:[['vectors','Vectors & dot products'],['matrices','Matrices, rank & inverses'],['projections','Projections'],['decompositions','Eigen & decompositions'],['svd','SVD'],['probability','Probability & Bayes'],['inference','Inference & testing']]} };
+NLP.ORDER=['nn','nlp','math'];
+NLP.nav=function(group,cur){ const n=document.getElementById('algnav'); if(!n) return; const G=NLP.GROUPS[group], other=NLP.ORDER[(NLP.ORDER.indexOf(group)+1)%NLP.ORDER.length], base=cur==='hub'?'':'../';
+  const otherHref=group==='math'?base+'../dl/'+other+'/':other==='math'?base+'../../math/':base+'../'+other+'/';
+  n.innerHTML=`<a href="${base}"${cur==='hub'?' class="on"':''}>${G.name}</a>`+G.pages.map(([id,t])=>`<a href="${base}${id}/"${id===cur?' class="on" aria-current="page"':''}>${t}</a>`).join('')+`<a href="${otherHref}">${NLP.GROUPS[other].name} →</a>`;
   const on=n.querySelector('.on'); if(on) requestAnimationFrame(()=>{ n.scrollLeft=on.offsetLeft-n.clientWidth/2+on.offsetWidth/2; }); };
 NLP.softmax=(v,T=1)=>{ const m=Math.max(...v.map(x=>x/T)); const e=v.map(x=>Math.exp(x/T-m)); const s=e.reduce((a,b)=>a+b,0); return e.map(x=>x/s); };
 NLP.dot=(a,b)=>{ let s=0; for(let i=0;i<a.length;i++) s+=a[i]*b[i]; return s; };
