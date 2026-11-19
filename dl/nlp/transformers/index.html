@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; NLP</p>
@@ -28,6 +28,7 @@
   <h2>What is a transformer, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>RNNs read one word at a time, so they are slow to train (step 100 must wait for step 99) and still struggle with long-range links. Attention solves the long-range problem, but on its own it is just a weighted average: it has no notion of word order, and no place to do per-token computation. We want an architecture that keeps attention's direct connections, adds the missing pieces, and can be stacked a hundred layers deep without falling apart.</p>
       <h3>The idea</h3><p>A <a class="term" data-t="transformer">transformer</a> is a stack of identical blocks. Each block has a self-attention layer (tokens exchange information) and an MLP (each token is processed on its own), wrapped with <a class="term" data-t="residual">residual connections</a> and <a class="term" data-t="layernorm">normalisation</a>. Language models like <a class="term" data-t="gpt">GPT</a> are trained to predict the next token (<a class="term" data-t="autoregressive">autoregressive</a>); then they generate by sampling one token at a time, controlled by <a class="term" data-t="temperature">temperature</a>.</p>
       <h3>How it works</h3><ol class="steps2"><li>Tokenise and embed the text, add position information.</li><li>Pass it through L blocks: attention then MLP, each with a residual add.</li><li>Turn the final vector into a probability for every vocabulary token.</li><li>Train on huge text (<a class="term" data-t="pretraining">pretraining</a>), then adapt (<a class="term" data-t="fine-tuning">fine-tuning</a>).</li></ol>
     </div>
@@ -107,6 +108,28 @@
       <h3 style="margin-top:0">Next word after "<span id="gLast"></span>"</h3><div id="gBars"></div>
       <div class="stats" id="gStats" style="margin-top:10px"></div>
       <div class="note"><b>Temperature</b> divides the logits before the softmax: \(p_i\propto e^{z_i/\tau}\). Below 1 sharpens, above 1 flattens. <b>Greedy</b> always takes the top word and soon loops. <b>Top-k</b> and <b>top-p</b> cut off the long tail of unlikely words so a high temperature does not produce nonsense. Grey bars are cut.</div>
+    </div>
+  </div>
+  <div class="grid2 prose" style="margin-top:14px">
+    <div>
+      <div class="algo"><h5 class="algo-h">Algorithm: generating text with a decoder-only transformer</h5><ol>
+        <li><span class="kw">input</span> prompt tokens \(t_1..t_n\), \(L\) blocks, temperature \(\tau\)</li>
+        <li><span class="kw">repeat</span> until an end token or the length limit</li>
+        <li class="i1">\(x\leftarrow\operatorname{Embed}(t)+\operatorname{Pos}\) <span class="cm">one vector per token</span></li>
+        <li class="i1"><span class="kw">for</span> each block \(l=1..L\) <span class="kw">do</span></li>
+        <li class="i2">\(x\leftarrow x+\operatorname{CausalAttn}(\operatorname{LN}(x))\) <span class="cm">tokens exchange information</span></li>
+        <li class="i2">\(x\leftarrow x+\operatorname{MLP}(\operatorname{LN}(x))\) <span class="cm">each token thinks on its own</span></li>
+        <li class="i1">\(z\leftarrow W_{\text{out}}\operatorname{LN}(x_{\text{last}})\) <span class="cm">logits over the whole vocabulary</span></li>
+        <li class="i1">\(p\leftarrow\operatorname{softmax}(z/\tau)\); sample \(t_{n+1}\sim p\) <span class="cm">or top-k / top-p</span></li>
+        <li class="i1">append \(t_{n+1}\) to the tokens <span class="cm">the output becomes input</span></li>
+        <li><span class="kw">return</span> the generated tokens</li>
+      </ol></div>
+    </div>
+    <div>
+      <details class="deeper" open><summary>Going deeper: the KV cache, and where the compute goes</summary><div>
+        <p>Because of the causal mask, the keys and values of earlier tokens never change when a new token is appended. So a real implementation stores them (the <b>KV cache</b>) and, at each new step, runs the blocks only for the newest token: one query row attending over the cached keys. That turns generation from quadratic work per step into linear, at the price of memory \(2\times L\times n\times d\) numbers per sequence, which is why long contexts are expensive to serve.</p>
+        <p>Inside each block, the MLP (usually \(d\to4d\to d\)) holds about two thirds of the parameters, and attention holds the rest. A useful rule of thumb: a forward pass costs about \(2N\) floating-point operations per token for a model with \(N\) parameters, and training about \(6N\) (forward plus a backward pass twice as expensive).</p>
+      </div></details>
     </div>
   </div>
 </section>

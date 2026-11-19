@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; NLP</p>
@@ -28,6 +28,7 @@
   <h2>What is an embedding, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>To a computer, "cat" and "kitten" are just two different ids, exactly as different as "cat" and "carburettor". A model that learns something about cats learns nothing about kittens. We want each word to be a point in space where similar words sit close together, and we want the space learned automatically from raw text, since nobody can hand-label the meaning of a million words.</p>
       <h3>The idea</h3><p>An <a class="term" data-t="embedding">embedding</a> is a list of numbers that stands for a word (or a sentence), chosen so that words with similar meanings get similar lists. Early methods counted words (<a class="term" data-t="one-hot">one-hot</a>, <a class="term" data-t="bag-of-words">bag of words</a>, <a class="term" data-t="tf-idf">TF-IDF</a>); <a class="term" data-t="word2vec">word2vec</a> learned one vector per word by predicting its neighbours; <a class="term" data-t="contextual">contextual</a> models such as <a class="term" data-t="bert">BERT</a> give a word a different vector in every sentence.</p>
       <h3>How it works</h3><ol class="steps2"><li>Give every word a vector (random at first).</li><li>Train on a simple job, such as predicting nearby words.</li><li>Words used in similar contexts drift together; closeness is measured by <a class="term" data-t="cosine">cosine similarity</a>.</li><li>Contextual models then adjust each vector using the rest of the sentence.</li></ol>
     </div>
@@ -97,6 +98,26 @@ investors watched rates and markets closely</textarea>
   <div class="grid2 prose">
     <div><p><b>The idea:</b> "you shall know a word by the company it keeps" (Firth, 1957). For each word in the text, the model is asked to tell its real neighbours (within 2 positions) from random words. To do that well, words that appear in similar contexts must get similar vectors.</p></div>
     <div><div class="mathbox c3">$$\mathcal L=-\log\sigma(u_{o}^\top v_{c})-\sum_{k=1}^{K}\log\sigma(-u_{k}^\top v_{c})$$</div><p class="hint">\(v_c\): centre word's vector, \(u_o\): a real context word, \(u_k\): \(K=5\) random "negative" words drawn by frequency\(^{0.75}\).</p></div>
+  </div>
+  <div class="grid2 prose" style="margin-top:14px">
+    <div>
+      <div class="algo"><h5 class="algo-h">Algorithm: word2vec skip-gram with negative sampling</h5><ol>
+        <li><span class="kw">input</span> a long text, window size \(c\), dimension \(d\), \(k\) negatives, learning rate \(\eta\)</li>
+        <li>give every word two random vectors: \(v_w\) (as centre word) and \(u_w\) (as context word)</li>
+        <li><span class="kw">for</span> each position \(t\) in the text <span class="kw">do</span></li>
+        <li class="i1"><span class="kw">for</span> each context word \(o\) within \(c\) words of the centre \(w_t\) <span class="kw">do</span></li>
+        <li class="i2">draw \(k\) random "negative" words \(n_1..n_k\) <span class="cm">usually unrelated to w</span></li>
+        <li class="i2">\(\mathcal L\leftarrow-\log\sigma(u_o^\top v_{w_t})-\sum_j\log\sigma(-u_{n_j}^\top v_{w_t})\)</li>
+        <li class="i2">nudge \(v_{w_t}\) and \(u_o\) together; push \(u_{n_j}\) and \(v_{w_t}\) apart <span class="cm">one SGD step</span></li>
+        <li><span class="kw">return</span> the vectors \(v_w\) as the embeddings</li>
+      </ol></div>
+    </div>
+    <div>
+      <details class="deeper" open><summary>Going deeper: what the vectors are secretly learning</summary><div>
+        <p>The loss is logistic regression: "is this (centre, context) pair real or random?". Its gradients are short and intuitive. For the true pair, \(\partial\mathcal L/\partial v=-(1-\sigma(u_o^\top v))\,u_o\), so \(v\) moves toward \(u_o\), more strongly the less sure the model was. For each negative, \(v\) moves away from \(u_{n}\) by \(\sigma(u_n^\top v)\,u_n\).</p>
+        <p>Levy and Goldberg (2014) showed that at the optimum, \(u_o^\top v_w=\operatorname{PMI}(w,o)-\log k\), where \(\operatorname{PMI}(w,o)=\log\frac{P(w,o)}{P(w)P(o)}\) measures how much more often the two words co-occur than chance. So skip-gram is implicitly factorising a word–context PMI matrix, much like an SVD. Two words get similar vectors when they have similar PMI rows, that is, when they appear in similar contexts: the distributional hypothesis, "you shall know a word by the company it keeps".</p>
+      </div></details>
+    </div>
   </div>
 </section>
 

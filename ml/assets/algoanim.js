@@ -1085,6 +1085,311 @@ AA.def('resid', T => {
   return S;
 });
 AA.title(/forward and backward through residual blocks/i,'resid');
+/* ================= NLP ANIMATIONS ================= */
+const softmax=a=>{ const m=Math.max(...a), e=a.map(x=>Math.exp(x-m)), s=T.sum(e); return e.map(x=>x/s); };
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+/* token chip in px; returns width */
+const chip=(g,s,x,y,o={})=>{ g.ctx.save(); g.ctx.font=g.font({mono:true,size:o.size||.78}); const w=Math.max(o.minw||0,g.ctx.measureText(s).width+g.fs*.8); g.ctx.restore(); const h=o.h||g.fs*1.7;
+  g.prect(x,y-h/2,w,h,o.fill||g.C.soft,o.stroke||null,{r:5,a:o.a,lw:o.lw||2}); if(o.tint) g.prect(x,y-h/2,w,h,o.tint,null,{r:5,a:o.ta==null?.3:o.ta});
+  g.ptxt(s,x+w/2,y,o.col||g.C.ink,{align:'center',mono:true,size:o.size||.78,bold:o.bold,a:o.ta2}); return w; };
+const chipW=(g,s,o={})=>{ g.ctx.save(); g.ctx.font=g.font({mono:true,size:o.size||.78}); const w=Math.max(o.minw||0,g.ctx.measureText(s).width+g.fs*.8); g.ctx.restore(); return w; };
+/* row of chips centred on cx; returns centres */
+const chipRow=(g,toks,cx,y,of=()=>({}),gap=6)=>{ const ws=toks.map((s,i)=>chipW(g,s,of(i))); const tot=T.sum(ws)+gap*(toks.length-1); let x=cx-tot/2; const cs=[];
+  toks.forEach((s,i)=>{ chip(g,s,x,y,of(i)); cs.push(x+ws[i]/2); x+=ws[i]+gap; }); return cs; };
+/* heatmap of values in [0,1] */
+const heat=(g,M,px,py,cw,ch,col,o={})=>{ M.forEach((r,i)=>r.forEach((v,j)=>{ const hid=o.hide&&o.hide(i,j); g.prect(px+j*cw+1,py+i*ch+1,cw-2,ch-2,o.masked&&o.masked(i,j)?g.C.line:g.C.soft,null,{r:2});
+  if(!hid && v!=null && !(o.masked&&o.masked(i,j))){ g.prect(px+j*cw+1,py+i*ch+1,cw-2,ch-2,col,null,{r:2,a:Math.min(.95,.08+v*.9)}); if(o.num) g.ptxt(T.f(v,o.dp==null?2:o.dp),px+j*cw+cw/2,py+i*ch+ch/2,g.C.ink,{align:'center',mono:true,size:o.size||.6}); }
+  if(o.hl&&o.hl(i,j)) g.prect(px+j*cw+1,py+i*ch+1,cw-2,ch-2,null,g.C.c2,{r:2,lw:2}); })); };
+/* small vector of squares (values ~[-1,1]) */
+const vecSq=(g,v,x,y,s,o={})=>{ v.forEach((a,k)=>{ const xx=o.vert?x:x+k*s, yy=o.vert?y+k*s:y; g.prect(xx+1,yy+1,s-2,s-2,g.C.soft,null,{r:2});
+  const c=o.gate?g.C.c3:(a>=0?g.C.c1:g.C.c4); g.prect(xx+1,yy+1,s-2,s-2,c,null,{r:2,a:Math.min(.95,o.gate?a:Math.abs(a)*.9+.05)}); }); if(o.label) g.ptxt(o.label,o.vert?x+s/2:x+v.length*s/2,(o.vert?y:y)-g.fs*.6,o.lc||g.C.muted,{align:'center',size:.68,mono:true,bold:o.bold}); };
+const arcC=(g,x1,y1,x2,y2,h,col,w,a)=>{ g.ctx.save(); g.ctx.globalAlpha*=a==null?1:a; g.ctx.strokeStyle=col; g.ctx.lineWidth=w; g.ctx.beginPath(); g.ctx.moveTo(x1,y1); g.ctx.quadraticCurveTo((x1+x2)/2,Math.min(y1,y2)-h,x2,y2); g.ctx.stroke(); g.ctx.restore(); };
+
+/* ---------- BPE ---------- */
+AA.def('bpe', T => {
+  const S=[], add=F(S); const C=pick([[['low',5],['lower',2],['newest',6],['widest',3]],[['hug',10],['pug',5],['pun',12],['bun',4],['hugs',5]],[['play',6],['played',3],['playing',4],['saying',3]],[['tall',4],['taller',3],['tallest',2],['smallest',5]]]);
+  const test={low:'lowest',hug:'bugs',play:'saying',tall:'smaller'}[C[0][0]]||'lowest';
+  let words=C.map(([w,c])=>({s:[...w,'_'],c})); const steps=[];
+  for(let m=0;m<6;m++){ const cnt=new Map(); words.forEach(W=>{ for(let k=0;k<W.s.length-1;k++){ const key=W.s[k]+'\u0001'+W.s[k+1]; cnt.set(key,(cnt.get(key)||0)+W.c); } });
+    const top=[...cnt.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5); if(!top.length) break; const [a,b]=top[0][0].split('\u0001');
+    const before=words.map(W=>({s:[...W.s],c:W.c}));
+    words=words.map(W=>{ const o=[]; for(let k=0;k<W.s.length;k++){ if(k<W.s.length-1&&W.s[k]===a&&W.s[k+1]===b){ o.push(a+b); k++; } else o.push(W.s[k]); } return {s:o,c:W.c}; });
+    steps.push({before,after:words.map(W=>({s:[...W.s],c:W.c})),top,a,b}); }
+  const tok=w=>{ let s=[...w,'_']; steps.forEach(st=>{ const o=[]; for(let k=0;k<s.length;k++){ if(k<s.length-1&&s[k]===st.a&&s[k+1]===st.b){ o.push(st.a+st.b); k++; } else o.push(s[k]); } s=o; }); return s; };
+  const draw=(g,o)=>{ const W=g.W,H=g.H; const ws=o.words; const rh=Math.min(.13*H,(.66*H)/ws.length);
+    g.ptxt('corpus (word × count)',.03*W,.07*H,g.C.muted,{size:.72,semi:true});
+    ws.forEach((wd,i)=>{ const y=.16*H+i*rh; g.ptxt('×'+wd.c,.03*W,y,g.C.muted,{size:.72,mono:true});
+      if(o.whole){ chip(g,wd.s.join('').replace(/_$/,''),.1*W,y,{}); return; }
+      let x=.1*W; wd.s.forEach((s,k)=>{ const isP=o.pair&&k<wd.s.length-1&&s===o.pair[0]&&wd.s[k+1]===o.pair[1]; const isP2=o.pair&&k>0&&wd.s[k-1]===o.pair[0]&&s===o.pair[1];
+        const w=chip(g,s,x,y,{stroke:(isP||isP2)?g.C.c2:null,tint:s.length>1?g.C.c1:null,ta:Math.min(.45,.1*s.length),size:.72}); x+=w+3; }); });
+    const rx=.63*W; if(o.top){ g.ptxt('most frequent pairs',rx,.07*H,g.C.muted,{size:.72,semi:true}); const mx=o.top[0][1];
+      o.top.forEach(([k,c],i)=>{ const [a,b]=k.split('\u0001'), y=.14*H+i*.075*H; g.ptxt(a+' + '+b,rx,y,g.C.ink,{size:.7,mono:true}); const bw=.17*W*c/mx*(o.grow==null?1:o.grow); g.prect(rx+.14*W,y-.022*H,bw,.044*H,i===0&&o.best?g.C.c2:g.C.c1,null,{r:2,a:.7}); g.ptxt(String(c),rx+.14*W+bw+4,y,g.C.muted,{size:.65,mono:true}); }); }
+    g.ptxt('merge rules',rx,.56*H,g.C.muted,{size:.72,semi:true}); (o.merges||[]).forEach((st,i)=>g.ptxt((i+1)+'. '+st.a+' + '+st.b+' → '+st.a+st.b,rx,.62*H+i*.055*H,i===o.merges.length-1&&o.newm?g.C.c2:g.C.ink,{size:.66,mono:true,bold:i===o.merges.length-1&&o.newm}));
+    if(o.test){ const s=tok(test); g.ptxt('new word "'+test+'" →',.03*W,.9*H,g.C.ink,{size:.75,semi:true}); let x=.03*W+g.fs*(test.length*.55+5.5); s.forEach(t=>{ x+=chip(g,t,x,.9*H,{tint:t.length>1?g.C.c1:null,ta:.3,size:.72})+3; }); } };
+  add(1,'Start with a small corpus: each word and how often it appears.',1300,g=>draw(g,{words:steps[0].before,whole:true}));
+  add(2,'Split every word into characters, with _ marking the end of the word. The vocabulary is just these characters.',1300,g=>draw(g,{words:steps[0].before}));
+  steps.forEach((st,m)=>{ const fast=m>1, M=steps.slice(0,m+1);
+    add(3,`Vocabulary still too small: merge ${m+1}.`,fast?300:600,g=>draw(g,{words:st.before,merges:steps.slice(0,m)}));
+    add(4,`Count every neighbouring pair, weighted by the word counts.`,fast?600:1100,(g,p)=>draw(g,{words:st.before,top:st.top,grow:p,merges:steps.slice(0,m)}));
+    add(5,`The winner is "${st.a}" + "${st.b}" (${st.top[0][1]} times).`,fast?450:900,g=>draw(g,{words:st.before,top:st.top,best:true,pair:[st.a,st.b],merges:steps.slice(0,m)}));
+    add(6,`Glue every "${st.a} ${st.b}" into one symbol "${st.a+st.b}".`,fast?500:900,(g,p)=>draw(g,{words:p<.5?st.before:st.after,top:st.top,best:true,pair:p<.5?[st.a,st.b]:null,merges:steps.slice(0,m)}));
+    add(7,`Add "${st.a+st.b}" to the vocabulary and record the rule.`,fast?400:800,g=>draw(g,{words:st.after,top:st.top,merges:M,newm:true})); });
+  add(8,`Done. To tokenise new text, replay the merge rules in order: "${test}" becomes ${tok(test).length} tokens.`,2600,g=>draw(g,{words:steps[steps.length-1].after,merges:steps,test:true}));
+  return S;
+});
+AA.title(/byte-pair encoding \(training\)/i,'bpe');
+
+/* ---------- word2vec SGNS ---------- */
+AA.def('sgns', T => {
+  const S=[], add=F(S); const topics=pick([[['cat','dog','kitten','puppy','pet'],['car','bus','truck','road','drive']],[['apple','banana','mango','juice','sweet'],['goal','match','team','score','kick']],[['rain','cloud','storm','wind','cold'],['code','bug','python','compile','debug']]]);
+  const vocab=[...topics[0],...topics[1]], tp=w=>topics[0].includes(w)?0:1, idx=w=>vocab.indexOf(w);
+  const sent=()=>{ const t=T.ri(2); return T.range(6).map(()=>pick(topics[t])); };
+  let v=vocab.map(()=>[T.g()*.5,T.g()*.5]), u=vocab.map(()=>[T.g()*.5,T.g()*.5]); const lr=.08, c=2, k=2;
+  const dot=(a,b)=>a[0]*b[0]+a[1]*b[1];
+  const sentences=T.range(70).map(sent); const snaps=[{v:v.map(x=>[...x]),s:0,t:0}], det=[];
+  sentences.forEach((s,si)=>s.forEach((w,t)=>{ for(let o=Math.max(0,t-c);o<=Math.min(s.length-1,t+c);o++){ if(o===t) continue; const wi=idx(w), oi=idx(s[o]); let negs=T.range(k).map(()=>T.ri(vocab.length)).filter(n=>n!==oi&&n!==wi); if(!negs.length) negs=[(oi+1)%vocab.length];
+      const vw=[...v[wi]]; const sp=T.sig(dot(u[oi],vw)); let L=-Math.log(sp); const gv=[-(1-sp)*u[oi][0],-(1-sp)*u[oi][1]]; const gu=[-(1-sp)*vw[0],-(1-sp)*vw[1]];
+      negs.forEach(n=>{ const sn=T.sig(dot(u[n],vw)); L-=Math.log(1-sn); gv[0]+=sn*u[n][0]; gv[1]+=sn*u[n][1]; u[n]=[u[n][0]-lr*sn*vw[0],u[n][1]-lr*sn*vw[1]]; });
+      u[oi]=[u[oi][0]-lr*gu[0],u[oi][1]-lr*gu[1]]; v[wi]=[v[wi][0]-lr*gv[0],v[wi][1]-lr*gv[1]];
+      if(det.length<2 && si===0 && (det.length===0||t===2)) det.push({s,t,o,wi,oi,negs,L,from:vw,to:[...v[wi]],uo:[...u[oi]]}); }
+    if(t===s.length-1 && si%4===3) snaps.push({v:v.map(x=>[...x]),s:si,t}); }));
+  const R=Math.max(1.2,...snaps[snaps.length-1].v.map(p=>Math.max(Math.abs(p[0]),Math.abs(p[1]))))*1.15;
+  const draw=(g,o)=>{ const W=g.W,H=g.H; const s=o.s; if(s){ chipRow(g,s,.5*W,.08*H,i=>({stroke:i===o.t?g.C.c2:(o.ctx&&Math.abs(i-o.t)<=c&&i!==o.t?g.C.c5:null),tint:i===o.o?g.C.c5:null,ta:.35,size:.72})); }
+    g.view(.03,.17,.58,.8,-R,R,-R,R); g.frame(); g.axes();
+    const V=o.v; vocab.forEach((w,i)=>{ const p=V[i]; g.dot(p[0],p[1],5,tp(w)?g.C.c4:g.C.c1); g.txt(w,p[0],p[1]+R*.07,tp(w)?g.C.c4:g.C.c1,{align:'center',size:.66,bold:o.d&&i===o.d.wi}); });
+    if(o.d){ const d=o.d; g.dot(d.uo[0],d.uo[1],6,g.C.c5,{hollow:true}); g.txt('u('+vocab[d.oi]+')',d.uo[0],d.uo[1]-R*.08,g.C.c5,{align:'center',size:.6});
+      if(o.neg) d.negs.forEach(n=>g.txt('✕ '+vocab[n],R*.95,R*(.9-.1*d.negs.indexOf(n)),g.C.c4,{align:'right',size:.65}));
+      if(o.mv!=null){ const p=[T.lerp(d.from[0],d.to[0],o.mv),T.lerp(d.from[1],d.to[1],o.mv)]; g.arrow(d.from[0],d.from[1],d.from[0]+(d.to[0]-d.from[0])*4,d.from[1]+(d.to[1]-d.from[1])*4,g.C.c5,2); g.dot(p[0],p[1],6,g.C.c2); } }
+    const rx=.65*W; g.ptxt('word vectors v (2-D here)',rx,.24*H,g.C.muted,{size:.7,semi:true}); g.ptxt('● '+topics[0][0]+', '+topics[0][1]+', …',rx,.31*H,g.C.c1,{size:.68}); g.ptxt('● '+topics[1][0]+', '+topics[1][1]+', …',rx,.37*H,g.C.c4,{size:.68});
+    if(o.L!=null) g.ptxt('loss '+T.f(o.L,3),rx,.47*H,g.C.ink,{size:.75,mono:true,bold:true}); if(o.prog!=null) g.ptxt('sentences read: '+o.prog,rx,.47*H,g.C.ink,{size:.72,mono:true}); };
+  const v0=snaps[0].v; const d0=det[0], d1=det[1]||det[0];
+  add(1,'Text where some words share contexts. Each sentence talks about one topic.',1300,g=>draw(g,{s:d0.s,v:v0}));
+  add(2,'Every word starts with random vectors, so the points are scattered with no pattern.',1100,g=>draw(g,{s:d0.s,v:v0}));
+  [d0,d1].forEach((d,n)=>{ const f=n>0; const vb=v0.map((p,i)=>i===d.wi?d.from:p);
+    add(3,`Centre word: "${vocab[d.wi]}".`,f?500:900,g=>draw(g,{s:d.s,t:d.t,v:vb}));
+    add(4,`Context word within ${c} positions: "${vocab[d.oi]}". This is a real pair.`,f?500:900,g=>draw(g,{s:d.s,t:d.t,o:d.o,ctx:true,v:vb,d}));
+    add(5,`Draw ${d.negs.length} random words as fake pairs: ${d.negs.map(n=>'"'+vocab[n]+'"').join(', ')}.`,f?500:900,g=>draw(g,{s:d.s,t:d.t,o:d.o,v:vb,d,neg:true}));
+    add(6,`Loss: is the real pair scored high and the fake ones low? Here L = ${T.f(d.L,3)}.`,f?500:900,g=>draw(g,{s:d.s,t:d.t,o:d.o,v:vb,d,neg:true,L:d.L}));
+    add(7,`One SGD step: v("${vocab[d.wi]}") moves toward u("${vocab[d.oi]}") and away from the fakes (arrow exaggerated ×4).`,f?700:1200,(g,p)=>draw(g,{s:d.s,t:d.t,o:d.o,v:vb,d,neg:true,mv:p})); });
+  add([3,4,5,6,7],'Slide the window over the whole text, repeating the step millions of times (here 70 sentences, sped up).',4200,(g,p)=>{ const k=Math.min(snaps.length-1,Math.floor(p*(snaps.length-1))); const sn=snaps[k]; draw(g,{s:sentences[sn.s],v:sn.v,prog:sn.s+1}); });
+  add(8,`The vectors are the embeddings. Words used in the same contexts ended up close together: two clusters, one per topic.`,2800,g=>draw(g,{v:snaps[snaps.length-1].v,prog:70}));
+  return S;
+});
+AA.title(/skip-gram with negative sampling/i,'sgns');
+
+/* ---------- RNN + BPTT ---------- */
+AA.def('rnn', T => {
+  const S=[], add=F(S); const word=pick(['hello','sweet','paper','river','lemon']); const xs=[...word.slice(0,-1)], ys=[...word.slice(1)]; const n=xs.length, H_=6;
+  const chars=[...new Set(word)]; const V=chars.length; const oh=ch=>chars.map(c=>c===ch?1:0);
+  const Wxh=randM(H_,V,.8), Whh=randM(H_,H_,.9/Math.sqrt(H_)), Why=randM(V,H_,.8);
+  const h=[T.range(H_).map(()=>0)], P=[], Ls=[];
+  for(let t=1;t<=n;t++){ const z=mv(Wxh,oh(xs[t-1])).map((a,i)=>a+mv(Whh,h[t-1])[i]); h[t]=z.map(Math.tanh); const p=softmax(mv(Why,h[t])); P[t]=p; Ls[t]=-Math.log(p[chars.indexOf(ys[t-1])]); }
+  const gn=[]; let gh=T.range(H_).map(()=>0); for(let t=n;t>=1;t--){ const dy=P[t].map((p,i)=>p-(chars[i]===ys[t-1]?1:0)); gh=gh.map((a,i)=>a+mtv(Why,dy)[i]); const d=gh.map((a,i)=>a*(1-h[t][i]**2)); gn[t]=nrm(d); gh=mtv(Whh,d); }
+  let gl=mtv(Why,P[n].map((p,i)=>p-(chars[i]===ys[n-1]?1:0))); const last=[]; for(let t=n;t>=1;t--){ const d=gl.map((a,i)=>a*(1-h[t][i]**2)); last[t]=nrm(d); gl=mtv(Whh,d); }
+  const gmax=Math.max(...gn.slice(1));
+  const draw=(g,o)=>{ const W=g.W,H=g.H, x=t=>.12*W+(t-.5)*(.82*W/n), cy=.5*H, bw=.09*W, bh=.12*H;
+    for(let t=1;t<=n;t++){ const X=x(t), on=o.cur===t; g.prect(X-bw/2,cy-bh/2,bw,bh,on?g.C.c1:g.C.soft,on?g.C.c2:g.C.line,{r:6,a:on?.3:1,lw:on?2.5:1}); g.ptxt('tanh',X,cy-bh*.2,g.C.muted,{align:'center',size:.6,mono:true});
+      if(o.fw>=t) vecSq(g,h[t].slice(0,4),X-bw*.4,cy+bh*.02,bw*.2);
+      chip(g,xs[t-1],X-chipW(g,xs[t-1])/2,.86*H,{stroke:on?g.C.c2:null}); g.parrow(X,.86*H-g.fs*.9,X,cy+bh/2+2,g.C.line,1.5);
+      if(o.out>=t){ const p=P[t][chars.indexOf(ys[t-1])]; g.parrow(X,cy-bh/2-2,X,.27*H,g.C.line,1.5); g.ptxt('next: '+ys[t-1],X,.22*H,g.C.ink,{align:'center',size:.66,mono:true}); g.ptxt('p='+T.f(p,2),X,.16*H,p>.4?g.C.c5:g.C.c4,{align:'center',size:.62,mono:true}); }
+      if(t<n||true){ const X0=t===1?.05*W:x(t-1)+bw/2; g.parrow(X0,cy,X-bw/2-2,cy,o.bk!=null&&o.bk===t?g.C.c2:g.C.ink,1.8); }
+      if(o.bk!=null && t>=o.bk){ const v=gn[t]/gmax, bh2=.1*H*v; g.prect(X-bw*.25,.7*H-bh2,bw*.22,bh2,g.C.c2,null,{a:.8,r:2}); const v2=last[t]/gmax, bh3=.1*H*v2; g.prect(X+bw*.03,.7*H-bh3,bw*.22,bh3,g.C.c4,null,{a:.8,r:2}); } }
+    g.ptxt('h₀',.035*W,cy,g.C.muted,{size:.7,mono:true});
+    if(o.pulse!=null){ g.pdot(T.lerp(.05*W,x(n)+bw/2,o.pulse),cy,5,o.back?g.C.c2:g.C.c5); }
+    if(o.loss) g.ptxt('total loss '+T.f(T.sum(Ls.slice(1)),2),.97*W,.07*H,g.C.ink,{align:'right',size:.72,mono:true,bold:true});
+    if(o.bk!=null){ g.prect(.03*W,.955*H-g.fs*.4,g.fs*.8,g.fs*.8,g.C.c2,null,{a:.8}); g.ptxt('‖δₜ‖ total',.03*W+g.fs,.955*H,g.C.muted,{size:.62}); g.prect(.3*W,.955*H-g.fs*.4,g.fs*.8,g.fs*.8,g.C.c4,null,{a:.8}); g.ptxt('only the last step’s error',.3*W+g.fs,.955*H,g.C.muted,{size:.62}); } };
+  add(1,`Teach the network to spell "${word}": at each step, read one letter and predict the next. Its weights are still random, so the first guesses are poor.`,1400,g=>draw(g,{}));
+  add(2,'The hidden state starts at zero: no memory yet.',700,g=>draw(g,{}));
+  for(let t=1;t<=n;t++){ add([3,4],`t = ${t}: mix "${xs[t-1]}" with the previous memory h${t-1}, same weights as every other step.`,t===1?1000:550,(g,p)=>draw(g,{fw:t-(p<.6?1:0),out:t-1,cur:t,pulse:(t-1+p)/n}));
+    add(5,`Predict the next letter. p("${ys[t-1]}") = ${T.f(P[t][chars.indexOf(ys[t-1])],2)}, loss += ${T.f(Ls[t],2)}.`,t===1?900:450,g=>draw(g,{fw:t,out:t,cur:t})); }
+  add(6,'Forward done. Now carry the error back, right to left.',800,g=>draw(g,{fw:n,out:n,loss:true}));
+  for(let t=n;t>=1;t--){ add([7,8],`t = ${t}: add this step's own output error to what arrived from the future.`,t===n?900:450,(g,p)=>draw(g,{fw:n,out:n,loss:true,cur:t,bk:t+1,pulse:(t-.5*p)/n,back:true}));
+    add([9,10],`Collect the weight gradients for step ${t} and pass the error one step back through W_hh.`,t===n?900:450,(g,p)=>draw(g,{fw:n,out:n,loss:true,cur:t,bk:t,pulse:(t-.5-.5*p)/n,back:true})); }
+  add(11,`Sum the gradients over all steps and update. The orange bars show the last letter's error fading as it travels back: ×${T.f(Math.pow(last[1]/last[n],1/Math.max(1,n-1)),2)} per step.`,2800,g=>draw(g,{fw:n,out:n,loss:true,bk:1}));
+  return S;
+});
+AA.title(/RNN forward pass and backpropagation through time/i,'rnn');
+
+/* ---------- LSTM step ---------- */
+AA.def('lstm', T => {
+  const S=[], add=F(S); const d=4, nx=3, Tn=4; const W={}; ['f','i','c','o'].forEach(k=>W[k]=randM(d,d+nx,.9));
+  const bf=T.range(d).map(()=>1); const xs=T.range(Tn).map(()=>T.range(nx).map(()=>T.g()));
+  let h=T.range(d).map(()=>0), c=T.range(d).map(()=>0); const st=[];
+  for(let t=0;t<Tn;t++){ const u=[...h,...xs[t]]; const f=mv(W.f,u).map((z,i)=>T.sig(z+bf[i])), ii=mv(W.i,u).map(T.sig), ct=mv(W.c,u).map(Math.tanh), o=mv(W.o,u).map(T.sig);
+    const cn=c.map((v,k)=>f[k]*v+ii[k]*ct[k]), hn=cn.map((v,k)=>o[k]*Math.tanh(v)); st.push({u,h,c,f,i:ii,ct,o,cn,hn,x:xs[t]}); h=hn; c=cn; }
+  const draw=(g,s,o,tt)=>{ const W=g.W,H=g.H, q=Math.min(.035*W,.055*H), cy=.17*H, gy=.5*H, uy=.78*H;
+    const node=(x,y,sym,on)=>{ g.ctx.beginPath(); g.ctx.arc(x,y,q*.6,0,7); g.ctx.fillStyle=on?g.C.c2:g.C.card; g.ctx.fill(); g.ctx.strokeStyle=g.C.ink; g.ctx.lineWidth=1.5; g.ctx.stroke(); g.ptxt(sym,x,y,on?g.C.card:g.C.ink,{align:'center',size:.8,bold:true}); };
+    const L=o.lv||0;
+    g.pseg(.14*W,cy,.86*W,cy,L>=5?g.C.c5:g.C.ink,L===5?4:2.5); g.ptxt('cell state c (the conveyor belt)',.5*W,cy-q*1.4,g.C.muted,{align:'center',size:.66});
+    vecSq(g,s.c,.02*W,cy-q/2,q,{label:'c_{t−1}'.replace('_{t−1}','ₜ₋₁')}); if(L>=5) vecSq(g,s.cn,.86*W,cy-q/2,q*.9,{label:'cₜ',bold:true,lc:g.C.c5});
+    const fx=.3*W, ax=.48*W, ox=.76*W; node(fx,cy,'×',L===3); node(ax,cy,'+',L===5);
+    const gates=[['f',.2*W,s.f,3,true],['i',.39*W,s.i,4,true],['c̃',.57*W,s.ct,4,false],['o',ox,s.o,6,true]]; const gq=q*.78;
+    gates.forEach(([nm,x,v,lv,gt])=>{ const on=L>=lv; g.pseg(x,uy,x,gy+q*.9,g.C.line,1.2); g.prect(x-gq*2.3,gy-q*.9,gq*4.6,q*1.8,on?g.C.card:g.C.soft,L===lv?g.C.c2:g.C.line,{r:5,lw:L===lv?2.5:1});
+      if(on) vecSq(g,v,x-gq*2,gy-gq/2,gq,{gate:gt}); else g.ptxt(nm,x,gy,g.C.muted,{align:'center',size:.8,mono:true});
+      if(on) g.ptxt(nm+(gt?' = σ(·)':' = tanh(·)'),x,gy-q*1.5,L===lv?g.C.c2:g.C.muted,{align:'center',size:.6,mono:true}); });
+    g.pseg(.2*W,gy-q*.9,fx,cy+q*.6,L>=3?g.C.c3:g.C.line,1.5); g.pseg(.39*W,gy-q*.9,ax,cy+q*.6,L>=4?g.C.c3:g.C.line,1.5); g.pseg(.57*W,gy-q*.9,ax,cy+q*.6,L>=4?g.C.c3:g.C.line,1.5);
+    const hy=.35*H; node(ox,hy,'×',L===7); g.pseg(ox,gy-q*.9,ox,hy+q*.6,L>=6?g.C.c3:g.C.line,1.5); g.pseg(ox,cy,ox,hy-q*.6,L>=7?g.C.c5:g.C.line,1.5); g.ptxt('tanh',ox+q*.9,(cy+hy)/2,g.C.muted,{size:.58,mono:true});
+    g.pseg(ox+q*.6,hy,.86*W,hy,L>=7?g.C.c1:g.C.line,1.5); if(L>=7) vecSq(g,s.hn,.86*W,hy-q/2,q*.9,{label:'hₜ',bold:true,lc:g.C.c1});
+    vecSq(g,s.h,.12*W,uy-q/2,q*.8,{label:'hₜ₋₁'}); vecSq(g,s.x,.12*W+q*4,uy-q/2,q*.8,{label:'xₜ'}); if(L===2) g.prect(.12*W-3,uy-q*.7,q*7.2+6,q*1.4,null,g.C.c2,{r:4,lw:2});
+    g.pseg(.12*W+q*7.4,uy,ox,uy,L>=2?g.C.ink:g.C.line,1.5);
+    if(o.p!=null && L===5){ g.pdot(T.lerp(.14*W,.86*W,o.p),cy,5,g.C.c5); }
+    T.range(Tn).forEach(k=>chip(g,'t='+(k+1),.12*W+k*.11*W,.94*H,{stroke:k===tt?g.C.c2:null,size:.62,tint:k<tt?g.C.c1:null,ta:.25})); };
+  for(let t=0;t<Tn;t++){ const s=st[t], f=t>0, ms=f?380:900; const ff=T.mean(s.f);
+    if(!f) add(1,'One LSTM step needs the new input xₜ, the previous output hₜ₋₁ and the previous cell state cₜ₋₁ (squares: purple +, orange −).',1500,g=>draw(g,s,{lv:0},t));
+    add(2,`Step ${t+1}: stack hₜ₋₁ and xₜ into one vector u that every gate reads.`,ms,g=>draw(g,s,{lv:2},t));
+    add(3,`Forget gate f (yellow = open). Average ${T.f(ff,2)}: keep most of each memory slot.`,ms,g=>draw(g,s,{lv:3},t));
+    add(4,'Input gate i decides how much to write; c̃ is the candidate content.',ms,g=>draw(g,s,{lv:4},t));
+    add(5,'cₜ = f⊙cₜ₋₁ + i⊙c̃: the old memory rides along the belt, only scaled and added to.',f?500:1100,(g,p)=>draw(g,s,{lv:5,p},t));
+    add(6,'Output gate o decides which slots to reveal.',ms,g=>draw(g,s,{lv:6},t));
+    add(7,'hₜ = o⊙tanh(cₜ): the output the next layer (and next step) sees.',ms,g=>draw(g,s,{lv:7},t));
+    add(8,t<Tn-1?'Pass hₜ and cₜ on to the next step.':'Done for this sequence. Notice how slowly c changes from step to step compared with h: that is the long-term memory.',t<Tn-1?(f?300:700):2600,g=>draw(g,s,{lv:7},t)); }
+  return S;
+});
+AA.title(/one LSTM step/i,'lstm');
+
+/* ---------- scaled dot-product attention ---------- */
+AA.def('attn', T => {
+  const S=[], add=F(S); const m=4; const ang=T.shuffle([.3,1.5,2.6,4.2,5.3]).slice(0,m).map(a=>a+T.u(-.2,.2));
+  const K=ang.map(a=>{ const r=T.u(1,1.6); return [r*Math.cos(a),r*Math.sin(a)]; }); const Vv=T.range(m).map(j=>[Math.cos(j*Math.PI/2+.6)*1.2,Math.sin(j*Math.PI/2+.6)*1.2]);
+  const cols=['c1','c3','c4','c5']; const Q=T.range(3).map(i=>{ const a=ang[i]+T.u(-.4,.4), r=T.u(1.6,2.4); return [r*Math.cos(a),r*Math.sin(a)]; });
+  const sc=Q.map(q=>K.map(k=>(q[0]*k[0]+q[1]*k[1])/Math.SQRT2)), A=sc.map(softmax), O=A.map(a=>[T.sum(a.map((w,j)=>w*Vv[j][0])),T.sum(a.map((w,j)=>w*Vv[j][1]))]);
+  const draw=(g,o)=>{ const W=g.W,H=g.H, i=o.i;
+    g.view(.02,.1,.36,.62,-2.6,2.6,-2.6,2.6); g.frame(); g.axes(); g.ptxt('keys k and query q',g.vp().x,g.vp().y-g.fs*.7,g.C.muted,{size:.7});
+    K.forEach((k,j)=>{ g.arrow(0,0,k[0],k[1],g.C[cols[j]],o.kj===j?3.5:2); g.txt('k'+(j+1),k[0]*1.18,k[1]*1.18,g.C[cols[j]],{align:'center',size:.65,bold:true}); });
+    if(i!=null){ const q=Q[i]; g.arrow(0,0,q[0],q[1],g.C.ink,2.6); g.txt('q'+(i+1),q[0]*1.12,q[1]*1.12,g.C.ink,{align:'center',size:.7,bold:true}); }
+    const bx=.43*W, bwid=.2*W; if(i!=null && o.nk!=null){ g.ptxt(o.soft==null?'score q·k/√d':'weight (softmax)',bx,.1*H,g.C.muted,{size:.7});
+      const s=sc[i], a=A[i]; for(let j=0;j<m;j++){ if(j>=o.nk) break; const y=.17*H+j*.11*H; const val=o.soft==null?s[j]:T.lerp(s[j]/4+.0,a[j],o.soft); const w=Math.abs(val)*bwid*(o.soft==null?.25:1)/(o.soft==null?1:1);
+        const wpx=o.soft==null?Math.min(bwid,Math.abs(s[j])/3*bwid):T.lerp(Math.min(bwid,Math.abs(s[j])/3*bwid),a[j]*bwid,o.soft);
+        g.prect(bx+g.fs*1.6,y-.03*H,Math.max(1,wpx),.06*H,g.C[cols[j]],null,{r:2,a:(o.soft==null&&s[j]<0)?.35:.8}); g.ptxt('k'+(j+1),bx,y,g.C[cols[j]],{size:.65,bold:true});
+        g.ptxt(o.soft==null||o.soft<.5?T.f(s[j],2):T.f(a[j],2),bx+g.fs*1.6+wpx+4,y,g.C.ink,{size:.62,mono:true}); } }
+    g.view(.64,.1,.34,.62,-1.8,1.8,-1.8,1.8); g.frame(); g.axes(); g.ptxt('values v and output o',g.vp().x,g.vp().y-g.fs*.7,g.C.muted,{size:.7});
+    Vv.forEach((v,j)=>{ g.dot(v[0],v[1],6,g.C[cols[j]]); g.txt('v'+(j+1),v[0],v[1]+.28,g.C[cols[j]],{align:'center',size:.62,bold:true}); });
+    if(i!=null && o.out!=null){ const a=A[i]; Vv.forEach((v,j)=>g.seg(O[i][0],O[i][1],v[0],v[1],g.C[cols[j]],1+a[j]*6,null,.35+a[j]*.6)); const p=[O[i][0]*o.out,O[i][1]*o.out]; g.dot(p[0],p[1],7,g.C.ink); g.txt('o'+(i+1),p[0]+.25,p[1]-.2,g.C.ink,{size:.68,bold:true}); }
+    (o.done||[]).forEach(k=>{ g.dot(O[k][0],O[k][1],5,g.C.ink,{a:.5}); g.txt('o'+(k+1),O[k][0]+.22,O[k][1]-.2,g.C.muted,{size:.6}); });
+    if(o.mat){ const px=.06*W, py=.8*H, cw=.075*W, ch=.05*H; g.ptxt('A = softmax(QKᵀ/√d)',px,py-g.fs*.7,g.C.muted,{size:.68}); heat(g,A,px,py,cw,ch,g.C.c1,{num:true,size:.55}); g.ptxt('× V  →  O, all queries at once',px+m*cw+g.fs,py+ch*1.5,g.C.ink,{size:.7}); } };
+  add(1,'Four items, each with a key k (what it offers) and a value v (what it hands over).',1400,g=>draw(g,{}));
+  for(let i=0;i<3;i++){ const f=i>0, done=T.range(i);
+    add(2,`Query ${i+1} arrives: what am I looking for?`,f?500:900,g=>draw(g,{i,done}));
+    for(let j=0;j<m;j++) add(3,`Score against key ${j+1}: q·k/√d = ${T.f(sc[i][j],2)}. Big when the arrows point the same way.`,f?260:650,g=>draw(g,{i,kj:j,nk:j+1,done}));
+    add(4,'Softmax turns scores into weights: all positive and they add to 1. The best match dominates.',f?600:1100,(g,p)=>draw(g,{i,nk:m,soft:p,done}));
+    add(5,`Output = weighted average of the values: o${i+1} is pulled toward v${A[i].indexOf(Math.max(...A[i]))+1}.`,f?700:1200,(g,p)=>draw(g,{i,nk:m,soft:1,out:p,done})); }
+  add(6,'Every query does the same thing, so in matrix form it is one line: softmax(QKᵀ/√d)V.',2600,g=>draw(g,{done:[0,1,2],mat:true}));
+  return S;
+});
+AA.title(/scaled dot-product attention/i,'attn');
+
+/* ---------- causal multi-head self-attention ---------- */
+AA.def('selfattn', T => {
+  const S=[], add=F(S); const toks=pick([['the','cat','sat','on','it'],['she','gave','him','a','book'],['rain','fell','and','it','stopped'],['I','like','green','tea','now']]); const n=toks.length, d=4;
+  const X=T.range(n).map(()=>T.range(d).map(()=>T.g()));
+  const head=()=>{ const Wq=randM(d,d,.8),Wk=randM(d,d,.8); const Q=X.map(x=>mv(Wq,x)), K=X.map(x=>mv(Wk,x)); const Sc=Q.map(q=>K.map(k=>T.sum(q.map((a,i)=>a*k[i]))/2)); const A=Sc.map((r,i)=>softmax(r.map((v,j)=>j>i?-1e9:v))); return {Sc,A}; };
+  const hd=[head(),head()]; const hc=['c1','c3'];
+  const draw=(g,o)=>{ const W=g.W,H=g.H, h=o.h||0, Hd=hd[h], col=g.C[hc[h]];
+    const cs=chipRow(g,toks,.3*W,.62*H,i=>({stroke:o.row===i?g.C.c2:null,size:.72}));
+    if(o.qkv){ cs.forEach((x,i)=>{ ['q','k','v'].forEach((l,k)=>g.ptxt(l,x-g.fs*.9+k*g.fs*.9,.62*H+g.fs*1.6,[g.C.c2,g.C.c3,g.C.c5][k],{align:'center',size:.62,mono:true,bold:true})); }); }
+    if(o.arcs!=null){ const rows=o.arcs; rows.forEach(i=>Hd.A[i].forEach((a,j)=>{ if(j<=i && a>.04){ if(i===j){ g.ctx.save(); g.ctx.globalAlpha=.3+a*.7; g.ctx.strokeStyle=col; g.ctx.lineWidth=1+a*6; g.ctx.beginPath(); g.ctx.arc(cs[i],.62*H-g.fs*1.4,g.fs*.55,0,7); g.ctx.stroke(); g.ctx.restore(); }
+      else arcC(g,cs[i],.62*H-g.fs*.9,cs[j],.62*H-g.fs*.9,.12*H+Math.abs(i-j)*.05*H,col,1+a*7,.3+a*.7); } })); }
+    const px=.6*W, py=.18*H, cw=Math.min(.075*W,.11*H), ch=cw*.85;
+    g.ptxt('head '+(h+1)+(o.soft?': weights A':': scores S'),px,py-g.fs*1.9,col,{size:.72,bold:true}); toks.forEach((t,j)=>g.ptxt(t.slice(0,4),px+j*cw+cw/2,py-g.fs*.6,g.C.muted,{align:'center',size:.55,mono:true})); toks.forEach((t,i)=>g.ptxt(t.slice(0,4),px-4,py+i*ch+ch/2,g.C.muted,{align:'right',size:.55,mono:true}));
+    if(o.sc!=null){ const M=o.soft?Hd.A:Hd.Sc.map(r=>r.map(v=>T.clamp((v+3)/6,0,1))); heat(g,M,px,py,cw,ch,col,{hide:(i,j)=>i>=o.sc,masked:o.mask?((i,j)=>j>i&&o.mask>(j-i)/n):null,num:o.soft,size:.5,hl:(i,j)=>o.row===i}); }
+    if(o.cat){ g.ptxt('Y = [Z₁ Z₂] W_O',.5*W,.9*H,g.C.ink,{align:'center',size:.8,bold:true,mono:true}); cs.forEach((x,i)=>{ vecSq(g,[.6,-.3],x-g.fs,.78*H,g.fs*.9,{}); vecSq(g,[-.5,.8],x,.78*H,g.fs*.9,{}); g.prect(x-g.fs,.78*H,g.fs*.9,g.fs*.9,g.C.c1,null,{a:.5}); g.prect(x,.78*H,g.fs*.9,g.fs*.9,g.C.c3,null,{a:.5}); }); } };
+  add(1,`A sentence of ${n} tokens, each already a vector.`,1200,g=>draw(g,{}));
+  [0,1].forEach(h=>{ const f=h>0;
+    add([2,3],`Head ${h+1}: every token makes its own query, key and value with this head's weights.`,f?600:1100,g=>draw(g,{h,qkv:true}));
+    add(4,'Every token scores every token: an n × n table.',f?700:1300,(g,p)=>draw(g,{h,qkv:true,sc:Math.ceil(p*n)}));
+    add(5,'Causal mask: a token may not look at tokens after it, so the upper triangle is blocked.',f?600:1100,(g,p)=>draw(g,{h,qkv:true,sc:n,mask:p+.01}));
+    for(let i=0;i<n;i++) add(6,`Softmax each row, then mix values. "${toks[i]}" reads from ${i?'itself and the '+i+' token'+(i>1?'s':'')+' before it':'only itself'}.`,f?300:650,g=>draw(g,{h,sc:n,mask:1,soft:true,row:i,arcs:[i]}));
+  });
+  add(7,'Concatenate the two heads’ outputs and mix them with W_O. Each head was free to look for something different.',1300,g=>draw(g,{h:1,sc:n,mask:1,soft:true,arcs:T.range(n),cat:true}));
+  add(8,'One new vector per token, same shape as the input, now carrying context from earlier tokens.',2400,g=>draw(g,{h:0,sc:n,mask:1,soft:true,arcs:T.range(n),cat:true}));
+  return S;
+});
+AA.title(/causal multi-head self-attention/i,'selfattn');
+
+/* ---------- cross-attention ---------- */
+AA.def('xattn', T => {
+  const S=[], add=F(S); const P=pick([[['the','black','cat'],['le','chat','noir'],[0,2,1]],[['I','love','green','tea'],["j'",'aime','le','thé','vert'],[0,1,3,3,2]],[['the','red','car'],['la','voiture','rouge'],[0,2,1]],[['a','big','house'],['une','grande','maison'],[0,1,2]]]);
+  const [src,tgt,al]=P, m=src.length, n=tgt.length; const A=tgt.map((_,i)=>softmax(src.map((_,j)=>(j===al[i]?3.2:0)+T.g()*.5)));
+  const draw=(g,o)=>{ const W=g.W,H=g.H; g.ptxt('source (encoder)',.03*W,.08*H,g.C.muted,{size:.68}); g.ptxt('target (decoder)',.03*W,.72*H,g.C.muted,{size:.68});
+    const sx=chipRow(g,src,.36*W,.16*H,j=>({tint:o.enc?g.C.c3:null,ta:.3,stroke:o.kv?g.C.c3:null,size:.72}));
+    const tx=chipRow(g,tgt.slice(0,o.nt||0).concat(o.nt<n?['…']:[]),.36*W,.8*H,i=>({tint:i<o.nt?g.C.c1:null,ta:.25,stroke:o.q===i?g.C.c2:null,size:.72}));
+    if(o.enc) g.ptxt('K, V = E·W',.36*W,.16*H+g.fs*1.7,g.C.c3,{align:'center',size:.6,mono:true});
+    if(o.q!=null){ const i=o.q; if(o.lines) A[i].forEach((a,j)=>g.pseg(tx[i],.8*H-g.fs*.9,sx[j],.16*H+g.fs*.9,g.C.c1,1+a*8*o.lines)); if(o.flow!=null){ const j=A[i].indexOf(Math.max(...A[i])); g.pdot(T.lerp(sx[j],tx[i],o.flow),T.lerp(.2*H,.77*H,o.flow),5,g.C.c5); } else if(o.qa) g.parrow(tx[i],.8*H-g.fs*1,tx[i],.6*H,g.C.c2,2.2); }
+    const px=.72*W, py=.2*H, cw=Math.min(.065*W,.09*H), ch=cw*.8; g.ptxt('A (target × source)',px,py-g.fs*2,g.C.muted,{size:.66}); src.forEach((s,j)=>g.ptxt(s.slice(0,4),px+j*cw+cw/2,py-g.fs*.6,g.C.muted,{align:'center',size:.52,mono:true})); tgt.forEach((t,i)=>g.ptxt(t.slice(0,5),px-4,py+i*ch+ch/2,g.C.muted,{align:'right',size:.52,mono:true}));
+    heat(g,A,px,py,cw,ch,g.C.c1,{hide:(i,j)=>i>=(o.rows||0),num:true,dp:1,size:.48,hl:(i,j)=>o.q===i}); };
+  add(1,`Translate "${src.join(' ')}" → "${tgt.join(' ')}".`,1400,g=>draw(g,{nt:0}));
+  add(2,'Encode the source once: each source word becomes a vector, ready to be consulted.',1000,g=>draw(g,{nt:0,enc:true}));
+  for(let i=0;i<n;i++){ const f=i>0;
+    add(3,`The decoder reads what it has written so far${i?': "'+tgt.slice(0,i).join(' ')+'"':''}.`,f?350:800,g=>draw(g,{nt:i,enc:true,rows:i}));
+    add(4,`The position writing "${tgt[i]}" forms a query: what source information do I need?`,f?400:800,g=>draw(g,{nt:i+1,enc:true,q:i,qa:true,rows:i}));
+    add(5,'Keys and values come from the encoded source.',f?300:700,g=>draw(g,{nt:i+1,enc:true,kv:true,q:i,qa:true,rows:i}));
+    add(6,`Attention weights: "${tgt[i]}" looks mostly at "${src[A[i].indexOf(Math.max(...A[i]))]}".`,f?600:1000,(g,p)=>draw(g,{nt:i+1,enc:true,q:i,lines:p,rows:i+(p>.5?1:0)}));
+    add(7,'Add the weighted mix of source values to the decoder state (residual).',f?450:800,(g,p)=>draw(g,{nt:i+1,enc:true,q:i,lines:1,flow:p,rows:i+1})); }
+  add(8,'The matrix is an alignment: which source word was used to write each target word. Note the reordering.',2600,g=>draw(g,{nt:n,enc:true,rows:n}));
+  return S;
+});
+AA.title(/cross-attention in an encoder.decoder/i,'xattn');
+
+/* ---------- autoregressive generation ---------- */
+AA.def('gen', T => {
+  const S=[], add=F(S); const tb={the:{mat:2.2,sofa:1.9,floor:1.5,dog:.8,roof:.6},cat:{sat:2.4,slept:1.9,purred:1.5,ran:1.2},sat:{on:3,down:1.8,quietly:1.2},on:{the:3,a:2,my:1.3},a:{mat:2,rug:1.8,chair:1.2},my:{lap:2.3,bed:1.8,chair:1.4},slept:{on:2,'.':1.5,all:1},ran:{away:2,to:1.5,'.':1},purred:{'.':2,softly:1.5},down:{'.':2,on:1.5},quietly:{'.':2,on:1},dog:{barked:2,sat:1.5,'.':1}};
+  const gen=(w)=>tb[w]||{'.':2.2,and:1,then:.7};
+  const tau=.8; let toks=[pick(['the','a','my']),'cat']; const steps=[];
+  while(steps.length<5){ const last=toks[toks.length-1], d=gen(last), ks=Object.keys(d), p=softmax(ks.map(k=>d[k]/tau)); let r=Math.random(), c=0; for(;c<ks.length-1;c++){ r-=p[c]; if(r<=0) break; }
+    const att=softmax(toks.map((_,j)=>T.g()+(j===toks.length-1?1:0))); steps.push({toks:[...toks],ks,p,c,att}); toks.push(ks[c]); if(ks[c]==='.') break; }
+  const draw=(g,s,o)=>{ const W=g.W,H=g.H; const tk=o.app?[...s.toks,s.ks[s.c]]:s.toks; const L=tk.length;
+    const cs=chipRow(g,tk,.33*W,.88*H,i=>({tint:i>=2?g.C.c3:null,ta:.3,stroke:(o.app&&i===L-1)?g.C.c2:null,size:.7}));
+    const lx=cs[s.toks.length-1], bw=.24*W, bh=.075*H;
+    if(o.lv>=3) cs.slice(0,s.toks.length).forEach((x,i)=>vecSq(g,[.6,-.4,.3],x-g.fs*1.2,.78*H,g.fs*.8,{}));
+    for(let l=0;l<3;l++){ const y=.62*H-l*.14*H, on=o.blk===l; g.prect(.33*W-bw/2,y-bh,bw,bh*.9,on&&o.part==='a'?g.C.c1:g.C.soft,on?g.C.c2:g.C.line,{r:5,a:on&&o.part==='a'?.3:1,lw:on?2:1}); g.ptxt('attention',.33*W,y-bh*.55,g.C.ink,{align:'center',size:.6});
+      g.prect(.33*W-bw/2,y-bh*1.9+bh*.05,bw,bh*.8,on&&o.part==='m'?g.C.c5:g.C.soft,on?g.C.c2:g.C.line,{r:5,a:on&&o.part==='m'?.3:1,lw:on?2:1}); g.ptxt('MLP',.33*W,y-bh*1.5,g.C.ink,{align:'center',size:.6}); }
+    g.ptxt('×3 blocks',.33*W-bw/2-4,.45*H,g.C.muted,{align:'right',size:.6});
+    if(o.part==='a') s.att.forEach((a,j)=>{ if(j!==s.toks.length-1) arcC(g,lx,.88*H-g.fs*.9,cs[j],.88*H-g.fs*.9,.06*H+.03*H*(s.toks.length-1-j),g.C.c1,1+a*6,.3+a*.7); });
+    if(o.lv>=7){ const rx=.68*W; g.ptxt(o.lv>=8?'p = softmax(z/τ), τ='+tau:'next-token logits z',rx,.1*H,g.C.muted,{size:.66}); const mx=Math.max(...s.p);
+      s.ks.forEach((k,j)=>{ const y=.17*H+j*.075*H; const v=o.lv>=8?s.p[j]:s.p[j]; const w=.13*W*v/mx; g.ptxt(k,rx,y,g.C.ink,{size:.66,mono:true}); g.prect(rx+.08*W,y-.025*H,w,.05*H,o.lv>=8&&j===s.c?g.C.c2:g.C.c3,null,{r:2,a:.75}); if(o.lv>=8) g.ptxt(T.f(s.p[j],2),rx+.08*W+w+4,y,g.C.muted,{size:.6,mono:true}); }); }
+    if(o.cache) g.ptxt('KV cache: earlier tokens are not recomputed',.03*W,.06*H,g.C.muted,{size:.62}); };
+  steps.forEach((s,k)=>{ const f=k>0, c=f;
+    if(!f) add(1,`Prompt: "${s.toks.join(' ')}". The model will write one token at a time.`,1200,g=>draw(g,s,{lv:0}));
+    add([2,3],f?'Next round: embed the newest token.':'Embed each token and add its position.',f?350:900,g=>draw(g,s,{lv:3,cache:c}));
+    for(let l=0;l<3;l++){ add(5,l?`Block ${l+1}: attention again.`:'Attention: the newest position looks back at all earlier tokens.',f?220:(l?380:900),g=>draw(g,s,{lv:3,blk:l,part:'a',cache:c})); add(6,'MLP: each position is processed on its own.',f?180:(l?300:600),g=>draw(g,s,{lv:3,blk:l,part:'m',cache:c})); }
+    add(7,'Project the last position onto the vocabulary: one score per possible next token.',f?400:900,g=>draw(g,s,{lv:7,cache:c}));
+    add(8,`Softmax with temperature, then sample: "${s.ks[s.c]}" (p = ${T.f(s.p[s.c],2)}).`,f?500:1000,g=>draw(g,s,{lv:8,cache:c}));
+    add(9,'Append it. The output becomes part of the next input.',f?450:800,g=>draw(g,s,{lv:8,app:true,cache:c})); });
+  const s=steps[steps.length-1]; add(10,`Generated: "${[...s.toks,s.ks[s.c]].join(' ')}". Run it again and the sample may differ.`,2600,g=>draw(g,s,{lv:0,app:true}));
+  return S;
+});
+AA.title(/generating text with a decoder-only transformer/i,'gen');
+
+/* ---------- RAG ---------- */
+AA.def('rag', T => {
+  const S=[], add=F(S); const sets=[
+    {q:'When did the Eiffel Tower open?',a:'It opened in 1889, for the World’s Fair [1].',rel:['Eiffel Tower opened in 1889','Built for the 1889 World’s Fair','The tower is 330 m tall'],oth:['Louvre: largest art museum','Paris metro has 16 lines','The Seine flows through Paris','Croissants: a 19th-c. fashion']},
+    {q:'How tall is Mount Everest?',a:'About 8,849 m above sea level [1].',rel:['Everest: 8,849 m (2020 survey)','Highest peak above sea level','First summited in 1953'],oth:['K2 is in the Karakoram','Yaks live at high altitude','Nepal’s capital is Kathmandu','Monsoon season: June–Sept']},
+    {q:'What does a mitochondrion do?',a:'It makes most of the cell’s ATP, its energy supply [1].',rel:['Mitochondria produce ATP','Called the cell’s powerhouse','Has its own small DNA'],oth:['Ribosomes build proteins','Chlorophyll is green','DNA is a double helix','Neurons send signals']} ];
+  const D=pick(sets); const qa=T.u(0,2*Math.PI); const chunks=T.shuffle([...D.rel.map((t,i)=>({t,a:qa+[.15,-.3,.55][i]*(T.r()<.5?-1:1),rel:1})),...D.oth.map((t,i)=>({t,a:qa+Math.PI*(.45+.3*i)+T.u(-.15,.15),rel:0}))]);
+  chunks.forEach(c=>{ c.r=T.u(.85,1); c.p=[c.r*Math.cos(c.a),c.r*Math.sin(c.a)]; c.s=c.r*Math.cos(c.a-qa); }); const top=[...chunks].sort((a,b)=>b.s-a.s).slice(0,3);
+  const draw=(g,o)=>{ const W=g.W,H=g.H; const L=o.lv;
+    g.ptxt('document chunks',.03*W,.06*H,g.C.muted,{size:.66,semi:true}); chunks.forEach((c,i)=>{ const y=.12*H+i*.062*H, ti=top.indexOf(c), on=L>=5&&ti>=0; g.prect(.03*W,y-.026*H,.34*W,.052*H,g.C.soft,on?g.C.c2:null,{r:4,lw:2}); g.ptxt(c.t,.03*W+5,y,g.C.ink,{size:.56}); if(L>=4 && (o.sc==null||i<o.sc)) g.ptxt(T.f(c.s,2),.38*W,y,c.s>.6?g.C.c5:g.C.muted,{size:.56,mono:true}); });
+    g.view(.45,.08,.26,.42,-1.25,1.25,-1.25,1.25); g.frame(); if(L>=1){ g.ptxt('embedding space',g.vp().x,g.vp().y-g.fs*.6,g.C.muted,{size:.6});
+      chunks.forEach((c,i)=>{ const p=o.fly!=null?Math.min(1,Math.max(0,o.fly*chunks.length-i)):1; if(p<=0) return; const on=L>=5&&top.includes(c); g.dot(c.p[0]*p,c.p[1]*p,on?6:4,on?g.C.c2:g.C.c1,{a:.4+.6*p}); }); }
+    if(L>=3){ const e=[Math.cos(qa),Math.sin(qa)]; g.arrow(0,0,e[0]*(o.qg==null?1:o.qg),e[1]*(o.qg==null?1:o.qg),g.C.c4,2.5); g.txt('e_q',e[0]*1.15,e[1]*1.15,g.C.c4,{align:'center',size:.62,bold:true});
+      if(L===4) chunks.slice(0,o.sc||chunks.length).forEach(c=>g.seg(0,0,c.p[0],c.p[1],g.C.c1,1,[3,3],.6)); }
+    if(L>=2) { g.prect(.45*W,.57*H-g.fs*1.1,.52*W,g.fs*2.2,g.C.soft,g.C.c4,{r:5,lw:1.5}); g.ptxt('Q: '+D.q,.45*W+6,.57*H,g.C.ink,{size:.62,bold:true}); }
+    const y0=.645*H, bh=g.fs*4.9; if(L>=6){ g.prect(.45*W,y0,.52*W,bh,g.C.card,g.C.line,{r:5}); g.ptxt('prompt: answer from the sources',.45*W+6,y0+g.fs*.8,g.C.muted,{size:.55});
+      top.forEach((c,i)=>{ const p=o.pp==null?1:T.clamp(o.pp*3-i,0,1); if(p>0) g.ptxt('['+(i+1)+'] '+c.t,.45*W+6,y0+g.fs*(1.85+i*.95),g.C.ink,{size:.54,a:p}); }); }
+    if(L>=7){ const s=D.a, k=Math.round((o.type==null?1:o.type)*s.length); g.prect(.45*W,y0+bh+4,.52*W,g.fs*2,g.C.c5,null,{r:5,a:.15}); g.ptxt('LLM: '+s.slice(0,k)+(k<s.length?'▌':''),.45*W+6,y0+bh+4+g.fs,g.C.ink,{size:.6,bold:true}); }
+    if(L>=8) g.ptxt('sources: '+top.map((c,i)=>'['+(i+1)+']').join(' '),.97*W,.06*H,g.C.c5,{align:'right',size:.62,bold:true}); };
+  add(1,'Offline, once: cut the documents into chunks and embed each one as a vector (a point in space).',1800,(g,p)=>draw(g,{lv:1,fly:p}));
+  add(2,'A question arrives.',800,g=>draw(g,{lv:2}));
+  add(3,'Embed the question with the query encoder, into the same space.',900,(g,p)=>draw(g,{lv:3,qg:p}));
+  add(4,'Score every chunk by its dot product with the question vector.',1500,(g,p)=>draw(g,{lv:4,sc:Math.ceil(p*chunks.length)}));
+  add(5,'Keep the top 3. Chunks about the same topic as the question point the same way.',1100,g=>draw(g,{lv:5}));
+  add(6,'Build the prompt: instructions, the retrieved chunks, then the question.',1300,(g,p)=>draw(g,{lv:6,pp:p}));
+  add(7,'The language model writes the answer from the retrieved text.',1800,(g,p)=>draw(g,{lv:7,type:p}));
+  add(8,'Return the answer with its sources, so it can be checked.',2400,g=>draw(g,{lv:8}));
+  return S;
+});
+AA.title(/^\s*Algorithm: retrieval-augmented generation/i,'rag');
 /* ---------- which animation goes with which pseudocode title ---------- */
 [[/ordinary least squares/i,'ols'],[/gradient descent for least squares/i,'gd'],[/lasso by coordinate descent/i,'lassocd'],
  [/logistic regression by gradient descent/i,'logreg'],[/Newton's method \(IRLS\)/i,'newton'],[/proximal gradient descent for L1/i,'proxlog'],[/ROC curve/i,'roc'],

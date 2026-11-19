@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; NLP &middot; Project</p>
@@ -28,6 +28,7 @@
   <h2>What is RAG, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>A language model only knows what was in its training data, frozen at some date, and when it does not know something it may confidently make it up. Retraining it every time a document changes is far too expensive, and you cannot easily check where an answer came from. We want the model to look things up: find the relevant passages in a document collection at question time, read them, and answer from them.</p>
       <h3>The idea</h3><p><a class="term" data-t="rag">Retrieval-augmented generation</a> splits knowledge in two. The model’s weights hold language and reasoning (its <a class="term" data-t="parametric-memory">parametric memory</a>); a searchable store of documents holds the facts. A <a class="term" data-t="retriever">retriever</a> picks the passages that match the question, and the generator writes the answer from them.</p>
       <h3>How it works</h3><ol class="steps2"><li>Split documents into short <a class="term" data-t="chunk">chunks</a> and index them (word counts, embeddings, or both).</li><li>Turn the question into the same kind of representation and fetch the top \(k\) chunks.</li><li>Put the question and the chunks into the model’s input.</li><li>Generate an answer that uses, and ideally cites, those chunks.</li></ol>
     </div>
@@ -100,6 +101,26 @@
   <p class="sub">RAG is one of four ways to adapt a foundation model, alongside further training, parameter-efficient fine-tuning (LoRA, adapters) and inference-time methods. The map below shows the whole journey and how the families relate. Click any card for its Q&amp;A, sample Python and Hugging Face usage, try the decision helper, or compare the approaches side by side.</p>
   <div class="row" style="margin:8px 0 10px"><a class="btn primary" href="../llm-adaptation/" target="_blank" rel="noopener">Open the map full screen &nearr;</a></div>
   <div class="mapframe"><iframe src="../llm-adaptation/" title="Interactive LLM adaptation map: training, PEFT, RAG and inference" loading="lazy"></iframe></div>
+  <div class="grid2 prose" style="margin-top:14px">
+    <div>
+      <div class="algo"><h5 class="algo-h">Algorithm: retrieval-augmented generation</h5><ol>
+        <li><span class="kw">offline</span>: split documents into chunks; \(e_j\leftarrow\operatorname{Enc}_D(\text{chunk}_j)\); build an index <span class="cm">done once</span></li>
+        <li><span class="kw">input</span> a question \(q\)</li>
+        <li>\(e_q\leftarrow\operatorname{Enc}_Q(q)\) <span class="cm">same vector space as the chunks</span></li>
+        <li><span class="kw">for</span> each chunk \(j\): \(s_j\leftarrow e_q^\top e_j\) <span class="cm">in practice an approximate nearest-neighbour search</span></li>
+        <li>\(Z\leftarrow\) the top-\(k\) chunks by score <span class="cm">optionally re-rank with a cross-encoder</span></li>
+        <li>prompt \(\leftarrow\) instructions + \(Z\) + \(q\)</li>
+        <li>answer \(\leftarrow\operatorname{LLM}(\text{prompt})\) <span class="cm">generated token by token, citing Z</span></li>
+        <li><span class="kw">return</span> the answer and its sources</li>
+      </ol></div>
+    </div>
+    <div>
+      <details class="deeper" open><summary>Going deeper: RAG as a latent-variable model</summary><div>
+        <p>The original RAG paper treats the retrieved passage \(z\) as a hidden variable and marginalises over it: \(p(y\mid q)\approx\sum_{z\in\text{top-}k}p_\eta(z\mid q)\,p_\theta(y\mid q,z)\), with \(p_\eta(z\mid q)\propto\exp(e_q^\top e_z)\). Because the sum is differentiable in the retriever scores, the question encoder can be trained end to end from answer quality alone, with no labels saying which passage was right. (The document encoder is kept frozen so the index does not need rebuilding.)</p>
+        <p>Practical systems often skip the marginalisation and simply paste the top-\(k\) chunks into the prompt, as in the algorithm above. The weak points are then visible in the algorithm itself: a bad chunking step splits the answer across chunks, the retriever misses it (recall@k), or the generator ignores or misreads the retrieved text (faithfulness). Evaluate each stage separately.</p>
+      </div></details>
+    </div>
+  </div>
 </section>
 
 <section id="rag" class="card hl">

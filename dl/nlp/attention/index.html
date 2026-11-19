@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; NLP</p>
@@ -28,6 +28,7 @@
   <h2>What is attention, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>An encoder–decoder translator squeezes the whole source sentence into one fixed vector, then writes the translation from that vector alone. For a five-word sentence that works; for a fifty-word one, the vector is a bottleneck and early words get forgotten. A human translator does something smarter: while writing each word, they glance back at the part of the source that matters right now. We want a network that can do that glance, and learn where to look.</p>
       <h3>The idea</h3><p><a class="term" data-t="attention">Attention</a> lets a model look back at all the vectors it has, instead of a single summary, and take a weighted average of them. The weights come from comparing a <a class="term" data-t="qkv">query</a> (what I am looking for) with each key (what each item offers), then passing the scores through a <a class="term" data-t="softmax">softmax</a> so they are positive and add up to 1.</p>
       <h3>How it works</h3><ol class="steps2"><li>Score each key against the query (for example a dot product).</li><li>Divide by \(\sqrt d\) (<a class="term" data-t="scaled-dot">scaled dot product</a>) and apply softmax to get weights.</li><li>Output the weighted average of the values.</li><li>Everything is differentiable, so the model learns what to look for.</li></ol>
     </div>
@@ -112,6 +113,24 @@
   </div>
   <div class="mathbox c3" id="qCalc" style="margin-top:10px;font-size:13px"></div>
   <div class="note">Every row of \(A\) sums to 1, so each output row is a <b>convex combination</b> of the value rows: attention can only mix what is stored, never invent new values. Costs: \(n_q\times n_k\) scores, which becomes \(n^2\) when a sequence attends to itself (see <a href="../self-attention/">self-attention</a>).</div>
+  <div class="grid2 prose" style="margin-top:14px">
+    <div>
+      <div class="algo"><h5 class="algo-h">Algorithm: scaled dot-product attention</h5><ol>
+        <li><span class="kw">input</span> queries \(Q\) (\(n\times d\)), keys \(K\) (\(m\times d\)), values \(V\) (\(m\times d_v\))</li>
+        <li><span class="kw">for</span> each query \(q_i\) <span class="kw">do</span></li>
+        <li class="i1"><span class="kw">for</span> each key \(k_j\) <span class="kw">do</span> \(s_{ij}\leftarrow q_i^\top k_j/\sqrt d\) <span class="cm">how well does item j match?</span></li>
+        <li class="i1">\(a_{ij}\leftarrow e^{s_{ij}}/\sum_{j'}e^{s_{ij'}}\) <span class="cm">softmax: positive, sums to 1</span></li>
+        <li class="i1">\(o_i\leftarrow\sum_ja_{ij}v_j\) <span class="cm">weighted average of the values</span></li>
+        <li><span class="kw">return</span> \(O\) <span class="cm">all at once: softmax(QKᵀ/√d)V</span></li>
+      </ol></div>
+    </div>
+    <div>
+      <details class="deeper" open><summary>Going deeper: attention as a soft dictionary lookup</summary><div>
+        <p>A Python dictionary does a hard lookup: compare the query with every key, return the value of the one exact match. Attention makes every step smooth. The comparison is a dot product (large when the vectors point the same way), the "pick one" becomes a softmax (mostly the best match, a little of the others), and the result is a blend of values. Because every step is differentiable, backprop can teach the network what to ask for (\(W_Q\)), how to advertise each item (\(W_K\)) and what to hand over (\(W_V\)).</p>
+        <p>Why \(\sqrt d\)? If the entries of \(q\) and \(k\) are independent with mean 0 and variance 1, then \(q^\top k\) is a sum of \(d\) such products and has variance \(d\). For \(d=64\) the scores have spread 8, the softmax becomes almost one-hot, and its gradients almost vanish. Dividing by \(\sqrt d\) brings the variance back to 1, whatever the dimension.</p>
+      </div></details>
+    </div>
+  </div>
 </section>
 
 <section id="kinds" class="card">

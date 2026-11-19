@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; NLP</p>
@@ -28,6 +28,7 @@
   <h2>What is self-attention, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>In "The animal didn't cross the street because it was too tired", what does "it" mean? The answer depends on a word five positions away, and in another sentence it could be twenty. An RNN has to carry that information step by step through its hidden state. We want every word to be able to look directly at every other word in one step, decide which ones are relevant, and pull in their information.</p>
       <h3>The idea</h3><p>In <a class="term" data-t="self-attention">self-attention</a> a sequence attends to itself: every token makes a query, a key and a value, and every token looks at every other token. Several <a class="term" data-t="multi-head">heads</a> run in parallel, each free to look for something different (the previous word, the noun a pronoun refers to). A <a class="term" data-t="causal-mask">causal mask</a> stops a token seeing the future when the model generates text.</p>
       <h3>How it works</h3><ol class="steps2"><li>Multiply each token vector by three learned matrices to get Q, K and V.</li><li>Score every pair, divide by √d, mask the future if generating, softmax by row.</li><li>Each token’s output is the weighted mix of all values.</li><li>Do this in several heads and concatenate.</li></ol>
     </div>
@@ -70,6 +71,26 @@
       <p>A bonus of the mask: one forward pass over a sentence of \(n\) tokens trains \(n\) predictions at once, and at generation time the keys and values of earlier tokens never change, so they are cached (the <b>KV cache</b>).</p>
     </div>
     <div><div id="mHeat"></div><p class="hint">The mask itself for the current sentence: purple cells may attend, grey cells are blocked.</p></div>
+  </div>
+  <div class="grid2 prose" style="margin-top:14px">
+    <div>
+      <div class="algo"><h5 class="algo-h">Algorithm: causal multi-head self-attention</h5><ol>
+        <li><span class="kw">input</span> token vectors \(X\) (\(n\times d\)), \(H\) heads, weights \(W_Q^h,W_K^h,W_V^h,W_O\)</li>
+        <li><span class="kw">for</span> each head \(h=1..H\) <span class="kw">do</span> <span class="cm">heads run in parallel</span></li>
+        <li class="i1">\(Q\leftarrow XW_Q^h\); \(K\leftarrow XW_K^h\); \(V\leftarrow XW_V^h\) <span class="cm">every token makes q, k, v</span></li>
+        <li class="i1">\(S\leftarrow QK^\top/\sqrt{d_h}\) <span class="cm">n × n: every token scores every token</span></li>
+        <li class="i1">\(S_{ij}\leftarrow-\infty\) for \(j&gt;i\) <span class="cm">causal mask: no peeking ahead</span></li>
+        <li class="i1">\(A\leftarrow\operatorname{softmax}(S)\) row by row; \(Z_h\leftarrow AV\)</li>
+        <li>\(Y\leftarrow[Z_1\,\cdots\,Z_H]\,W_O\) <span class="cm">concatenate heads, mix them</span></li>
+        <li><span class="kw">return</span> \(Y\) <span class="cm">same shape as X</span></li>
+      </ol></div>
+    </div>
+    <div>
+      <details class="deeper" open><summary>Going deeper: why the mask lets a model train on every position at once</summary><div>
+        <p>A language model is trained to predict token \(i+1\) from tokens \(1..i\). Without the mask, position \(i\) could simply look at token \(i+1\) and copy it. With the mask, row \(i\) of \(A\) is zero beyond column \(i\), so output \(i\) depends only on the past. That means one forward pass over a sequence of length \(n\) gives \(n\) honest training examples at once, which is the main reason transformers train so much faster than RNNs.</p>
+        <p>Setting the score to \(-\infty\) (in practice a large negative number) before the softmax, rather than zeroing weights afterwards, keeps each row a proper distribution that sums to 1. Note also that self-attention by itself is <i>permutation-equivariant</i>: shuffle the tokens and the outputs shuffle the same way. It has no idea of order, which is why positional encodings must be added to \(X\).</p>
+      </div></details>
+    </div>
   </div>
 </section>
 

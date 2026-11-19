@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; NLP</p>
@@ -28,6 +28,7 @@
   <h2>What are LSTM and GRU, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>A plain RNN overwrites its whole memory at every step, so by word 40 the information from word 3 has been squashed through 37 tanh layers, and the gradient that would teach it to remember has faded to nothing. We want a memory that, by default, simply keeps what it has, and that changes only when the network decides it should.</p>
       <h3>The idea</h3><p><a class="term" data-t="lstm">LSTMs</a> and <a class="term" data-t="gru">GRUs</a> are RNNs with <a class="term" data-t="gate">gates</a>: small sigmoid switches, learned from data, that decide what to forget, what to write and what to read. The LSTM keeps a separate <a class="term" data-t="cell-state">cell state</a> that is updated by adding, not multiplying, so information and gradients can travel through hundreds of steps.</p>
       <h3>How it works</h3><ol class="steps2"><li>Forget gate: how much of the old memory to keep.</li><li>Input gate: how much new information to write.</li><li>Output gate: how much of the memory to show as the hidden state.</li><li>The GRU merges these into two gates (update and reset) and has no separate cell.</li></ol>
     </div>
@@ -54,6 +55,26 @@
         <li><b>Output gate</b> \(o\): which parts of the memory to expose as \(h_t\) for this step's prediction.</li>
       </ul>
       <p>Hochreiter and Schmidhuber (1997). The forget gate was added by Gers et al. (2000); initialising its bias to 1, so the cell starts by remembering, is a common trick used here too.</p>
+    </div>
+  </div>
+  <div class="grid2 prose" style="margin-top:14px">
+    <div>
+      <div class="algo"><h5 class="algo-h">Algorithm: one LSTM step</h5><ol>
+        <li><span class="kw">input</span> new input \(x_t\), previous hidden state \(h_{t-1}\), previous cell state \(c_{t-1}\)</li>
+        <li>\(u\leftarrow[h_{t-1};x_t]\) <span class="cm">stack them into one vector</span></li>
+        <li>\(f\leftarrow\sigma(W_fu+b_f)\) <span class="cm">forget gate: keep how much of each memory slot?</span></li>
+        <li>\(i\leftarrow\sigma(W_iu+b_i)\); \(\tilde c\leftarrow\tanh(W_cu+b_c)\) <span class="cm">what to write, and how much</span></li>
+        <li>\(c_t\leftarrow f\odot c_{t-1}+i\odot\tilde c\) <span class="cm">the conveyor belt: add, never squash</span></li>
+        <li>\(o\leftarrow\sigma(W_ou+b_o)\) <span class="cm">output gate: what to reveal</span></li>
+        <li>\(h_t\leftarrow o\odot\tanh(c_t)\)</li>
+        <li><span class="kw">return</span> \(h_t,c_t\) <span class="cm">repeat for the next step</span></li>
+      </ol></div>
+    </div>
+    <div>
+      <details class="deeper" open><summary>Going deeper: why the cell state is a gradient highway</summary><div>
+        <p>Differentiate the cell update: \(\partial c_t/\partial c_{t-1}=\operatorname{diag}(f_t)\), plus small terms through the gates. There is no weight matrix and no tanh slope on this path, just the forget gate. Going back \(n\) steps multiplies by \(f_{t}\odot f_{t-1}\odot\cdots\), and when the network wants to remember it learns \(f\approx1\), so the gradient survives almost unchanged. Compare the plain RNN, where every step multiplies by \(W_{hh}^\top\operatorname{diag}(1-h^2)\).</p>
+        <p>This is the same idea as the residual connection, discovered 18 years earlier: an additive path with factor about 1. A common practical trick follows from it: initialise the forget-gate bias \(b_f\) to 1 or 2 so that \(f\) starts near 1 and the LSTM remembers by default. The GRU merges forget and input into one update gate \(z\), \(h_t=(1-z)\odot h_{t-1}+z\odot\tilde h\), which keeps the highway with fewer parameters.</p>
+      </div></details>
     </div>
   </div>
 </section>

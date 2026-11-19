@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; NLP</p>
@@ -28,6 +28,7 @@
   <h2>What is tokenisation, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>A model needs a fixed list of symbols it knows. Use whole words and the list is huge, yet a new word like "unfriendable" or a typo is still unknown. Use single characters and nothing is ever unknown, but every sentence becomes very long and each symbol carries almost no meaning. We want a middle ground, learned from data: common words stay whole, rare words are spelled out from reusable pieces.</p>
       <h3>The idea</h3><p>A neural network can only do arithmetic, so text must first become numbers. <a class="term" data-t="tokenisation">Tokenisation</a> cuts text into pieces called <a class="term" data-t="token">tokens</a> and gives each piece an id from a fixed <a class="term" data-t="vocabulary">vocabulary</a>. Whole words make the vocabulary huge and leave unknown words (<a class="term" data-t="oov">out of vocabulary</a>); single characters make sequences very long. Modern models use <a class="term" data-t="subword">subwords</a>: common words stay whole, rare words split into reusable parts.</p>
       <h3>How it works</h3><ol class="steps2"><li>Pick a unit: word, character, byte or subword.</li><li>For subwords, learn merges from a corpus: <a class="term" data-t="bpe">BPE</a> repeatedly glues the most frequent neighbouring pair; <a class="term" data-t="wordpiece">WordPiece</a> picks the pair that most raises likelihood.</li><li>Apply the learned rules to new text to get a list of ids.</li><li>The model only ever sees those ids.</li></ol>
     </div>
@@ -69,6 +70,26 @@
   <h3>Merges learned so far (in order)</h3>
   <div id="bMerges"></div>
   <details style="margin-top:10px"><summary class="hint" style="cursor:pointer">Show the training corpus</summary><p class="mono" id="corpus" style="font-size:13px;white-space:pre-wrap"></p></details>
+  <div class="grid2 prose" style="margin-top:14px">
+    <div>
+      <div class="algo"><h5 class="algo-h">Algorithm: byte-pair encoding (training)</h5><ol>
+        <li><span class="kw">input</span> a corpus of words with their counts, a target vocabulary size \(V\)</li>
+        <li>split every word into characters (plus an end-of-word mark); vocabulary \(\leftarrow\) all characters</li>
+        <li><span class="kw">while</span> vocabulary size \(&lt;V\) <span class="kw">do</span></li>
+        <li class="i1">count every adjacent pair of symbols, weighted by word count <span class="cm">e.g. (l, o) appears 12 times</span></li>
+        <li class="i1">pick the most frequent pair \((a,b)\)</li>
+        <li class="i1">replace every \(a\;b\) by the new symbol \(ab\) in all words <span class="cm">merge</span></li>
+        <li class="i1">add \(ab\) to the vocabulary; append the rule \(a+b\to ab\) to the merge list</li>
+        <li><span class="kw">return</span> the vocabulary and the ordered merge list <span class="cm">to tokenise new text, replay the merges in order</span></li>
+      </ol></div>
+    </div>
+    <div>
+      <details class="deeper" open><summary>Going deeper: why BPE is a compression algorithm, and byte-level BPE</summary><div>
+        <p>BPE began life in 1994 as a data compression method: repeatedly replace the most common pair of bytes with a new unused byte. Each merge shortens the corpus by exactly the number of times the pair occurs, so BPE is a greedy algorithm that, at every step, makes the biggest possible cut in total length. It is not guaranteed to find the best vocabulary of size \(V\) (that problem is hard), but greedy works well in practice.</p>
+        <p><b>Byte-level BPE</b> (GPT-2 onwards) starts from the 256 possible bytes instead of characters. Since every piece of text in any language, including emoji, is a sequence of bytes, nothing can ever be unknown. <b>WordPiece</b> (BERT) picks the pair that most increases the likelihood of the corpus, \(\text{count}(ab)/(\text{count}(a)\,\text{count}(b))\), instead of the raw count, which favours pairs that stick together more than chance predicts. <b>Unigram</b> (SentencePiece) runs the other way: start large and prune the pieces whose removal hurts the likelihood least.</p>
+      </div></details>
+    </div>
+  </div>
 </section>
 
 <section id="trade" class="card">

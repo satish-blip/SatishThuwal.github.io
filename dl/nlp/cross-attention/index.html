@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="../../../ml/assets/ml.css">
 </head>
 <body>
-<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="NLP topics"></nav></div></header>
+<header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
   <p class="kicker">Deep Learning &middot; NLP</p>
@@ -28,6 +28,7 @@
   <h2>What is cross-attention, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3><p>When a model writes a French translation, generates speech from text, or paints an image from a prompt, it is producing one sequence while consulting another. Self-attention only lets a sequence look at itself. We need a way for each piece of the output being written to ask the input a question, "which part of the source should I use right now?", and get back the relevant information.</p>
       <h3>The idea</h3><p><a class="term" data-t="cross-attention">Cross-attention</a> is attention between two different sequences. The queries come from the one being produced (a translation, a transcript, an image); the keys and values come from the input it should consult. It is how an <a class="term" data-t="decoder">decoder</a> reads an <a class="term" data-t="encoder">encoder</a>, and how a text prompt steers an image model.</p>
       <h3>How it works</h3><ol class="steps2"><li>Encode the input once into vectors (keys and values).</li><li>At each output position, form a query from the output so far.</li><li>Attend over the input: score, softmax, weighted average.</li><li>Combine the result with the rest of the decoder layer.</li></ol>
     </div>
@@ -112,6 +113,26 @@
       <div class="ctl"><label for="mD"><span>Width \(d\)</span><output id="mDOut"></output></label><input type="range" id="mD" min="64" max="1280" step="64" value="512"></div>
       <div class="stats" id="mStats"></div>
       <p class="hint">Default: Whisper-sized audio input (1,500 encoder frames for 30 s) and a 30-token transcript. Cost of one layer's scores grows with \(m\times n\), not \(n^2\).</p>
+    </div>
+  </div>
+  <div class="grid2 prose" style="margin-top:14px">
+    <div>
+      <div class="algo"><h5 class="algo-h">Algorithm: cross-attention in an encoder–decoder</h5><ol>
+        <li><span class="kw">input</span> source tokens \(x_1..x_m\), target tokens so far \(y_1..y_n\)</li>
+        <li>\(E\leftarrow\operatorname{Encoder}(x)\) <span class="cm">m × d, computed once</span></li>
+        <li>\(D\leftarrow\) masked self-attention over \(y\) <span class="cm">the decoder reads its own past</span></li>
+        <li>\(Q\leftarrow DW_Q\) <span class="cm">questions come from the target</span></li>
+        <li>\(K\leftarrow EW_K\); \(V\leftarrow EW_V\) <span class="cm">answers come from the source</span></li>
+        <li>\(A\leftarrow\operatorname{softmax}(QK^\top/\sqrt d)\) <span class="cm">n × m: target word × source word</span></li>
+        <li>\(D\leftarrow D+AV\) <span class="cm">residual: add what was found</span></li>
+        <li><span class="kw">return</span> \(D\) to the MLP and the next decoder layer</li>
+      </ol></div>
+    </div>
+    <div>
+      <details class="deeper" open><summary>Going deeper: shapes, and why the source is encoded only once</summary><div>
+        <p>The only difference from self-attention is where \(Q\) and \(K,V\) come from, and so the attention matrix is \(n\times m\) instead of \(n\times n\): one row per target position, one column per source position. No causal mask is needed here, because the whole source is known before decoding starts. Row \(i\) is an alignment: it shows which source words were consulted while writing target word \(i\).</p>
+        <p>When generating word by word, \(K=EW_K\) and \(V=EW_V\) do not change from step to step, so a real implementation computes them once and reuses them, and each new step only costs one query row. In text-to-image diffusion models, the image patches are the queries and the prompt's token embeddings are the keys and values, which is why attention maps for a word like "dog" light up the region where the dog is painted.</p>
+      </div></details>
     </div>
   </div>
 </section>
