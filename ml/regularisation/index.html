@@ -29,6 +29,9 @@
   <h2>What is regularisation, in plain words?</h2>
   <div class="grid2 prose">
     <div>
+      <h3>The problem</h3>
+      <p>Fit a degree-8 polynomial through 25 noisy points that really come from a gentle sine wave. With 9 coefficients to play with, the curve can bend through almost every point, and it does: it wiggles wildly between them and predicts nonsense for any new \(x\). Looking at the fitted coefficients you see huge numbers with alternating signs (+3000, −8000, +7000…) that nearly cancel. Large, finely balanced weights are the fingerprint of <a class="term" data-t="overfitting">overfitting</a>.</p>
+      <p>We could use a simpler model, but often we don't know in advance how simple. Regularisation keeps the flexible model and instead discourages it from using large weights unless the data really insists.</p>
       <h3>The idea</h3>
       <p>Training normally minimises the <a class="term" data-t="loss">loss</a> alone. Regularisation minimises the loss <i>plus</i> a penalty on the <a class="term" data-t="parameter">weights</a>:</p>
       <div class="mathbox c1">$$\underbrace{L(w)}_{\text{fit the data}}\;+\;\lambda\,\underbrace{R(w)}_{\text{keep it simple}}$$</div>
@@ -69,6 +72,10 @@
     <div class="card prose">
       <p><b>Why L1 gives zeros.</b> The solution is where the smallest loss ellipse touches the penalty shape. A circle is smooth, so the touching point is almost never on an axis: both weights shrink but stay non-zero. The L1 diamond has <b>corners on the axes</b>, and an ellipse coming from most directions hits a corner first, which means one weight is exactly 0.</p>
       <p>Drag \(\hat w\) around with L1 selected and watch \(w^\star\) snap onto an axis. Switch to L2 and it slides smoothly instead. Elastic net (half L1, half L2) has rounded corners: it still produces zeros, but behaves more stably when features are correlated.</p>
+      <p><b>Why "same penalty" shapes?</b> Minimising loss \(+\lambda R(w)\) is equivalent to minimising the loss alone inside a budget \(R(w)\le t\), for some \(t\) that depends on \(\lambda\). The shaded shape is that budget. So the picture asks: what is the lowest point of the loss bowl that still fits inside the budget?</p>
+      <details class="deeper"><summary>Going deeper: the zero condition for lasso (subgradients)</summary><div>
+        <p>\(|w|\) has no derivative at 0, but it has a <i>subgradient</i>: any number in \([-1,1]\). The optimality condition for \(\tfrac12\lVert y-Xw\rVert^2+\lambda\lVert w\rVert_1\) is that zero lies in the subdifferential, coordinate by coordinate: \(x_j^\top(y-Xw)=\lambda\,\mathrm{sign}(w_j)\) if \(w_j\ne0\), and \(|x_j^\top(y-Xw)|\le\lambda\) if \(w_j=0\). In words: a weight may stay at exactly zero as long as its feature's correlation with the residual is no bigger than \(\lambda\). A whole interval of situations gives \(w_j=0\), which is why zeros are common. For ridge the condition is \(x_j^\top(y-Xw)=\lambda w_j\), which gives \(w_j=0\) only when the correlation is exactly zero: a measure-zero event.</p>
+      </div></details>
     </div>
   </div>
 </section>
@@ -91,6 +98,30 @@
       <p class="hint">The classic U: too little \(\lambda\) overfits (low train, high test error), too much underfits (both high).</p>
     </div>
   </div>
+  <div class="grid2 prose" style="margin-top:14px">
+    <div>
+      <h3>Choosing \(\lambda\) honestly</h3>
+      <p>The test curve above is a luxury: in real life we do not have the true function. We must estimate the test error from the training data itself, and the standard way is \(K\)-fold cross-validation. Note that the training error is useless for choosing \(\lambda\): it always prefers \(\lambda=0\).</p>
+      <div class="algo"><h5 class="algo-h">Algorithm: choosing λ by K-fold cross-validation</h5><ol>
+        <li><span class="kw">input</span> data, a grid \(\lambda_1&gt;\lambda_2&gt;\dots&gt;\lambda_m\) on a log scale, folds \(K\) (often 5 or 10)</li>
+        <li>split the data at random into \(K\) equal folds</li>
+        <li><span class="kw">for</span> each \(\lambda\) in the grid <span class="kw">do</span></li>
+        <li class="i1"><span class="kw">for</span> \(k=1\) <span class="kw">to</span> \(K\) <span class="kw">do</span></li>
+        <li class="i2">fit the scaler and the model on all folds except \(k\) <span class="cm">never let fold k leak into scaling</span></li>
+        <li class="i2">\(e_k\leftarrow\) error on fold \(k\)</li>
+        <li class="i1">\(\mathrm{CV}(\lambda)\leftarrow\) mean of \(e_1..e_K\); \(\mathrm{SE}(\lambda)\leftarrow\) their standard error</li>
+        <li>\(\lambda^\star\leftarrow\arg\min\mathrm{CV}(\lambda)\) <span class="cm">or the largest λ within one SE: the "1-SE rule", simpler model</span></li>
+        <li>refit on all the data with \(\lambda^\star\); <span class="kw">return</span> the model</li>
+      </ol></div>
+    </div>
+    <div>
+      <details class="deeper" open><summary>Going deeper: ridge as shrinkage along principal directions</summary><div>
+        <p>Ridge has a closed form, \(\hat w_\lambda=(X^\top X+\lambda I)^{-1}X^\top y\), and the <a href="../../math/svd/">SVD</a> \(X=UDV^\top\) shows what it does. The fitted values are</p>
+        $$X\hat w_\lambda=\sum_j u_j\,\frac{d_j^2}{d_j^2+\lambda}\,u_j^\top y .$$
+        <p>Without the penalty every factor is 1 (plain least squares projects \(y\) onto the column space). With it, the component of \(y\) along each principal direction is multiplied by \(d_j^2/(d_j^2+\lambda)\): directions with large variance in the data (large \(d_j\)) are barely touched; directions with little variance, where the data say almost nothing and the estimate is noisy, are shrunk hard. That is the precise sense in which ridge reduces variance. Adding \(\lambda I\) also makes \(X^\top X+\lambda I\) invertible even when features are perfectly correlated, which is why ridge is "stable with correlated features". The effective number of parameters is \(\mathrm{df}(\lambda)=\sum_jd_j^2/(d_j^2+\lambda)\), sliding from \(d\) down to 0.</p>
+      </div></details>
+    </div>
+  </div>
 </section>
 
 <section id="prox" class="card">
@@ -105,6 +136,19 @@
       <p><b>Ridge</b> multiplies every weight by the same factor: big and small weights all shrink, none become zero. <b>Lasso</b> subtracts a fixed amount, and anything smaller than \(\lambda\) becomes exactly zero: this is the <a class="term" data-t="soft-threshold">soft-thresholding</a> operator. The L0 penalty (count of non-zero weights) keeps or kills each weight whole, but makes the problem combinatorial.</p>
       <p>When features are correlated there is no per-weight formula, but the same operator is applied repeatedly: <a class="term" data-t="coordinate-descent">coordinate descent</a> (scikit-learn’s Lasso) or <a class="term" data-t="proximal">proximal gradient descent</a> (used on the <a href="../logistic-regression/">logistic regression page</a> for L1):</p>
       <div class="mathbox c3">$$w\leftarrow S_{\eta\lambda}\big(w-\eta\nabla L(w)\big)$$</div>
+      <p>Read it as two moves: take an ordinary gradient step on the data loss, then apply the penalty's own "pull towards zero" exactly. For L2 the pull would be a multiplication by \(1/(1+\eta\lambda)\), which is precisely <a class="term" data-t="weight-decay">weight decay</a>.</p>
+      <div class="algo"><h5 class="algo-h">Algorithm: proximal gradient descent (ISTA) for any loss + L1</h5><ol>
+        <li><span class="kw">input</span> differentiable loss \(L\), penalty \(\lambda\), step \(\eta\le1/\)(Lipschitz constant of \(\nabla L\))</li>
+        <li>\(w\leftarrow0\)</li>
+        <li><span class="kw">repeat</span></li>
+        <li class="i1">\(u\leftarrow w-\eta\nabla L(w)\) <span class="cm">gradient step ignoring the penalty</span></li>
+        <li class="i1"><span class="kw">for</span> each \(j\): \(w_j\leftarrow\operatorname{sign}(u_j)\max(|u_j|-\eta\lambda,0)\) <span class="cm">soft-threshold</span></li>
+        <li><span class="kw">until</span> \(w\) stops changing</li>
+        <li><span class="kw">return</span> \(w\)</li>
+      </ol></div>
+      <details class="deeper"><summary>Going deeper: deriving the soft-threshold</summary><div>
+        <p>For one standardised feature the problem is \(\min_w\tfrac12(w-z)^2+\lambda|w|\). If \(w&gt;0\), the derivative is \(w-z+\lambda=0\), so \(w=z-\lambda\), which is only consistent when \(z&gt;\lambda\). If \(w&lt;0\), \(w=z+\lambda\), consistent when \(z&lt;-\lambda\). Otherwise (\(|z|\le\lambda\)) neither side works and the minimum sits at the kink, \(w=0\): the subgradient \(\lambda\cdot[-1,1]\) is wide enough to absorb \(z\). Together these three cases are \(S_\lambda(z)\). For L2, \(\min\tfrac12(w-z)^2+\tfrac\lambda2w^2\) is smooth: \(w-z+\lambda w=0\Rightarrow w=z/(1+\lambda)\).</p>
+      </div></details>
     </div>
   </div>
 </section>
@@ -120,6 +164,10 @@
         <li><a class="term" data-t="laplace">Laplace</a> prior \(p(w_j)\propto e^{-|w_j|/b}\) gives \(\frac1b\sum|w_j|\): <b>L1</b>.</li>
       </ul>
       <p>The Laplace prior has a sharp peak at exactly zero, a strong belief that many weights are <i>exactly</i> zero, which is where sparsity comes from. A wider prior (larger \(\tau\) or \(b\)) means weaker regularisation.</p>
+      <p>This view also explains why \(\lambda\) should shrink as data grows: the prior is fixed, but the likelihood term is a sum over \(n\) examples, so with more data the evidence outweighs the prior belief. See <a href="../../math/probability/#update">Bayesian updating</a> for the same effect with a coin.</p>
+      <details class="deeper"><summary>Going deeper: deriving ridge as MAP for linear regression</summary><div>
+        <p>Model \(y_i=x_i^\top w+\varepsilon_i\) with \(\varepsilon_i\sim\mathcal N(0,\sigma^2)\), and prior \(w_j\sim\mathcal N(0,\tau^2)\) independently. Then \(-\log p(y\mid w)=\frac{1}{2\sigma^2}\lVert y-Xw\rVert^2+\)const and \(-\log p(w)=\frac{1}{2\tau^2}\lVert w\rVert^2+\)const. Multiply the sum by \(2\sigma^2\) (which does not move the minimiser): \(\lVert y-Xw\rVert^2+\frac{\sigma^2}{\tau^2}\lVert w\rVert^2\). That is ridge with \(\lambda=\sigma^2/\tau^2\): noisy data (large \(\sigma\)) or a confident prior (small \(\tau\)) mean stronger shrinkage. In this Gaussian case the whole posterior is Gaussian, \(w\mid y\sim\mathcal N\big((X^\top X+\lambda I)^{-1}X^\top y,\ \sigma^2(X^\top X+\lambda I)^{-1}\big)\), so the MAP is also the posterior mean.</p>
+      </div></details>
     </div>
     <div><div class="plot wide" id="prP"></div>
       <div class="legend"><span><i class="sw" style="background:#7c3aed"></i>Gaussian prior → L2</span><span><i class="sw" style="background:#db2777"></i>Laplace prior → L1</span></div>

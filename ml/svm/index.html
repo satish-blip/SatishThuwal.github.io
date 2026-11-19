@@ -20,7 +20,7 @@
 <section class="hero">
   <p class="kicker">Traditional ML &middot; Classification</p>
   <h1>Support Vector <span class="grad">Machines</span></h1>
-  <p class="lede">An SVM picks the boundary with the widest possible margin, and that boundary depends only on a handful of points: the support vectors. Move points around and watch which ones matter. Then swap kernels to bend the boundary, and see which kernel suits which kind of data.</p>
+  <p class="lede">When two classes can be separated by a line, there are usually infinitely many lines that do it. Which one should we trust on new data? The support vector machine's answer is: the one that stays as far as possible from both classes. That single idea leads to a boundary that depends on only a handful of points, the support vectors, and to the kernel trick, which lets the same straight-line machinery draw circles and spirals. Move points around and watch which ones matter, then swap kernels to bend the boundary.</p>
   <div class="toc"><a href="#intro">0 · Start here</a><a href="#lab">1 · Live SVM</a><a href="#sv">2 · Support vectors</a><a href="#maths">3 · The maths</a><a href="#trick">4 · Kernel trick: 2D then 3D</a><a href="#gallery">5 · Kernel × dataset</a><a href="#cg">6 · C and γ</a><a href="#code">7 · Python</a></div>
 </section>
 
@@ -29,15 +29,15 @@
   <h2>What is a support vector machine, in plain words?</h2>
   <div class="grid2 prose">
     <div>
-      <h3>The idea</h3><p>Many lines can separate two classes. A <a class="term" data-t="svm">support vector machine</a> picks the one with the widest empty corridor, the <a class="term" data-t="margin">margin</a>, between the classes. Only the points touching or inside that corridor matter; they are the <a class="term" data-t="support-vector">support vectors</a>, and the rest of the data could be deleted without changing the answer.</p><p>Real data overlaps, so a <a class="term" data-t="soft-margin">soft margin</a> lets some points cross at a price set by \(C\). For curved boundaries a <a class="term" data-t="kernel">kernel</a> measures similarity in a richer hidden space (the <a class="term" data-t="kernel-trick">kernel trick</a>), so the SVM can draw circles and spirals while still solving a straight-line problem behind the scenes.</p>
+      <h3>The problem</h3><p>Picture red and blue points on a page that a ruler can separate. You could place the ruler so it nearly grazes a red point, or nearly grazes a blue one, or somewhere in the middle. All three get the training data 100% right. But a new red point that lands a little off from its friends would be misclassified by the first line. The line in the middle leaves the most room for error on both sides, so it is the safest bet.</p>
+      <h3>The idea</h3><p>A <a class="term" data-t="svm">support vector machine</a> picks the line with the widest empty corridor, the <a class="term" data-t="margin">margin</a>, between the classes. Only the points touching or inside that corridor matter; they are the <a class="term" data-t="support-vector">support vectors</a>, and the rest of the data could be deleted without changing the answer.</p><p>Real data overlaps, so a <a class="term" data-t="soft-margin">soft margin</a> lets some points cross at a price set by \(C\). For curved boundaries a <a class="term" data-t="kernel">kernel</a> measures similarity in a richer hidden space (the <a class="term" data-t="kernel-trick">kernel trick</a>), so the SVM can draw circles and spirals while still solving a straight-line problem behind the scenes.</p>
       <h3>How it works</h3><ol class="steps2"><li>Find \(w,b\) that maximise the margin width \(2/\lVert w\rVert\) while keeping points on the right side.</li><li>Allow violations with <a class="term" data-t="slack">slack</a>, each costing \(C\).</li><li>Solve the <a class="term" data-t="dual">dual</a> problem, which only needs similarities between pairs of points (<a class="term" data-t="smo">SMO</a> solver).</li><li>Swap in a kernel (linear, polynomial, <a class="term" data-t="rbf">RBF</a>) to bend the boundary.</li></ol>
     </div>
     <div>
-      <h3>An everyday picture</h3><p>Building a road between two villages: you want the widest possible road that does not knock down any houses. Only the houses right at the edge of the road decide where it goes.</p>
-      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Strong on small and medium datasets</li><li>Kernels give flexible boundaries with few hyperparameters</li><li>Convex: one best answer</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Needs feature scaling</li><li>C and γ must be tuned</li><li>Slow for very large datasets; no probabilities by default</li></ul></div></div>
-      
+      <h3>An everyday picture</h3><p>Building a road between two villages: you want the widest possible road that does not knock down any houses. Only the houses right at the edge of the road decide where it goes. Houses further back could be moved or demolished and the road would stay exactly where it is.</p>
+      <div class="pc"><div class="pro"><b>Good at</b><ul><li>Strong on small and medium datasets</li><li>Kernels give flexible boundaries with few hyperparameters</li><li>Convex: one best answer</li><li>Prediction needs only the support vectors</li></ul></div><div class="con"><b>Watch out for</b><ul><li>Needs feature scaling</li><li>C and γ must be tuned</li><li>Slow for very large datasets; no probabilities by default</li></ul></div></div>
       <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="svm">SVM</a><a class="term" data-t="margin">Margin</a><a class="term" data-t="support-vector">Support vectors</a><a class="term" data-t="hyperplane">Hyperplane</a><a class="term" data-t="soft-margin">Soft margin</a><a class="term" data-t="slack">Slack</a><a class="term" data-t="hinge">Hinge loss</a><a class="term" data-t="dual">Dual problem</a><a class="term" data-t="lagrange">Lagrange multiplier</a><a class="term" data-t="kkt">KKT conditions</a><a class="term" data-t="kernel">Kernel</a><a class="term" data-t="kernel-trick">Kernel trick</a><a class="term" data-t="rbf">RBF kernel</a><a class="term" data-t="smo">SMO</a></div>
-      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition.</p>
+      <p class="hint">Dotted-underlined words anywhere on this page are clickable: tap one to see its definition. Background maths: <a href="../../math/vectors/">dot products and distances</a>, <a href="../../math/projections/">projections</a>.</p>
     </div>
   </div>
 </section>
@@ -45,7 +45,7 @@
 <section id="lab" class="lab">
   <div class="card hl">
     <h2><span class="num">1</span>Live SVM</h2>
-    <p class="sub">Drag any point. Click empty space to add a point of the selected class. Right-click a point to delete it.</p>
+    <p class="sub">The solid line is the boundary, the dashed lines are the edges of the margin, and ringed points are the support vectors. Drag any point. Click empty space to add a point of the selected class. Right-click a point to delete it.</p>
     <div class="plot sq" id="mainPlot"></div>
     <div class="legend">
       <span><i class="sw k0"></i>class −1</span><span><i class="sw k1"></i>class +1</span>
@@ -79,7 +79,7 @@
   <h2><span class="num">2</span>Support vectors: only a few points decide the boundary</h2>
   <div class="grid2">
     <div class="prose">
-      <p>After training, every point gets a dual weight \(\alpha_i\in[0,C]\). The decision function is</p>
+      <p>After training, every point gets a weight \(\alpha_i\in[0,C]\) that says how much it pushes on the boundary (section 3 explains where these come from). The prediction for a new point \(x\) is a weighted vote of the training points, each one voting with its label \(y_i\) and its similarity \(K(x_i,x)\) to \(x\):</p>
       <div class="mathbox c1">$$f(x)=\sum_{i=1}^{n}\alpha_i\,y_i\,K(x_i,x)+b=\sum_{i\,\in\,\mathrm{SV}}\alpha_i\,y_i\,K(x_i,x)+b$$</div>
       <p>Points with \(\alpha_i=0\) drop out of the sum, so they have <b>no influence at all</b>. The KKT conditions sort every point into one of three groups:</p>
       <div class="tblwrap"><table class="tbl" id="kktTbl"></table></div>
@@ -98,35 +98,60 @@
       <p class="hint">The dashed line is \(C\). Bars that hit it are margin violators. As you lower \(C\), more points become support vectors and the margin widens; as you raise it, the SVM tolerates fewer violations (closer to a hard margin).</p>
       <h3>Functional margins \(y_i f(x_i)\)</h3>
       <div class="plot short" id="marginPlot"></div>
-      <p class="hint">Every point, sorted. Values above 1 are safely outside the margin; between 0 and 1 inside the margin; below 0 misclassified. Hinge loss is \(\max(0,1-y_if(x_i))\), the shaded area.</p>
+      <p class="hint">Every point, sorted. Multiplying by the label makes "correct and confident" positive for both classes. Values above 1 are safely outside the margin; between 0 and 1 inside the margin; below 0 misclassified. Hinge loss is \(\max(0,1-y_if(x_i))\), the shaded area.</p>
     </div>
   </div>
 </section>
 
 <section id="maths" class="card">
   <h2><span class="num">3</span>The maths</h2>
+  <p class="sub">We turn "widest corridor" into an optimisation problem in three steps: measure the corridor, allow some mistakes, then rewrite the problem in a form where only similarities between points appear.</p>
   <div class="grid2 prose">
     <div>
-      <h3>Hard margin (separable data)</h3>
-      <p>The distance from \(x_i\) to the hyperplane \(w^\top x+b=0\) is \(|w^\top x_i+b|/\lVert w\rVert\). Fix the scale so the closest points satisfy \(y_i(w^\top x_i+b)=1\); then the margin is \(2/\lVert w\rVert\) and maximising it is</p>
+      <h3>Step 1: how wide is the corridor? (hard margin)</h3>
+      <p>A line (in general a <a class="term" data-t="hyperplane">hyperplane</a>) is the set of points with \(w^\top x+b=0\); the vector \(w\) is perpendicular to it. The signed distance from a point \(x_i\) to the line is \((w^\top x_i+b)/\lVert w\rVert\), the length of its <a href="../../math/projections/#line">projection</a> onto the unit normal. There is a free choice of scale: \(w,b\) and \(2w,2b\) describe the same line. Use it to fix the closest points on each side at \(y_i(w^\top x_i+b)=1\). Then the margin edges are the lines \(w^\top x+b=\pm1\), and the width between them is \(2/\lVert w\rVert\). Making the corridor wide means making \(\lVert w\rVert\) small:</p>
       <div class="mathbox c1">$$\min_{w,b}\ \tfrac12\lVert w\rVert^2\quad\text{s.t.}\quad y_i(w^\top x_i+b)\ge1\ \ \forall i$$</div>
-      <h3>Soft margin (overlapping data)</h3>
-      <p>Slack variables \(\xi_i\ge0\) let points violate the margin, at a price \(C\):</p>
+      <p>(Squaring and halving does not change the minimiser, and makes the problem a smooth quadratic.) This is a convex problem with a unique answer.</p>
+      <h3>Step 2: allow some mistakes (soft margin)</h3>
+      <p>If the classes overlap, no line satisfies every constraint, and the problem has no solution. So give each point some slack \(\xi_i\ge0\): how far it is allowed to fall short of the margin. Each unit of slack costs \(C\):</p>
       <div class="mathbox c4">$$\min_{w,b,\xi}\ \tfrac12\lVert w\rVert^2+C\sum_i\xi_i\ \ \text{s.t.}\ \ y_i(w^\top x_i+b)\ge1-\xi_i,\ \xi_i\ge0$$</div>
-      <p>which is the same as minimising the <b>hinge loss</b> plus an L2 penalty: \(\tfrac12\lVert w\rVert^2+C\sum_i\max(0,1-y_if(x_i))\). Small \(C\) = wide, forgiving margin (more bias). Large \(C\) = narrow margin that tries to classify every training point (more variance).</p>
-      <h3>KKT conditions</h3>
+      <p>At the optimum each \(\xi_i\) is as small as allowed, \(\xi_i=\max(0,1-y_if(x_i))\), which is the <a class="term" data-t="hinge">hinge loss</a>. So the soft-margin SVM is just <b>hinge loss plus an L2 penalty</b>: \(\tfrac12\lVert w\rVert^2+C\sum_i\max(0,1-y_if(x_i))\). Compare logistic regression, which is log-loss plus an L2 penalty. The hinge is exactly zero for points safely outside the margin, and that is where the sparsity comes from. Small \(C\) = wide, forgiving margin (more bias). Large \(C\) = narrow margin that tries to classify every training point (more variance).</p>
+      <h3>Step 3: the KKT conditions sort the points</h3>
+      <p>Attach a <a class="term" data-t="lagrange">Lagrange multiplier</a> \(\alpha_i\ge0\) to each margin constraint. At the optimum the <a class="term" data-t="kkt">KKT conditions</a> hold:</p>
       <div class="mathbox c5">$$w=\sum_i\alpha_iy_ix_i,\qquad \sum_i\alpha_iy_i=0,\qquad \alpha_i\big[y_if(x_i)-1+\xi_i\big]=0,\qquad (C-\alpha_i)\,\xi_i=0$$</div>
-      <p>Complementary slackness is what makes the solution sparse: if a point is strictly outside the margin, its \(\alpha_i\) must be zero.</p>
+      <p>Read them one at a time. The first says the weight vector is a combination of the training points. The third, <b>complementary slackness</b>, says: either a point's constraint is tight (it sits on the margin) or its \(\alpha_i\) is zero. So a point strictly outside the margin contributes nothing to \(w\). The fourth says a point with slack (inside the margin or misclassified) has \(\alpha_i=C\), the maximum. That is exactly the three groups in the table of section 2.</p>
+      <details class="deeper"><summary>Going deeper: deriving the dual from the Lagrangian</summary><div>
+        <p>The Lagrangian of the soft-margin problem, with multipliers \(\alpha_i\ge0\) for the margin constraints and \(\mu_i\ge0\) for \(\xi_i\ge0\), is</p>
+        $$\mathcal L=\tfrac12\lVert w\rVert^2+C\sum_i\xi_i-\sum_i\alpha_i\big[y_i(w^\top x_i+b)-1+\xi_i\big]-\sum_i\mu_i\xi_i .$$
+        <p>Minimise over the primal variables by setting derivatives to zero: \(\partial_w\mathcal L=0\Rightarrow w=\sum_i\alpha_iy_ix_i\); \(\partial_b\mathcal L=0\Rightarrow\sum_i\alpha_iy_i=0\); \(\partial_{\xi_i}\mathcal L=0\Rightarrow\alpha_i=C-\mu_i\), so \(0\le\alpha_i\le C\). Substitute back: the \(\xi\) terms cancel, \(\tfrac12\lVert w\rVert^2-\sum_i\alpha_iy_iw^\top x_i=-\tfrac12\sum_{i,j}\alpha_i\alpha_jy_iy_jx_i^\top x_j\), and the \(b\) term vanishes. What remains is the dual on the right. The problem is convex and strictly feasible (Slater's condition), so strong duality holds: the dual optimum equals the primal optimum, and the KKT conditions are both necessary and sufficient.</p>
+      </div></details>
     </div>
     <div>
       <h3>The dual problem</h3>
+      <p>Plugging \(w=\sum_i\alpha_iy_ix_i\) back in removes \(w\) entirely and leaves a problem in the \(\alpha\)'s alone:</p>
       <div class="mathbox c3">$$\max_{\alpha}\ \sum_i\alpha_i-\tfrac12\sum_{i,j}\alpha_i\alpha_jy_iy_j\,\langle x_i,x_j\rangle\quad\text{s.t.}\quad 0\le\alpha_i\le C,\ \ \sum_i\alpha_iy_i=0$$</div>
-      <p>The data appear <b>only through inner products</b> \(\langle x_i,x_j\rangle\). Replace them with a kernel \(K(x_i,x_j)=\langle\phi(x_i),\phi(x_j)\rangle\) and the SVM works in the feature space of \(\phi\) without ever computing \(\phi\). That is the <b>kernel trick</b>.</p>
+      <p>Look at what the data appear as: <b>only inner products</b> \(\langle x_i,x_j\rangle\), the <a href="../../math/vectors/#dot">dot products</a> between pairs of points. That is the key observation. Replace them with a kernel \(K(x_i,x_j)=\langle\phi(x_i),\phi(x_j)\rangle\) and the SVM works in the feature space of \(\phi\) without ever computing \(\phi\). That is the <b>kernel trick</b>.</p>
       <h3>Kernels on this page</h3>
-      <div class="mathbox c2">$$\begin{aligned}\text{Linear: }&K(x,z)=x^\top z\\ \text{Polynomial: }&K(x,z)=(\gamma\,x^\top z+r)^d\\ \text{RBF: }&K(x,z)=\exp(-\gamma\lVert x-z\rVert^2)\\ \text{Sigmoid: }&K(x,z)=\tanh(\gamma\,x^\top z+r)\end{aligned}$$</div>
-      <p>The RBF kernel is a similarity that decays with distance; \(1/\sqrt{\gamma}\) is roughly its radius of influence. Each support vector puts a Gaussian bump of height \(\alpha_iy_i\) on the plane, and \(f\) is their sum.</p>
+      <div class="mathbox c2">$$\begin{aligned}\text{Linear: }&amp;K(x,z)=x^\top z\\ \text{Polynomial: }&amp;K(x,z)=(\gamma\,x^\top z+r)^d\\ \text{RBF: }&amp;K(x,z)=\exp(-\gamma\lVert x-z\rVert^2)\\ \text{Sigmoid: }&amp;K(x,z)=\tanh(\gamma\,x^\top z+r)\end{aligned}$$</div>
+      <p>Think of a kernel as a similarity score. The RBF kernel is 1 for identical points and decays to 0 with distance; \(1/\sqrt{\gamma}\) is roughly its radius of influence. Each support vector puts a Gaussian bump of height \(\alpha_iy_i\) on the plane, and \(f\) is their sum: positive bumps from one class, negative from the other, and the boundary is where they cancel.</p>
+      <details class="deeper"><summary>Going deeper: what makes a valid kernel (Mercer)</summary><div>
+        <p>Not every similarity function is an inner product in some feature space. \(K\) is a valid kernel exactly when, for every finite set of points, the Gram matrix \(G_{ij}=K(x_i,x_j)\) is symmetric positive semi-definite (Mercer's condition). That is also what keeps the dual concave, so the optimum is unique. Valid kernels can be combined: sums, positive multiples, products, and \(\exp\) of a valid kernel are valid. The RBF kernel's feature map is infinite-dimensional: expanding \(e^{2\gamma x^\top z}\) as a power series gives every polynomial degree at once. The sigmoid kernel is <i>not</i> PSD for all \(\gamma,r\), which is why it can behave badly in the gallery below.</p>
+      </div></details>
       <h3>How this page solves it</h3>
-      <p>The dual is solved in your browser with <b>SMO</b> (sequential minimal optimisation) using LIBSVM's second-order working-set selection: repeatedly pick the two \(\alpha\)'s that most violate the KKT conditions and solve that two-variable problem in closed form. The bias \(b\) is the average over free support vectors of \(y_i-\sum_j\alpha_jy_jK(x_j,x_i)\).</p>
+      <p>The dual is a quadratic problem with box constraints and one equality. The equality \(\sum\alpha_iy_i=0\) means you cannot change a single \(\alpha\) on its own, but you can change two at once, keeping their weighted sum fixed. That is the idea behind <b>SMO</b> (sequential minimal optimisation): repeatedly pick the two \(\alpha\)'s that most violate the KKT conditions (using LIBSVM's second-order working-set selection) and solve that two-variable problem in closed form.</p>
+      <div class="algo"><h5 class="algo-h">Algorithm: SMO for the SVM dual</h5><ol>
+        <li><span class="kw">input</span> kernel matrix \(K_{ij}=K(x_i,x_j)\), labels \(y_i\in\{-1,+1\}\), \(C\), tolerance \(\varepsilon\)</li>
+        <li>\(\alpha\leftarrow0\); gradient \(G_i\leftarrow-1\) for all \(i\) <span class="cm">G = ∂(−dual)/∂α</span></li>
+        <li><span class="kw">repeat</span></li>
+        <li class="i1">pick \(i\) with the largest \(-y_iG_i\) among those that can move up</li>
+        <li class="i1">pick \(j\) giving the largest decrease among those that can move down <span class="cm">second-order choice</span></li>
+        <li class="i1"><span class="kw">if</span> the KKT gap \(&lt;\varepsilon\) <span class="kw">then</span> stop</li>
+        <li class="i1">\(\eta\leftarrow K_{ii}+K_{jj}-2K_{ij}\) <span class="cm">curvature along the pair</span></li>
+        <li class="i1">move \(\alpha_i,\alpha_j\) along the line \(y_i\alpha_i+y_j\alpha_j=\)const by the Newton step, clipped to \([0,C]\)</li>
+        <li class="i1">update \(G\) using columns \(i\) and \(j\) of \(K\)</li>
+        <li>\(b\leftarrow\) average over free SVs (\(0&lt;\alpha_i&lt;C\)) of \(y_i-\sum_j\alpha_jy_jK_{ji}\)</li>
+        <li><span class="kw">return</span> \(\alpha\), \(b\) <span class="cm">predict with f(x) = Σ αᵢyᵢK(xᵢ,x) + b</span></li>
+      </ol></div>
       <div id="liveDual"></div>
     </div>
   </div>
@@ -134,7 +159,7 @@
 
 <section id="trick" class="card">
   <h2><span class="num">4</span>The kernel trick: from 2D to 3D</h2>
-  <p class="sub">First look at the problem flat, in 2D, where no straight line can work. Then look at the same points after adding a third coordinate, first side-on and then in full 3D.</p>
+  <p class="sub">Why would working in a bigger space help? First look at the problem flat, in 2D, where no straight line can work. Then look at the same points after adding a third coordinate, first side-on and then in full 3D.</p>
   <div class="grid2">
     <div><h3 style="margin-top:0">Step 1 · The data in 2D: try a straight line</h3><div class="plot sq" id="flatPlot"></div>
       <div class="ctl"><label for="lineA"><span>Line angle</span><output id="lineAOut"></output></label><input type="range" id="lineA" min="0" max="180" step="1" value="30"></div>
@@ -148,12 +173,16 @@
   <div class="grid2">
     <div><div class="plot sq" id="liftPlot"></div><p class="hint">Drag to rotate. Lifting with \(\phi(x_1,x_2)=(x_1,\,x_2,\,x_1^2+x_2^2)\) pushes the outer ring up. A flat plane (a <i>linear</i> separator in 3D) now splits the classes, and that plane cuts back down to a circle in 2D.</p></div>
     <div class="prose">
-      <p>The circles dataset cannot be split by a line in the plane. But add a third coordinate \(z=x_1^2+x_2^2\) (squared distance from the origin) and the inner class sits low while the outer ring sits high.</p>
+      <p>The circles dataset cannot be split by a line in the plane. But add a third coordinate \(z=x_1^2+x_2^2\) (squared distance from the origin) and the inner class sits low while the outer ring sits high. A curve in the original space has become a flat plane in the lifted one.</p>
+      <p>The trick is that the SVM never needs the lifted points themselves, only their dot products, and those can be computed straight from the original coordinates:</p>
       <div class="mathbox c3">$$\phi(x)^\top\phi(z)=x_1z_1+x_2z_2+(x_1^2+x_2^2)(z_1^2+z_2^2)$$</div>
       <p>A kernel lets the SVM use a feature map like this one, or even an infinite-dimensional one (RBF), at the cost of evaluating \(K\) on pairs of points. The polynomial kernel of degree 2 contains exactly these squared terms, which is why it handles circles well in the gallery below.</p>
       <div class="ctl"><label for="planeZ"><span>Height of the separating plane</span><output id="planeZOut"></output></label><input type="range" id="planeZ" min="0.2" max="4" step="0.05" value="1.9"></div>
       <div class="row"><button class="btn" id="spin">Auto-rotate</button></div>
       <div class="stats" id="liftStats" style="margin-top:10px"></div>
+      <details class="deeper"><summary>Going deeper: why the kernel trick saves work</summary><div>
+        <p>The polynomial kernel \((x^\top z+1)^d\) in \(p\) dimensions corresponds to a feature map with every monomial up to degree \(d\): \(\binom{p+d}{d}\) features. For \(p=100\), \(d=3\) that is 176,851 features, but the kernel costs one dot product and a cube. The representer theorem guarantees this is enough: for any loss plus an L2 penalty on \(w\), the optimal \(w\) lies in the span of the \(\phi(x_i)\), so \(f(x)=\sum_i\beta_iK(x_i,x)\). The flip side is that the work now scales with \(n\): the kernel matrix has \(n^2\) entries, which is why kernel SVMs struggle beyond about \(10^5\) examples.</p>
+      </div></details>
     </div>
   </div>
 </section>
@@ -167,11 +196,12 @@
     <div class="note"><b>Polynomial</b>: captures interactions such as \(x_1x_2\) (XOR) and \(x_1^2+x_2^2\) (circles). High degrees get numerically wild far from the data.</div>
     <div class="note ok"><b>RBF</b>: the default for unknown shapes (moons, spirals). Tune \(\gamma\) and \(C\) together with cross-validation; large \(\gamma\) memorises noise.</div>
   </div>
+  <p class="hint">A useful habit: count the support vectors. If nearly every point is one, the model is either very forgiving (small \(C\)) or memorising (large \(\gamma\)), and test accuracy will usually tell you which.</p>
 </section>
 
 <section id="cg" class="card">
   <h2><span class="num">6</span>C and γ together (RBF kernel)</h2>
-  <p class="sub">A 3 × 3 grid of \(C\) and \(\gamma\) values, fitted on the dataset currently in the lab. Rows raise \(C\), columns raise \(\gamma\).</p>
+  <p class="sub">The two knobs work together. \(C\) says how much a training mistake costs; \(\gamma\) says how far each point's influence reaches. A 3 × 3 grid of values, fitted on the dataset currently in the lab. Rows raise \(C\), columns raise \(\gamma\).</p>
   <div id="cgGrid" style="max-width:860px;margin:0 auto;display:grid;grid-template-columns:70px repeat(3,minmax(0,1fr));gap:8px;align-items:center"></div>
   <p class="hint">Small \(\gamma\) + small \(C\): nearly linear and smooth (underfits). Large \(\gamma\) + large \(C\): little islands around individual points (overfits). The sweet spot is usually in between, chosen by cross-validation.</p>
 </section>
@@ -245,7 +275,7 @@ function drawSide(){ const m=S.m, P=ML.palette();
   const g={zero:0,free:0,bound:0}, chk={zero:true,free:true,bound:true}; const tol=1e-2;
   m.alpha.forEach((a,i)=>{ const mg=m.margins[i]; if(a<=1e-8){g.zero++; if(mg<1-tol*3) chk.zero=false;} else if(a>=S.C-1e-6){g.bound++; if(mg>1+tol*3) chk.bound=false;} else {g.free++; if(Math.abs(mg-1)>0.05) chk.free=false;} });
   $('#kktTbl').innerHTML=`<tr><th>Group</th><th>\\(\\alpha_i\\)</th><th>\\(y_if(x_i)\\)</th><th>Count now</th><th>Check</th></tr>`+
-   [['Outside the margin','\\(\\alpha_i=0\\)','\\(\\ge1\\)',g.zero,chk.zero],['On the margin (free SV)','\\(0<\\alpha_i<C\\)','\\(=1\\)',g.free,chk.free],['Inside / wrong side (bound SV)','\\(\\alpha_i=C\\)','\\(\\le1\\)',g.bound,chk.bound]]
+   [['Outside the margin','\\(\\alpha_i=0\\)','\\(\\ge1\\)',g.zero,chk.zero],['On the margin (free SV)','\\(0\\lt\\alpha_i\\lt C\\)','\\(=1\\)',g.free,chk.free],['Inside / wrong side (bound SV)','\\(\\alpha_i=C\\)','\\(\\le1\\)',g.bound,chk.bound]]
    .map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]?'✓':'≈'}</td></tr>`).join('');
   ML.renderMath($('#kktTbl'));
   const sa=m.alpha.map((a,i)=>[a,i]).filter(p=>p[0]>1e-8).sort((a,b)=>b[0]-a[0]);

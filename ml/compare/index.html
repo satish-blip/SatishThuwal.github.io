@@ -42,7 +42,8 @@
   <p class="kick">Start here</p>
   <h2>How to read this page</h2>
   <div class="grid2 prose">
-    <div><p>Every <a class="term" data-t="classification">classifier</a> on this site is trained here on every <a class="term" data-t="dataset">dataset</a>, using the same <a class="term" data-t="training-set">training points</a>, and scored on the same <a class="term" data-t="test-set">held-out test points</a>. Each small plot shows one model’s <a class="term" data-t="decision-boundary">decision boundary</a>: colour is the predicted class, dots are the data.</p>
+    <div><h3>The question</h3><p>After reading about each method on its own, the natural question is: which one should I use? The honest answer is "it depends on the shape of your data", and this page lets you see exactly how. Think of each dataset as a different kind of problem and each algorithm as a different set of assumptions about what boundaries look like. A method wins when its assumptions match the problem.</p>
+    <p>Every <a class="term" data-t="classification">classifier</a> on this site is trained here on every <a class="term" data-t="dataset">dataset</a>, using the same <a class="term" data-t="training-set">training points</a>, and scored on the same <a class="term" data-t="test-set">held-out test points</a>. Each small plot shows one model’s <a class="term" data-t="decision-boundary">decision boundary</a>: colour is the predicted class, dots are the data.</p>
     <p>No model wins everywhere. Linear models are perfect on blobs and hopeless on circles; trees and forests handle almost anything but draw staircases; <a class="term" data-t="kernel">kernel</a> SVMs and boosted ensembles adapt to curves. That is the "no free lunch" idea in one picture.</p></div>
     <div><ol class="steps2"><li>Pick datasets and algorithms with the chips.</li><li>Tune the shared <a class="term" data-t="hyperparameter">hyperparameters</a> on the left (polynomial degree, \(\lambda\), \(C\), \(\gamma\), depth, trees, rounds).</li><li>Read the <a class="term" data-t="accuracy">accuracy</a> under each plot and the leaderboard heat map; a big gap between train and test accuracy means <a class="term" data-t="overfitting">overfitting</a>.</li></ol>
     <h3>Words you will meet</h3><div class="terms"><a class="term" data-t="overfitting">Overfitting</a><a class="term" data-t="underfitting">Underfitting</a><a class="term" data-t="generalisation">Generalisation</a><a class="term" data-t="bias-variance">Bias–variance</a><a class="term" data-t="hyperparameter">Hyperparameter</a><a class="term" data-t="regularisation">Regularisation</a><a class="term" data-t="linearly-separable">Linearly separable</a><a class="term" data-t="noise">Label noise</a></div>
@@ -111,6 +112,31 @@
     <div class="note ok"><b>No free lunch.</b> No algorithm wins every column. Check the average column: the most flexible models (RBF SVM, forests) are usually near the top on average, but lose to simple linear models when the true boundary is a line and the data is noisy.</div>
     <div class="note warn"><b>Where is PCA?</b> PCA is unsupervised: it never sees labels, so it is not a classifier. It is often used <i>before</i> one of these to reduce dimensions. See the <a href="../pca/">PCA page</a> and its PCA-vs-LDA section.</div>
   </div>
+  <div class="grid2" style="margin-top:8px">
+    <div>
+      <h3>How this grid is built (and how to compare models fairly yourself)</h3>
+      <p>Every cell follows the same recipe, and the important rule is that the test points are never used for anything except the final score. If you tune hyperparameters by looking at test accuracy, the test score stops being an honest estimate of performance on new data.</p>
+      <div class="algo"><h5 class="algo-h">Algorithm: a fair model comparison</h5><ol>
+        <li><span class="kw">input</span> dataset \(D\), list of models, test share \(q\)</li>
+        <li>shuffle \(D\); hold out a fraction \(q\) as the test set <span class="cm">same split for every model</span></li>
+        <li><span class="kw">for</span> each model \(m\) <span class="kw">do</span></li>
+        <li class="i1">choose \(m\)'s hyperparameters by cross-validation on the training part only</li>
+        <li class="i1">fit \(m\) on the whole training part</li>
+        <li class="i1">record train accuracy and test accuracy</li>
+        <li>repeat with several random splits; report mean ± spread <span class="cm">one split can mislead</span></li>
+        <li>call a difference real only if it beats the split-to-split noise</li>
+      </ol></div>
+      <p class="hint">Press <b>New random sample</b> a few times and watch the numbers move by a few points: that is the noise any single comparison carries. The <a href="../../math/inference/#ml">hypothesis testing page</a> shows how to test whether one model really beats another.</p>
+    </div>
+    <div>
+      <h3>Why no model wins everywhere</h3>
+      <p>Every learner has an <b>inductive bias</b>: the kind of boundary it finds easy to draw. Linear models assume a hyperplane; QDA assumes Gaussian blobs; trees assume axis-aligned boxes; an RBF SVM assumes the answer changes smoothly over a length scale \(1/\sqrt\gamma\). When the true boundary matches the assumption, a little data goes a long way. When it does not, the model either cannot fit (bias) or needs a lot of data and tuning to compensate (variance).</p>
+      <details class="deeper"><summary>Going deeper: the bias–variance decomposition and "no free lunch"</summary><div>
+        <p>For squared error at a point \(x\), averaging over random training sets: \(\mathbb E[(y-\hat f(x))^2]=\underbrace{(f(x)-\mathbb E\hat f(x))^2}_{\text{bias}^2}+\underbrace{\operatorname{Var}\hat f(x)}_{\text{variance}}+\sigma^2\). Linear models on circles have huge bias; a depth-12 tree on noisy labels has huge variance; the irreducible \(\sigma^2\) is the label noise, which no model can remove. (The <a href="../linear-regression/#bv">linear regression page</a> derives this.)</p>
+        <p>The no-free-lunch theorem (Wolpert, 1996) makes "no universal winner" precise: averaged uniformly over <i>all</i> possible labelling functions, every learning algorithm has the same expected accuracy on points it has not seen. Any algorithm that does better on some problems must do worse on others. Learning works in practice only because real problems are not uniform: they have smoothness and structure, and a good choice of model is a good guess about that structure.</p>
+      </div></details>
+    </div>
+  </div>
 </section>
 
 <p class="foot">Part of the <a href="../">ML algorithms lab</a>. Everything is computed in your browser in plain JavaScript; every model on this page is implemented from scratch in <a href="../assets/models.js">models.js</a>.</p>
@@ -122,7 +148,7 @@
 <script>
 (function(){
 const {$, fmt} = ML;
-ML.nav('compare');
+ML.nav('compare'); ML.renderMath(document.querySelector('main'));
 const H={polyDeg:3, logLam:1e-3, C:1, gamma:1, depth:5, trees:30, rounds:60};
 const S={n:240, noise:0.3, tf:0.3, seed:7, algos:new Set(ML.ALGOS.map(a=>a.id)), ds:new Set(ML.DATASETS.map(d=>d.id)), res:{}, focus:{a:'svmrbf',d:'spirals'}, token:0};
 const focus=new ML.Plot('#focus');
