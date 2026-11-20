@@ -17,7 +17,7 @@
 <header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
-  <p class="kicker">Deep Learning &middot; NLP &middot; Multimodal (part 3 of 3)</p>
+  <p class="kicker">Deep Learning &middot; NLP &middot; Multimodal (part 3 of 4)</p>
   <h1>ViLBERT: <span class="grad">two streams that talk through co-attention</span></h1>
   <p class="lede"><a href="../visualbert/">VisualBERT</a> poured words and image regions into one BERT. ViLBERT, published the same month (Lu et al., 2019), keeps them apart: one transformer for the text, another for the image, and special <b>co-attentional transformer layers</b> (Co-TRM) where the text stream asks the image questions and the image stream asks the text. This page builds that layer from the attention you already know.</p>
   <div class="toc"><a href="#intro">0 · Start here</a><a href="#arch">1 · Two streams</a><a href="#co">2 · Co-attention, live</a><a href="#cotrm">3 · The Co-TRM layer</a><a href="#pre">4 · Pre-training</a><a href="#vs">5 · ViLBERT, VisualBERT, LXMERT</a><a href="#py">6 · Python</a></div>
@@ -175,6 +175,7 @@
   </div>
 </section>
 
+<p class="hint" style="max-width:var(--maxw,1100px);margin:0 auto 24px">Next: <a href="../clip/">part 4, CLIP</a>, drops fusion altogether: two separate encoders, trained so that a picture and its caption land on the same point in one shared space.</p>
 <section id="py" class="card">
   <h2><span class="num">6</span>The same thing in Python</h2>
 <pre class="code"><span class="k">import</span> torch, torch.nn <span class="k">as</span> nn

@@ -1556,6 +1556,83 @@ AA.def('vilpt', T => {
   return S;
 });
 AA.title(/ViLBERT pre-training step/i,'vilpt');
+/* ---------- CLIP: contrastive training step and zero-shot ---------- */
+const clipCOL={red:'#e0524c',green:'#3fa65b',blue:'#3f7fdc',yellow:'#e6b422'};
+const clipShp=(g,kind,x,y,r,col,hollow)=>{ const c=g.ctx; c.save(); c.beginPath();
+  if(kind==='circle') c.arc(x,y,r,0,7); else if(kind==='square') c.rect(x-r*.85,y-r*.85,r*1.7,r*1.7); else { c.moveTo(x,y-r); c.lineTo(x+r*.95,y+r*.75); c.lineTo(x-r*.95,y+r*.75); c.closePath(); }
+  if(hollow){ c.lineWidth=Math.max(2,r*.28); c.strokeStyle=col; c.stroke(); } else { c.fillStyle=col; c.fill(); } c.restore(); };
+const clipItems=n=>{ const all=[]; Object.keys(clipCOL).forEach(c=>['circle','square','triangle'].forEach(s=>all.push([c,s]))); const out=[]; while(out.length<n){ const it=pick(all); if(!out.some(o=>o[0]===it[0]&&o[1]===it[1])&&!out.some(o=>o[0]===it[0])) out.push(it); } return out; };
+const wrapA=a=>{ while(a>Math.PI) a-=2*Math.PI; while(a<-Math.PI) a+=2*Math.PI; return a; };
+AA.def('clip', T => {
+  const S=[], add=F(S), B=4, tau=.25, it=clipItems(B), off=T.r()*6.28;
+  const tgt=it.map((_,i)=>off+i*Math.PI/2), a0=it.map((_,i)=>tgt[i]+T.g()*1.1), b0=it.map((_,i)=>tgt[i]+T.g()*1.1+(T.r()<.5?1:-1)*.9);
+  const ang=(p)=>({a:a0.map((v,i)=>v+wrapA(tgt[i]-.2-v)*p),b:b0.map((v,i)=>v+wrapA(tgt[i]+.2-v)*p)});
+  const Sm=(A)=>A.a.map(x=>A.b.map(y=>Math.cos(x-y)/tau));
+  const loss=(M)=>{ let l=0; M.forEach((r,i)=>{ l-=Math.log(softmax(r)[i]); }); M[0].forEach((_,j)=>{ l-=Math.log(softmax(M.map(r=>r[j]))[j]); }); return l/(2*B); };
+  const L0=loss(Sm(ang(0))), L1=loss(Sm(ang(1)));
+  const draw=(g,o)=>{ const W=g.W,H=g.H, R=Math.min(.19*W,.27*H), cx=.04*W+R*1.35, cy=.54*H, ir=Math.max(5,R*.11), A=ang(o.upd||0);
+    g.ptxt('shared space (unit circle)',cx,cy-R-g.fs*1.6,g.C.muted,{align:'center',size:.6});
+    g.ctx.save(); g.ctx.strokeStyle=g.C.line; g.ctx.lineWidth=1.5; g.ctx.beginPath(); g.ctx.arc(cx,cy,R,0,7); g.ctx.stroke(); g.ctx.restore();
+    const P=(t,rr)=>[cx+Math.cos(t)*R*rr,cy-Math.sin(t)*R*rr];
+    if(o.lv>=3&&o.lv<7||o.upd) it.forEach((m,i)=>{ const p1=P(A.a[i],1),p2=P(A.b[i],1); g.pseg(p1[0],p1[1],p2[0],p2[1],clipCOL[m[0]],1.5,[4,4]); });
+    if(o.lv>=2){ const rr=o.lv===2?1.2-.2*(o.p||0):1; it.forEach((m,i)=>{ const p=P(A.a[i],rr); clipShp(g,m[1],p[0],p[1],ir,clipCOL[m[0]]); }); }
+    if(o.lv>=3){ const rr=o.lv===3?1.2-.2*(o.p||0):1; it.forEach((m,i)=>{ const p=P(A.b[i],rr); clipShp(g,m[1],p[0],p[1],ir*.9,clipCOL[m[0]],true); }); }
+    g.ptxt('filled = image u_i,  outline = caption t_j',cx,cy+R+g.fs*2.2,g.C.muted,{align:'center',size:.56});
+    const hx=Math.max(cx+R*1.5,.52*W), cs=Math.min((W-hx-.03*W)/(B+1.2),.13*H), hy=.2*H+cs;
+    if(o.lv<4){ it.forEach((m,i)=>{ const y=.22*H+i*Math.min(.15*H,g.fs*2.6); clipShp(g,m[1],hx+ir,y,ir,clipCOL[m[0]]); g.ptxt('"a '+m[0]+' '+m[1]+'"',hx+ir*2.6,y,g.C.ink,{size:.62,mono:true}); }); g.ptxt(B+' matching (image, caption) pairs',hx,.22*H-g.fs*1.8,g.C.ink,{size:.64,bold:true}); }
+    if(o.lv>=4){ const M=Sm(A), sh=o.lv===4&&!o.mode?Math.min(B*B,Math.floor((o.p||0)*B*B+1)):B*B;
+      let V; if(o.mode==='row') V=M.map(r=>softmax(r)); else if(o.mode==='col'){ const C=M[0].map((_,j)=>softmax(M.map(r=>r[j]))); V=M.map((r,i)=>r.map((_,j)=>C[j][i])); } else V=M.map(r=>r.map(v=>(v*tau+1)/2));
+      it.forEach((m,i)=>{ clipShp(g,m[1],hx+cs*.5,hy+i*cs+cs/2,Math.min(ir,cs*.3),clipCOL[m[0]]); clipShp(g,m[1],hx+cs*1.2+i*cs+cs/2,hy-cs*.5,Math.min(ir,cs*.3)*.9,clipCOL[m[0]],true); });
+      heat(g,V,hx+cs*1.2,hy,cs,cs,o.mode==='col'?g.C.c4:g.C.c1,{num:true,dp:o.mode?2:1,size:.5,hide:(i,j)=>i*B+j>=sh,hl:(i,j)=>i===j&&(o.mode||o.upd)});
+      if(o.mode==='row'&&o.focus!=null) g.prect(hx+cs*1.2,hy+o.focus*cs,cs*B,cs,null,g.C.c2,{r:3,lw:3});
+      if(o.mode==='col'&&o.focus!=null) g.prect(hx+cs*1.2+o.focus*cs,hy,cs,cs*B,null,g.C.c2,{r:3,lw:3});
+      const lab=o.mode==='row'?'softmax of each row: image → caption':o.mode==='col'?'softmax of each column: caption → image':'S = cos(u_i, t_j)/τ  (cells show cos)';
+      g.ptxt(lab,hx,hy+B*cs+g.fs*1.2,g.C.ink,{size:.6,bold:true});
+      if(o.upd!=null) g.ptxt('loss '+T.f(loss(M),2)+'  (was '+T.f(L0,2)+')',hx,hy+B*cs+g.fs*2.6,g.C.c5,{size:.6,mono:true}); }
+  };
+  add(1,`A batch of ${B} matching (image, caption) pairs.`,1300,g=>draw(g,{lv:1}));
+  add(2,'Encode each image and normalise: every vector lands on the unit circle.',1100,(g,p)=>draw(g,{lv:2,p}));
+  add(3,'Encode each caption and normalise. Dashed lines join the true pairs: before training they point different ways.',1500,(g,p)=>draw(g,{lv:3,p}));
+  add(4,`Score every image against every caption: a ${B}×${B} table, true pairs on the diagonal.`,1600,(g,p)=>draw(g,{lv:4,p}));
+  for(let i=0;i<B;i++) add(5,`Row ${i+1}: softmax over the captions. The loss wants the diagonal cell near 1.`,i?650:1100,g=>draw(g,{lv:4,mode:'row',focus:i}));
+  for(let j=0;j<B;j++) add(6,`Column ${j+1}: softmax over the images. The same goal, the other way round.`,j?650:1100,g=>draw(g,{lv:4,mode:'col',focus:j}));
+  add(7,`Average the two losses and step: true pairs rotate together, wrong pairs apart (loss ${T.f(L0,2)} → ${T.f(L1,2)}).`,2200,(g,p)=>draw(g,{lv:4,mode:'row',upd:p}));
+  add(7,'After many such steps, matching pictures and captions share one direction.',1800,g=>draw(g,{lv:4,mode:'row',upd:1}));
+  return S;
+});
+AA.title(/CLIP training step/i,'clip');
+
+AA.def('zeroshot', T => {
+  const S=[], add=F(S), K=5, tau=.15, it=clipItems(1)[0];
+  const cls=[it]; const all=[]; Object.keys(clipCOL).forEach(c=>['circle','square','triangle'].forEach(s=>all.push([c,s])));
+  while(cls.length<K){ const c=pick(all); if(!cls.some(o=>o[0]===c[0]&&o[1]===c[1])) cls.push(c); }
+  const th0=T.r()*6.28; let sgn=1, used=[th0];
+  const ang=cls.map((c,i)=>{ if(!i) return th0; const sh=(c[0]===it[0])+(c[1]===it[1]); let a, tries=0; do{ a=th0+sgn*(sh?.55+T.r()*.5:1.4+T.r()*1.5); tries++; }while(used.some(u=>Math.abs(wrapA(u-a))<.42)&&tries<20); sgn=-sgn; used.push(a); return a; });
+  const perm=T.shuffle(cls.map((_,i)=>i)); const cls2=perm.map(i=>cls[i]), ang2=perm.map(i=>ang[i]); cls.splice(0,K,...cls2); ang.splice(0,K,...ang2);
+  const ua=th0+(T.r()-.5)*.35, sc=ang.map(a=>Math.cos(a-ua)), pr=softmax(sc.map(v=>v/tau)), best=pr.indexOf(Math.max(...pr));
+  const draw=(g,o)=>{ const W=g.W,H=g.H, R=Math.min(.19*W,.3*H), cx=.04*W+R*1.3, cy=.55*H, ir=Math.max(5,R*.1), P=(t,rr)=>[cx+Math.cos(t)*R*rr,cy-Math.sin(t)*R*rr];
+    g.ctx.save(); g.ctx.strokeStyle=g.C.line; g.ctx.lineWidth=1.5; g.ctx.beginPath(); g.ctx.arc(cx,cy,R,0,7); g.ctx.stroke(); g.ctx.restore();
+    const isz=Math.min(.09*H,R*.35); const ix=.02*W; g.prect(ix,.04*H,isz*2,isz*2,g.C.soft,g.C.line,{r:6}); clipShp(g,it[1],ix+isz,.04*H+isz,isz*.6,clipCOL[it[0]]); g.ptxt('new image x',ix+isz*2.3,.04*H+isz,g.C.muted,{size:.58});
+    const nshow=o.lv>=2?(o.lv===2?Math.min(K,Math.floor((o.p||0)*K+1)):K):0;
+    for(let k=0;k<nshow;k++){ const p=P(ang[k],1), q=P(ang[k],1.22); clipShp(g,cls[k][1],p[0],p[1],ir*.9,clipCOL[cls[k][0]],true); g.ptxt(String(k+1),q[0],q[1],g.C.ink,{align:'center',size:.6,bold:true,mono:true}); }
+    if(o.lv>=3){ const p=P(ua,o.lv===3?(o.p||0):1); g.parrow(cx,cy,p[0],p[1],g.C.c2,2.5); if(o.lv===3) g.ptxt('u',p[0]+6,p[1]-8,g.C.c2,{size:.7,bold:true}); }
+    if(o.lv>=4&&o.lv<6){ for(let k=0;k<K;k++){ const p=P(ang[k],1),q=P(ua,1); g.pseg(q[0],q[1],p[0],p[1],g.C.c2,1,[3,4]); } }
+    const bx=Math.max(cx+R*1.55,.5*W), bw=W-bx-.03*W, rowH=Math.min(.14*H,g.fs*2.7), by=.18*H;
+    g.ptxt('"a photo of a {colour} {shape}"',bx,by-g.fs*1.4,g.C.muted,{size:.56,mono:true});
+    for(let k=0;k<nshow;k++){ const y=by+k*rowH; g.ptxt((k+1)+' '+cls[k].join(' '),bx,y,k===best&&o.lv>=6?g.C.c5:g.C.ink,{size:.6,bold:k===best&&o.lv>=6,mono:true});
+      if(o.lv>=4){ const v=o.lv===4?Math.max(0,sc[k])*Math.min(1,(o.p||0)*1.5):(o.lv===5?T.lerp(Math.max(0,sc[k]),pr[k],o.p||0):pr[k]); g.prect(bx,y+g.fs*.55,bw*.75*v,g.fs*.7,o.lv>=5?g.C.c5:g.C.c2,null,{r:2,a:k===best&&o.lv>=6?1:.7});
+        g.ptxt(o.lv===4?'cos '+T.f(sc[k],2):(o.lv===5&&(o.p||0)<.5?'':T.f(pr[k]*100,0)+'%'),bx+bw*.75*v+4,y+g.fs*.9,g.C.muted,{size:.5,mono:true}); } }
+    if(o.lv>=6) g.ptxt('answer: '+cls[best].join(' ')+(cls[best][0]===it[0]&&cls[best][1]===it[1]?' ✓':''),bx,by+K*rowH+g.fs*.6,g.C.c5,{size:.66,bold:true});
+  };
+  add(1,`A new image, and ${K} class names, each wrapped in a template sentence.`,1300,g=>draw(g,{lv:1}));
+  add(2,'Encode each prompt with the text encoder and normalise: one point per class. Done once, then reused.',1500,(g,p)=>draw(g,{lv:2,p}));
+  add(3,'Encode the image with the image encoder and normalise: the arrow u.',1100,(g,p)=>draw(g,{lv:3,p}));
+  add(4,'Score: cosine between u and every class point (closer angle, bigger score).',1500,(g,p)=>draw(g,{lv:4,p}));
+  add(5,'Divide by τ and softmax: probabilities over the classes.',1300,(g,p)=>draw(g,{lv:5,p}));
+  add(6,'Return the most likely class. No classifier was trained for these labels.',2200,g=>draw(g,{lv:6}));
+  return S;
+});
+AA.title(/zero-shot classification with CLIP/i,'zeroshot');
 /* ---------- which animation goes with which pseudocode title ---------- */
 [[/ordinary least squares/i,'ols'],[/gradient descent for least squares/i,'gd'],[/lasso by coordinate descent/i,'lassocd'],
  [/logistic regression by gradient descent/i,'logreg'],[/Newton's method \(IRLS\)/i,'newton'],[/proximal gradient descent for L1/i,'proxlog'],[/ROC curve/i,'roc'],

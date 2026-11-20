@@ -17,7 +17,7 @@
 <header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
-  <p class="kicker">Deep Learning &middot; NLP &middot; Multimodal (part 2 of 3)</p>
+  <p class="kicker">Deep Learning &middot; NLP &middot; Multimodal (part 2 of 4)</p>
   <h1>VisualBERT: <span class="grad">one transformer for words and pictures</span></h1>
   <p class="lede">In <a href="../visual-tokenisation/">part 1</a> an image became a list of visual tokens. VisualBERT's idea is almost cheeky in its simplicity: put those visual tokens right after the words of a caption, and feed the whole thing to an ordinary BERT. Self-attention, which already links words to words, now links words to parts of the picture too. This page builds the input, shows the attention, and walks through how it is trained.</p>
   <div class="toc"><a href="#intro">0 · Start here</a><a href="#input">1 · One sequence</a><a href="#attn">2 · Attention across modalities</a><a href="#pre">3 · Pre-training</a><a href="#tasks">4 · Fine-tuning tasks</a><a href="#family">5 · The family</a><a href="#py">6 · Python</a></div>
@@ -141,7 +141,7 @@
     <tr><th>Design</th><th>Examples</th><th>How the modalities meet</th><th>Visual tokens</th></tr>
     <tr><td><b>Single-stream</b></td><td>VisualBERT, UNITER, VL-BERT</td><td>one transformer over [words; regions]</td><td>detector regions</td></tr>
     <tr><td><b>Two-stream</b></td><td><a href="../vilbert/">ViLBERT</a>, LXMERT</td><td>a text transformer and an image transformer, linked by co-attention layers (text queries image, image queries text)</td><td>detector regions</td></tr>
-    <tr><td><b>Dual encoder, contrastive</b></td><td><a class="term" data-t="clip">CLIP</a>, ALIGN</td><td>never inside a model: two encoders produce one vector each, compared by cosine similarity</td><td>ViT patches</td></tr>
+    <tr><td><b>Dual encoder, contrastive</b></td><td><a class="term" data-t="clip">CLIP</a> (<a href="../clip/">part 4</a>), ALIGN</td><td>never inside a model: two encoders produce one vector each, compared by cosine similarity</td><td>ViT patches</td></tr>
     <tr><td><b>Visual tokens into an LLM</b></td><td>LLaVA, Flamingo, BLIP-2</td><td>image features projected into the language model's input (LLaVA) or read through cross-attention (Flamingo)</td><td>ViT patches (often from CLIP)</td></tr>
   </table></div>
   <div class="grid2 prose" style="margin-top:12px">
