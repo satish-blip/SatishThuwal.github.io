@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mathematical Concepts for ML</title>
-<meta name="description" content="Step 1 of the learning path. Probability and statistics first (Bayes' theorem, hypothesis testing, maximum likelihood and Bayesian estimation), then linear algebra (vectors, matrices, projections, eigenvectors and the SVD). Each page has live diagrams, derivations, pseudocode and optional proofs.">
+<meta name="description" content="Step 1 of the learning path. Probability and statistics first (Bayes' theorem, hypothesis testing, maximum likelihood and Bayesian estimation), then linear algebra (vectors, matrices, projections, eigenvectors and the SVD), then calculus (gradients, the chain rule, curvature and constraints). Each page has live diagrams, derivations, pseudocode and optional proofs.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=JetBrains+Mono:wght@500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
@@ -28,7 +28,7 @@ a.hubcard:hover{transform:translateY(-3px);border-color:var(--c1)}
 <section class="hero">
   <p class="kicker">Mathematical concepts</p>
   <h1>The maths behind ML, <span class="grad">made visible</span></h1>
-  <p class="lede">Step 1 of the learning path. Probability and statistics first (Bayes' theorem, hypothesis testing, maximum likelihood and Bayesian estimation), then linear algebra (vectors, matrices, projections, eigenvectors and the SVD). Each page has live diagrams, derivations, pseudocode and optional proofs.</p>
+  <p class="lede">Step 1 of the learning path. Probability and statistics first (Bayes' theorem, hypothesis testing, maximum likelihood and Bayesian estimation), then linear algebra (vectors, matrices, projections, eigenvectors and the SVD), then calculus (gradients, the chain rule, curvature and constraints). Each page has live diagrams, derivations, pseudocode and optional proofs.</p>
 </section>
 <div class="evo-slot" data-evo="math"></div><div class="evo-slot" data-evo="opt"></div>
 <div class="hubgrid">
@@ -52,6 +52,7 @@ a.hubcard:hover{transform:translateY(-3px);border-color:var(--c1)}
 <text x="102" y="76" fill="#fff">=</text><text x="196" y="76" fill="#fff">·</text>
 <line x1="126" y1="39" x2="132" y2="45" stroke="#fff" stroke-width="3"/><line x1="137" y1="50" x2="143" y2="56" stroke="#fff" stroke-width="3"/><line x1="148" y1="61" x2="154" y2="67" stroke="#fff" stroke-width="3"/><line x1="159" y1="72" x2="165" y2="78" stroke="#fff" stroke-width="3"/><line x1="170" y1="83" x2="176" y2="89" stroke="#fff" stroke-width="3"/><line x1="181" y1="94" x2="187" y2="100" stroke="#fff" stroke-width="3"/>
 <path d="M206,35 L276,105 L206,105 Z" fill="#fff" fill-opacity=".35"/><text x="30" y="130" fill="#fbbf24">A = VΛV⁻¹, LU, QR, LLᵀ</text></g></svg></div><div class="ml-body"><span class="tag">Linear algebra</span><h3>Eigenvectors &amp; decompositions</h3><p>Find the directions a matrix only stretches, watch power iteration converge, and build LU, QR (Gram–Schmidt) and Cholesky live.</p><span class="ml-go">Open &rarr;</span></div></a>
+<a class="hubcard" href="calculus/"><div class="ml-art" aria-hidden="true"><svg viewBox="0 0 320 150"><path d="M30,40 C80,150 150,150 290,30" fill="none" stroke="#fb7185" stroke-width="3.5"/><line x1="60" y1="138" x2="260" y2="88" stroke="#fbbf24" stroke-width="3"/><circle cx="160" cy="113" r="6" fill="#fbbf24"/><text x="196" y="132" font-family="JetBrains Mono" font-size="15" fill="#fbbf24">f′(x)</text></svg></div><div class="ml-body"><span class="tag">Calculus</span><h3>Calculus for ML</h3><p>Derivatives as slopes, gradients on a contour map, the chain rule as backpropagation on a live graph, the Hessian as curvature, convexity, and Lagrange multipliers.</p><span class="ml-go">Open &rarr;</span></div></a>
 <a class="hubcard" href="svd/"><div class="ml-art" aria-hidden="true"><svg viewBox="0 0 320 150"><circle cx="60" cy="72" r="34" fill="none" stroke="#e2e8f0" stroke-width="2.5"/><path d="M104,72 L128,72" stroke="#fbbf24" stroke-width="3"/><path d="M128,66 L137,72 L128,78z" fill="#fbbf24"/>
 <ellipse cx="220" cy="72" rx="80" ry="26" transform="rotate(-22 220 72)" fill="#a78bfa" fill-opacity=".25" stroke="#a78bfa" stroke-width="2.5"/>
 <line x1="220" y1="72" x2="294" y2="42" stroke="#22d3ee" stroke-width="4" stroke-linecap="round"/><line x1="220" y1="72" x2="230" y2="96" stroke="#fb7185" stroke-width="4" stroke-linecap="round"/>

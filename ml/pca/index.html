@@ -82,7 +82,7 @@
       <h3>Step 1: the spread along a direction</h3>
       <p>First centre the data so the cloud sits at the origin: \(\tilde x_i=x_i-\bar x\). For a unit vector \(u\), the coordinate of point \(i\) along \(u\) is the <a href="../../math/vectors/#dot">dot product</a> \(u^\top\tilde x_i\). These coordinates have mean zero, so their variance is the average of their squares. Collecting terms gives a compact formula with the sample covariance \(S=\tfrac1{n-1}\sum_i\tilde x_i\tilde x_i^\top\):</p>
       <div class="mathbox c4">$$\frac1{n-1}\sum_i(u^\top\tilde x_i)^2=\frac1{n-1}\sum_iu^\top\tilde x_i\tilde x_i^\top u=u^\top Su$$</div>
-      <p>So the covariance matrix \(S\) contains everything we need: give it any direction, and \(u^\top Su\) tells you the spread along it.</p>
+      <p>So the <a href="../../math/probability/#covariance-matrix">covariance matrix</a> \(S\) contains everything we need: give it any direction, and \(u^\top Su\) tells you the spread along it.</p>
       <h3>Step 2: make that spread as large as possible</h3>
       <p>We need the constraint \(\lVert u\rVert=1\), otherwise making \(u\) longer would make the "variance" as large as we like. Maximise with a Lagrange multiplier:</p>
       <div class="mathbox c1">$$\max_{u}\ u^\top Su\quad\text{s.t.}\quad u^\top u=1\qquad\mathcal L=u^\top Su-\lambda(u^\top u-1)$$</div>

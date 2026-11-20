@@ -343,6 +343,21 @@ details.deeper>div p{margin:.5em 0}
 .aa-b:hover{border-color:var(--c1)}
 .algo li.aa-on{background:color-mix(in srgb,var(--c1) 15%,transparent);box-shadow:inset 3px 0 0 var(--c1);border-radius:3px}
 .algo li{transition:background .25s}
+
+/* compact plots (2026-11-20): smaller plots, controls beside the explanation */
+.plot.sq{max-width:460px;margin-inline:auto}
+.plot.wide{max-width:640px;margin-inline:auto}
+.plot.short{max-width:820px;margin-inline:auto}
+.lab-ctl{margin-top:12px;display:grid;gap:8px}
+.lab-ctl .stats{margin-top:2px}
+@media (min-width:921px){
+  .lab{grid-template-columns:minmax(320px,440px) minmax(0,1fr)}
+  .lab-stick{position:sticky;top:72px}
+}
+/* pseudocode next to its animation from 640px, and a capped animation size */
+@container (min-width:640px){.aa-in{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);align-items:start}.aa-panel{position:sticky;top:64px}}
+.aa-panel{max-width:560px}
+.aa-in>.aa-panel:only-child{margin-inline:auto}
 /* evolution timeline (shared by homepage and lab pages) */
 .evo{margin:18px 0 6px;border:1px solid var(--rule,var(--line));border-radius:8px;padding:12px 14px 12px;background:var(--paper,var(--card))}
 .evo-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:6px}

@@ -21,7 +21,7 @@
   <p class="kicker">Mathematical concepts &middot; Linear algebra</p>
   <h1>Matrices, <span class="grad">rank and inverses</span></h1>
   <p class="lede">A matrix is usually introduced as a table of numbers. It is far more useful to see it as a machine that moves every point in space. Once you see that, the determinant, rank and inverse stop being formulas to memorise and become questions you can answer by looking: how much does it stretch, how much does it flatten, and can it be undone?</p>
-  <div class="toc"><a href="#intro">0 · Start here</a><a href="#transform">1 · A matrix moves space</a><a href="#mult">2 · Multiplication</a><a href="#det">3 · Determinant</a><a href="#rank">4 · Rank</a><a href="#inverse">5 · Inverse and Ax = b</a><a href="#ml">6 · In ML</a><a href="#py">7 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#transform">1 · A matrix moves space</a><a href="#mult">2 · Multiplication</a><a href="#det">3 · Determinant</a><a href="#rank">4 · Rank</a><a href="#inverse">5 · Inverse and Ax = b</a><a href="#special">6 · Special matrices</a><a href="#ml">7 · In ML</a><a href="#py">8 · Python</a></div>
 </section>
 
 <section id="intro" class="card intro">
@@ -90,7 +90,7 @@
 <section id="det" class="lab">
   <div class="card hl">
     <h2><span class="num">3</span>The determinant: how much area is scaled</h2>
-    <p class="sub">The unit square (area 1) lands on the shaded parallelogram. Slide \(t\) to push the second column onto the line of the first.</p>
+    <p class="sub">The unit square (area 1) lands on the shaded parallelogram. Drag the tips of \(a_1\) and \(a_2\), or slide \(t\) to push \(a_2\) onto the line of \(a_1\).</p>
     <div class="plot sq" id="pDet"></div>
   </div>
   <div>
@@ -159,8 +159,71 @@ $$\frac{\|\delta x\|}{\|x\|}\le\kappa(A)\,\frac{\|\delta b\|}{\|b\|},\qquad\kapp
   </div>
 </section>
 
+<section id="special" class="lab">
+  <div class="card hl">
+    <h2><span class="num">6</span>A field guide to special matrices</h2>
+    <p class="sub">Pick a type and watch what it does to the unit square (shaded) and the unit circle (outline). Drag the grey tip to move \(x\); the orange arrow \(Ax\) shows where it lands.</p>
+    <div class="plot sq" id="pSp"></div>
+    <div class="seg" id="spSeg" style="margin-top:10px;flex-wrap:wrap"><button data-v="id">Identity</button><button data-v="diag">Diagonal</button><button data-v="tri">Triangular</button><button data-v="sym" class="on">Symmetric</button><button data-v="rot">Rotation</button><button data-v="ref">Reflection</button><button data-v="gen">General</button></div>
+    <div class="ctl"><label for="spP"><span id="spPl">Off-diagonal entry \(b\)</span><output id="spPOut"></output></label><input type="range" id="spP" min="-1" max="1" step="0.01" value="0.4"></div>
+    <div class="texout" id="spTex"></div>
+    <div class="stats" id="spStats"></div>
+    <div class="note" id="spNote"></div>
+  </div>
+  <div>
+    <div class="card prose">
+      <p>Most matrices you meet in machine learning are not arbitrary tables. They have a shape, a simple rule about their entries, and each rule shows up as something you can <i>see</i>: a move that only stretches, a move that never changes lengths, a move that can be undone one row at a time. Learning to recognise these shapes is like learning the common chess openings: the rest of linear algebra becomes much easier to read.</p>
+
+      <h3 id="identity">The identity matrix \(I\)</h3>
+      <p>Ones on the diagonal, zeros everywhere else. It sends every vector to itself, \(Ix=x\), so it plays the role of the number 1: \(AI=IA=A\). We meet it whenever something must "cancel out": the inverse is <i>defined</i> by \(AA^{-1}=I\), and ridge regression adds \(\lambda I\) to \(X^\top X\) to make it safely invertible.</p>
+
+      <h3 id="diagonal">Diagonal matrices: stretch each axis on its own</h3>
+      <p>Only the diagonal entries \(d_1,d_2,\dots\) can be non-zero. Then \(Dx=(d_1x_1,d_2x_2,\dots)\): each coordinate is scaled separately and nothing is mixed. Everything is easy: \(D^k\) raises each \(d_i\) to the \(k\)-th power, \(D^{-1}\) has \(1/d_i\), and \(\det D=d_1d_2\cdots\). The <b>trace</b> \(\operatorname{tr}A\) is the sum of the diagonal entries of any square matrix; for a diagonal matrix it is the sum of the stretches. The whole point of the <a href="../decompositions/#eigdec">eigendecomposition</a> and the <a href="../svd/">SVD</a> is to find axes in which a matrix becomes diagonal.</p>
+
+      <h3 id="triangular">Triangular matrices: solve one row at a time</h3>
+      <p>A <b>lower-triangular</b> matrix has zeros above the diagonal; an upper-triangular one has zeros below. In \(Lx=b\) the first row involves only \(x_1\), the second only \(x_1,x_2\), and so on, so you solve from the top down (<i>forward substitution</i>), with no elimination needed. The determinant is just the product of the diagonal. That is why <a href="../decompositions/#lu">LU</a>, <a href="../decompositions/#qr">QR</a> and <a href="../decompositions/#chol">Cholesky</a> all turn a hard matrix into triangular pieces.</p>
+
+      <h3 id="symmetric">Transpose and symmetric matrices</h3>
+      <p>The <b>transpose</b> \(A^\top\) swaps rows and columns: \((A^\top)_{ij}=A_{ji}\). A matrix is <b>symmetric</b> when \(A=A^\top\), a mirror image of itself across the diagonal. Symmetric matrices arise whenever entry \((i,j)\) measures something mutual between \(i\) and \(j\): the <a href="../probability/#cov">covariance</a> of features \(i\) and \(j\), the similarity \(k(x_i,x_j)\) in a kernel matrix, the second derivative \(\partial^2 f/\partial\theta_i\partial\theta_j\) in a Hessian, or \(X^\top X\) in least squares.</p>
+      <p>What do they look like as moves? Choose <b>Symmetric</b>: the circle becomes an ellipse, and the two dashed eigen-directions are always <b>perpendicular</b>. A symmetric matrix just stretches along two perpendicular axes, with no twist. That fact, the <i>spectral theorem</i>, is why <a href="../../ml/pca/">PCA</a> gets perpendicular principal components.</p>
+
+      <h3 id="orthogonal">Orthogonal matrices: rotations and reflections</h3>
+      <p>Here is the sentence that is easy to skim past: "an orthogonal matrix is a pure rotation or reflection that keeps lengths." Let us unpack it. A square matrix \(Q\) is <b>orthogonal</b> when its columns are unit-length and perpendicular to each other. Taking dot products of the columns is exactly what \(Q^\top Q\) computes (entry \((i,j)\) is column \(i\) · column \(j\)), so the rule is</p>
+      <div class="mathbox c1">$$Q^\top Q=I,\qquad\text{so}\qquad Q^{-1}=Q^\top .$$</div>
+      <p>Now watch what that does to a length. The squared length of \(Qx\) is a dot product with itself:</p>
+      <ol class="derive">
+        <li><div class="eq">\(\|Qx\|^2=(Qx)^\top(Qx)\)</div><div class="why">A squared length is a vector dotted with itself.</div></li>
+        <li><div class="eq">\(=x^\top Q^\top Q\,x\)</div><div class="why">The transpose of a product reverses the order: \((Qx)^\top=x^\top Q^\top\).</div></li>
+        <li><div class="eq">\(=x^\top x=\|x\|^2\)</div><div class="why">\(Q^\top Q=I\) cancels out.</div></li>
+      </ol>
+      <p>So <b>every length is unchanged</b>, and the same argument shows every dot product, and hence every angle, is unchanged. A move of the plane that keeps all lengths and angles and fixes the origin can only turn the plane (a <b>rotation</b>, \(\det Q=+1\)) or flip it over a line (a <b>reflection</b>, \(\det Q=-1\)). Choose Rotation or Reflection and drag \(x\): the readout \(\|Ax\|/\|x\|\) stays exactly 1, and the unit square stays a unit square, only turned.</p>
+      <p>Where you meet them: the eigenvectors of a symmetric matrix form an orthogonal matrix (PCA rotates the data onto them); the \(U\) and \(V\) of the <a href="../svd/#geom">SVD</a> are orthogonal, which is why the SVD reads "rotate, stretch, rotate"; \(Q\) in <a href="../decompositions/#qr">QR</a>; orthogonal initialisation of RNN weights, which keeps signals from shrinking or exploding; and rotary position embeddings in transformers.</p>
+
+      <h3 id="pd">Positive definite: a matrix that "points forward"</h3>
+      <p>A symmetric matrix is <b>positive definite</b> if \(x^\top Ax>0\) for every \(x\ne0\), and <b>positive semi-definite</b> if \(x^\top Ax\ge0\). Since \(x^\top Ax=x\cdot(Ax)\), the condition says that \(Ax\) never points more than \(90^\circ\) away from \(x\): the matrix may stretch and turn, but never pushes a vector backwards. Equivalently, all its eigenvalues are positive, and the function \(f(x)=x^\top Ax\) is a bowl with a single lowest point. Choose Symmetric and push the slider to the ends: once \(|b|\) passes about 1.2 an eigenvalue turns negative, \(x^\top Ax\) can go below zero, and the bowl becomes a saddle.</p>
+      <p>Covariance matrices are always semi-definite (a variance cannot be negative), the <a href="../calculus/#hessian">Hessian</a> at a minimum is semi-definite, and kernel matrices must be, which is the condition for a valid <a href="../../ml/svm/#trick">kernel</a>.</p>
+
+      <details class="deeper"><summary>Going deeper: why symmetric means perpendicular eigenvectors</summary><div>
+        <p>Let \(Av=\lambda v\) and \(Aw=\mu w\) with \(\lambda\ne\mu\) and \(A=A^\top\). Then \(\lambda\,(v\cdot w)=(Av)\cdot w=v\cdot(A^\top w)=v\cdot(Aw)=\mu\,(v\cdot w)\). Since \(\lambda\ne\mu\), we must have \(v\cdot w=0\). Collecting the unit eigenvectors as the columns of an orthogonal \(Q\) gives the <b>spectral theorem</b>: \(A=Q\Lambda Q^\top\). Read right to left: rotate into the eigen-axes, stretch, rotate back.</p>
+        <p>With that, positive definiteness is easy to test: write \(x=Qc\), so \(x^\top Ax=c^\top\Lambda c=\sum_i\lambda_ic_i^2\). This is positive for every \(c\ne0\) exactly when every \(\lambda_i>0\). In practice we test it by attempting a <a href="../decompositions/#chol">Cholesky factorisation</a>, which succeeds exactly for positive definite matrices.</p>
+        <p>Not every matrix is one of these types, but every matrix is a product of them. The SVD says any \(A=U\Sigma V^\top\): orthogonal, diagonal, orthogonal. QR says \(A=QR\): orthogonal times triangular.</p>
+      </div></details>
+
+      <div class="algo"><h5 class="algo-h">Algorithm: recognising a special matrix</h5><ol>
+        <li><span class="kw">input</span> square matrix \(A\) (\(n\times n\)), tolerance \(\varepsilon\)</li>
+        <li><span class="kw">if</span> \(|A_{ij}|&lt;\varepsilon\) for every \(i\ne j\) <span class="kw">then</span> diagonal <span class="cm">identity if every \(A_{ii}=1\)</span></li>
+        <li><span class="kw">else if</span> \(|A_{ij}|&lt;\varepsilon\) for every \(j&gt;i\) (or every \(j&lt;i\)) <span class="kw">then</span> triangular</li>
+        <li><span class="kw">if</span> \(|A_{ij}-A_{ji}|&lt;\varepsilon\) for every pair <span class="kw">then</span> symmetric</li>
+        <li><span class="kw">if</span> \(A^\top A\approx I\) <span class="kw">then</span> orthogonal: rotation if \(\det A=+1\), reflection if \(-1\)</li>
+        <li><span class="kw">if</span> symmetric, try Cholesky \(A=LL^\top\): success \(\Leftrightarrow\) positive definite</li>
+        <li><span class="kw">return</span> the list of properties found</li>
+      </ol></div>
+    </div>
+  </div>
+</section>
+
 <section id="ml" class="card">
-  <h2><span class="num">6</span>Where this shows up in ML</h2>
+  <h2><span class="num">7</span>Where this shows up in ML</h2>
   <div class="grid3 prose">
     <div><h3>The normal equations</h3><p><a href="../../ml/linear-regression/">Least squares</a> solves \(X^\top X\theta=X^\top y\). If two features are copies of each other (say area in feet and in metres), \(X\) loses rank, \(X^\top X\) is not invertible, and infinitely many \(\theta\) fit equally well. <a href="../../ml/regularisation/">Ridge</a> adds \(\lambda I\) to make it invertible again.</p></div>
     <div><h3>Layers of a network</h3><p>Each layer of a <a href="../../dl/nn/neural-networks/">neural network</a> is \(g(Wx+b)\): a matrix moves space, then a non-linearity bends it. Without the bend, stacked layers would collapse into one matrix product.</p></div>
@@ -172,7 +235,7 @@ $$\frac{\|\delta x\|}{\|x\|}\le\kappa(A)\,\frac{\|\delta b\|}{\|b\|},\qquad\kapp
 </section>
 
 <section id="py" class="card">
-  <h2><span class="num">7</span>The same thing in Python (NumPy)</h2>
+  <h2><span class="num">8</span>The same thing in Python (NumPy)</h2>
 <pre class="code"><span class="k">import</span> numpy <span class="k">as</span> np
 A = np.array([[<span class="s">2.</span>, <span class="s">1.</span>], [<span class="s">1.</span>, <span class="s">3.</span>]])
 A @ np.array([<span class="s">1.</span>, <span class="s">0.</span>])                 <span class="c"># first column: where e1 lands</span>
@@ -228,13 +291,15 @@ function drawM(){ const C=LA.mul(MA,MB), [i,j]=sel;
 
 /* ---- 3. determinant ---- */
 const pDet=new ML.Plot('#pDet',{bounds:{x0:-1.5,x1:4.5,y0:-1.5,y1:4.5}}); let t=0;
-function drawDet(){ const P=ML.palette(), a1=[2,0.6], b0=[0.4,1.8], k=0.9, a2=[(1-t)*b0[0]+t*k*a1[0],(1-t)*b0[1]+t*k*a1[1]], A=[[a1[0],a2[0]],[a1[1],a2[1]]], d=LA.det2(A);
+const DV=[{v:[2,0.6]},{v:[0.4,1.8]}]; let b0=[0.4,1.8];
+function drawDet(){ const P=ML.palette(), a1=DV[0].v, k=0.9, a2=DV[1].v=[(1-t)*b0[0]+t*k*a1[0],(1-t)*b0[1]+t*k*a1[1]], A=[[a1[0],a2[0]],[a1[1],a2[1]]], d=LA.det2(A);
   pDet.clear(); pDet.grid(1,true); grid(pDet,A,P.c1,8);
   MX.poly(pDet,[[0,0],[1,0],[1,1],[0,1]],P.muted,.12,P.muted); MX.poly(pDet,[[0,0],a1,[a1[0]+a2[0],a1[1]+a2[1]],a2],P.c2,.3,P.c2);
   MX.vec(pDet,a1,P.c1,'a₁'); MX.vec(pDet,a2,P.c3,'a₂');
   $('#detStats').innerHTML=`<div class="stat c2"><b>${d.toFixed(3)}</b><span>det = area of the parallelogram</span></div><div class="stat c1"><b>${MX.rank(A,1e-6)}</b><span>rank</span></div>`;
   const n=$('#detNote'); n.className='note'+(Math.abs(d)<1e-6?' warn':''); n.innerHTML=Math.abs(d)<1e-6?'<b>Flattened.</b> Both columns lie on one line, so the whole plane lands on that line. Area 0, rank 1, and no inverse: points that landed on the same spot cannot be told apart.':`<b>Area scaled by ${Math.abs(d).toFixed(2)}.</b> The columns still point in different directions, so the plane stays a plane (rank 2) and the move can be undone.`; }
 ML.bindRange('dt',v=>{t=v;drawDet();},v=>v.toFixed(2)); pDet.onResize=drawDet;
+MX.dragVecs(pDet,DV,i=>{ if(i===1){ b0=DV[1].v.slice(); if(t){ t=0; const el=document.getElementById('dt'); el.value=0; el.dispatchEvent(new Event('input')); } } drawDet(); },{free:false});
 
 /* ---- 4. rank by row reduction ---- */
 const RA=[[1,2,3],[4,5,6],[5,7,9]]; let rs=0, RR=null;
@@ -267,6 +332,34 @@ function drawS(){ const P=ML.palette(), b=SV[0].v, a1=[SA[0][0],SA[1][0]], a2=[S
 MX.dragVecs(pS,SV,drawS); pS.onResize=drawS;
 ML.onTheme(()=>{ drawT(); drawDet(); drawS(); });
 drawT(); drawM(); drawDet(); drawR(); drawS();
+/* ---- 6. special matrices ---- */
+const pSp=new ML.Plot('#pSp',{bounds:{x0:-3,x1:3,y0:-3,y1:3}}); const SPV=[{v:[1.2,0.8]}]; let spT='sym', spP=0.4;
+const SPL={id:'(nothing to change)',diag:'Stretch of the first axis',tri:'Entry below the diagonal c',sym:'Off-diagonal entry b',rot:'Angle θ',ref:'Mirror line angle',gen:'Entry b'};
+function spA(){ const p=spP, th=p*Math.PI, c=Math.cos(th), s=Math.sin(th);
+  return {id:[[1,0],[0,1]],diag:[[1.5+p,0],[0,0.6]],tri:[[1.4,0],[1.2*p,0.8]],sym:[[1.5,1.5*p],[1.5*p,1]],rot:[[c,-s],[s,c]],ref:[[c,s],[s,-c]],gen:[[1.2,1.3*p],[-0.6,0.9]]}[spT]; }
+function drawSp(){ const P=ML.palette(), A=spA(), x=SPV[0].v, Ax=LA.mv(A,x), d=LA.det2(A), a1=[A[0][0],A[1][0]], a2=[A[0][1],A[1][1]];
+  pSp.clear(); pSp.grid(1,true); grid(pSp,A,P.c1,6);
+  const circ=[...Array(65)].map((_,i)=>{ const t=i/64*2*Math.PI; return [Math.cos(t),Math.sin(t)]; });
+  MX.poly(pSp,circ,P.muted,0,P.muted); MX.poly(pSp,circ.map(q=>LA.mv(A,q)),P.c1,0.06,P.c1);
+  MX.poly(pSp,[[0,0],[1,0],[1,1],[0,1]],P.muted,.1,P.muted); MX.poly(pSp,[[0,0],a1,[a1[0]+a2[0],a1[1]+a2[1]],a2],P.c2,.28,P.c2);
+  const E=MX.eig2(A); if(!E.complex && spT!=='id') E.vectors.forEach((v,i)=>pSp.line(-4*v[0],-4*v[1],4*v[0],4*v[1],{color:i?P.c3:P.c5,width:1.6,dash:[6,5],alpha:.8}));
+  MX.vec(pSp,a1,P.c1,'a₁'); MX.vec(pSp,a2,P.c3,'a₂'); MX.vec(pSp,x,P.muted,'x',{alpha:.5,width:2}); MX.vec(pSp,Ax,P.c4,'Ax');
+  const sym=Math.abs(A[0][1]-A[1][0])<1e-9, QtQ=LA.mul(LA.T(A),A), orth=Math.abs(QtQ[0][0]-1)<1e-6&&Math.abs(QtQ[1][1]-1)<1e-6&&Math.abs(QtQ[0][1])<1e-6;
+  const nx=Math.hypot(...x)||1, ratio=Math.hypot(...Ax)/nx, q=x[0]*Ax[0]+x[1]*Ax[1], ang=Math.acos(Math.max(-1,Math.min(1,q/(nx*(Math.hypot(...Ax)||1)))))*180/Math.PI;
+  const pd=sym&&!E.complex&&E.values[1]>1e-9;
+  MX.set('spTex',`A=${MX.mtex(A,2)}\\quad A^\\top A=${MX.mtex(QtQ,2)}`,true);
+  $('#spStats').innerHTML=`<div class="stat c2"><b>${d.toFixed(2)}</b><span>det A</span></div><div class="stat c4"><b>${ratio.toFixed(3)}</b><span>‖Ax‖ / ‖x‖</span></div><div class="stat c1"><b>${q.toFixed(2)}</b><span>xᵀAx (angle ${ang.toFixed(0)}°)</span></div><div class="stat"><b>${sym?'yes':'no'}</b><span>symmetric A = Aᵀ</span></div><div class="stat"><b>${orth?'yes':'no'}</b><span>orthogonal AᵀA = I</span></div><div class="stat"><b>${E.complex?'complex':E.values.map(v=>v.toFixed(2)).join(', ')}</b><span>eigenvalues</span></div>`;
+  const N={id:'<b>Identity.</b> Every vector stays where it is: Ax = x, det 1.',
+    diag:'<b>Diagonal.</b> Each axis is stretched on its own. The eigen-directions are the axes themselves.',
+    tri:'<b>Triangular.</b> The first column only moves along the axes it is allowed to; the determinant is the product of the diagonal, 1.4 × 0.8 = 1.12, whatever the slider says.',
+    sym:pd?'<b>Symmetric, positive definite.</b> Two perpendicular eigen-directions, both stretched forwards. Ax is always within 90° of x, so xᵀAx &gt; 0.':'<b>Symmetric but not positive definite.</b> Still perpendicular eigen-directions, but one eigenvalue is negative: drag x along the teal dashes and xᵀAx turns negative.',
+    rot:'<b>Rotation (orthogonal, det +1).</b> Lengths and angles are kept: ‖Ax‖/‖x‖ is exactly 1 and the square stays a unit square. No real eigen-directions: every vector is turned.',
+    ref:'<b>Reflection (orthogonal, det −1).</b> Lengths are kept, but the plane is flipped over the mirror line (purple dashes, eigenvalue +1); the perpendicular direction gets eigenvalue −1.',
+    gen:'<b>General.</b> No special shape: it stretches and turns, and its eigen-directions (if any) are not perpendicular.'}[spT];
+  const n=$('#spNote'); n.className='note'; n.innerHTML=N; }
+ML.bindSeg('spSeg',v=>{ spT=v; $('#spP').disabled=v==='id'; $('#spPl').textContent=SPL[v]; $('#spP').dispatchEvent(new Event('input')); drawSp(); });
+ML.bindRange('spP',v=>{ spP=v; drawSp(); },v=>spT==='rot'||spT==='ref'?Math.round(v*180)+'°':v.toFixed(2)); pSp.onResize=drawSp;
+MX.dragVecs(pSp,SPV,drawSp,{lim:2.8}); drawSp();
 })();
 </script>
 <script>NLP.nav('math','matrices'); ML.renderMath(document.body);</script>

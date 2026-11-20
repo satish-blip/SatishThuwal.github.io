@@ -42,7 +42,7 @@ const T = AA.T = {
 function Draw(cv){
   const ctx = cv.getContext('2d'); const g = { ctx, W:0, H:0, C:{} };
   let vx=0, vy=0, vw=1, vh=1, x0=0, x1=1, y0=0, y1=1;
-  g.size = (W,H) => { g.W=W; g.H=H; g.fs = Math.max(10, Math.min(14, W/40)); g.view(0,0,1,1,0,1,0,1); };
+  g.size = (W,H) => { g.W=W; g.H=H; g.fs = Math.max(10.5, Math.min(14, W/36)); g.view(0,0,1,1,0,1,0,1); };
   g.colors = () => { const cs=getComputedStyle(cv); ['c1','c2','c3','c4','c5','c6','k0','k1','k0s','k1s','ink','muted','line','card','soft','bg'].forEach(k=>g.C[k]=cs.getPropertyValue('--'+k).trim()||'#888'); };
   /* viewport as fractions of the canvas, then world box */
   g.view = (fx,fy,fw,fh,a,b,c,d) => { vx=fx*g.W; vy=fy*g.H; vw=fw*g.W; vh=fh*g.H; x0=a; x1=b; y0=c; y1=d; return g; };
@@ -118,7 +118,7 @@ function mount(el, key){
   const g = Draw(cv);
   const P = { frames:[], fi:0, t:0, last:0, playing:!reduce, vis:false, speed:1, hold:0, raf:0 };
   const build = () => { try { P.frames = DEFS[key](T) || []; } catch(e){ console.error('algoanim', key, e); P.frames=[]; } P.fi=0; P.t=0; P.hold=0; };
-  const sizeIt = () => { const w = cv.clientWidth || pan.clientWidth || 320; const h = Math.round(w*0.66); const dpr = Math.min(2, window.devicePixelRatio||1);
+  const sizeIt = () => { const w = cv.clientWidth || pan.clientWidth || 320; const h = Math.round(w*(w<460?0.8:0.66)); const dpr = Math.min(2, window.devicePixelRatio||1);
     cv.style.height = h+'px'; cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); g.ctx.setTransform(dpr,0,0,dpr,0,0); g.size(w,h); };
   const setLine = (l) => { const ls = l==null?[]:(Array.isArray(l)?l:[l]); lis.forEach((li,i)=>li.classList.toggle('aa-on', ls.includes(i+1)));
     lnEl.textContent = ls.length ? 'line ' + ls.join(', ') : ''; };
@@ -1206,6 +1206,152 @@ AA.def('distil', T => {
 [[/precision.recall curve and average precision/i,'prcurve'],[/nDCG@k/i,'ndcg'],[/BLEU score/i,'bleu'],[/stratified train\/validation\/test split/i,'strat'],
  [/checking for train.test overlap/i,'leak'],[/symmetric k-bit quantisation/i,'quant'],[/iterative magnitude pruning/i,'prune'],[/knowledge distillation training step/i,'distil']
 ].forEach(([re,k])=>AA.title(re,k));
+/* ---------- foundations: special matrices, bases, covariance, calculus ---------- */
+const sq2v=(g)=>{ const side=Math.min(.58*g.W,.88*g.H); return [.02,.07,side/g.W,side/g.H]; };
+
+/* recognising a special matrix */
+AA.def('special', T => {
+  const S=[], add=F(S), r1=v=>Math.round(v*100)/100;
+  const kinds=['diag','tri','sym','rot','gen'], kind=kinds[T.ri(kinds.length)];
+  let A; const th=T.u(.4,1.1), c=r1(Math.cos(th)), s=r1(Math.sin(th));
+  if(kind==='diag') A=[[r1(T.u(.5,3)),0,0],[0,r1(T.u(.5,3)),0],[0,0,r1(T.u(.5,3))]];
+  else if(kind==='tri') A=[[r1(T.u(1,3)),0,0],[r1(T.u(-2,2)),r1(T.u(1,3)),0],[r1(T.u(-2,2)),r1(T.u(-2,2)),r1(T.u(1,3))]];
+  else if(kind==='sym'){ const a=r1(T.u(-.9,.9)), b=r1(T.u(-.9,.9)), d=r1(T.u(-.9,.9)); A=[[r1(T.u(2,3)),a,b],[a,r1(T.u(2,3)),d],[b,d,r1(T.u(2,3))]]; }
+  else if(kind==='rot') A=[[c,-s,0],[s,c,0],[0,0,1]];
+  else A=[[r1(T.u(-2,2)),r1(T.u(-2,2)),r1(T.u(-2,2))],[r1(T.u(-2,2)),r1(T.u(-2,2)),r1(T.u(-2,2))],[r1(T.u(-2,2)),r1(T.u(-2,2)),r1(T.u(-2,2))]];
+  const eps=.02, n=3, R=T.range(n);
+  const AtA=R.map(i=>R.map(j=>r1(R.reduce((t,k)=>t+A[k][i]*A[k][j],0))));
+  const offZero=R.every(i=>R.every(j=>i===j||Math.abs(A[i][j])<eps));
+  const upZero=R.every(i=>R.every(j=>j<=i||Math.abs(A[i][j])<eps)), loZero=R.every(i=>R.every(j=>j>=i||Math.abs(A[i][j])<eps));
+  const sym=R.every(i=>R.every(j=>Math.abs(A[i][j]-A[j][i])<eps));
+  const orth=R.every(i=>R.every(j=>Math.abs(AtA[i][j]-(i===j?1:0))<.03));
+  let chol=null; if(sym){ const L=R.map(()=>[0,0,0]); chol={ok:true,piv:[]}; for(let i=0;i<n&&chol.ok;i++) for(let j=0;j<=i;j++){ let t=A[i][j]; for(let k=0;k<j;k++) t-=L[i][k]*L[j][k]; if(i===j){ chol.piv.push(t); if(t<=0){ chol.ok=false; break; } L[i][i]=Math.sqrt(t); } else L[i][j]=t/L[j][j]; } }
+  const tags=[]; if(offZero) tags.push(R.every(i=>Math.abs(A[i][i]-1)<eps)?'identity':'diagonal'); else if(upZero||loZero) tags.push(upZero?'lower triangular':'upper triangular');
+  if(sym) tags.push('symmetric'); if(orth) tags.push('orthogonal'); if(chol&&chol.ok) tags.push('positive definite'); if(!tags.length) tags.push('none: a general matrix');
+  const G=g=>({cw:Math.min(g.W*.12,52),ch:Math.min(g.H*.12,34)});
+  const showA=(g,hl,o={})=>{ const {cw,ch}=G(g); g.mat(A,g.W*.05,g.H*.2,cw,ch,{hl,label:'A',dp:2}); if(o.ata) g.mat(AtA,g.W*.52,g.H*.2,cw,ch,{hl:o.ata,label:'AᵀA',dp:2}); };
+  const tagline=(g,t,col)=>g.ptxt(t,g.W*.05,g.H*.78,col||g.C.ink,{size:.9,semi:true});
+  const ok=(b)=>b?g=>g.C.c3:g=>g.C.c2;
+  add(1,`A 3×3 matrix. Which special shapes does it have?`,1300,g=>showA(g));
+  add(2,'Check every entry off the diagonal.',1400,g=>{ showA(g,(i,j)=>i===j?null:(Math.abs(A[i][j])<eps?g.C.c3+'55':g.C.c2+'55')); tagline(g,offZero?'All zero: diagonal.':'Some are non-zero: not diagonal.',offZero?g.C.c3:g.C.c2); });
+  if(!offZero) add(3,'Is everything above (or below) the diagonal zero?',1400,g=>{ showA(g,(i,j)=>j>i?(Math.abs(A[i][j])<eps?g.C.c3+'55':g.C.c2+'55'):j<i?(Math.abs(A[i][j])<eps?g.C.c3+'33':g.C.c4+'33'):null); tagline(g,upZero||loZero?'Yes: triangular, solvable one row at a time.':'No: not triangular.',upZero||loZero?g.C.c3:g.C.c2); });
+  [[0,1],[0,2],[1,2]].forEach(([i,j],k)=>add(4,`Compare A${i+1}${j+1} with A${j+1}${i+1}: mirror images across the diagonal?`,700,g=>{ showA(g,(a,b)=>(a===i&&b===j)||(a===j&&b===i)?(Math.abs(A[i][j]-A[j][i])<eps?g.C.c3+'66':g.C.c2+'66'):null); if(k===2) tagline(g,sym?'All pairs match: symmetric.':'Not symmetric.',sym?g.C.c3:g.C.c2); }));
+  add(5,`Compute AᵀA: dot products of the columns. Is it the identity?`,1700,(g,p)=>{ showA(g,null,{ata:(i,j)=>Math.abs(AtA[i][j]-(i===j?1:0))<.03?g.C.c3+'55':g.C.c2+'55'}); tagline(g,orth?(A[2][2]>0?'Yes: orthogonal, lengths are kept (a rotation).':'Yes: orthogonal.'):'No: columns are not perpendicular unit vectors.',orth?g.C.c3:g.C.c2); });
+  add(6,sym?'Symmetric, so try Cholesky: every pivot must be positive.':'Not symmetric, so positive definiteness does not apply.',1600,g=>{ showA(g); if(chol){ chol.piv.forEach((v,i)=>g.ptxt(`pivot ${i+1}: ${T.f(v,2)} ${v>0?'✓':'✗'}`,g.W*.55,g.H*(.28+i*.1),v>0?g.C.c3:g.C.c2,{mono:true,size:.85})); tagline(g,chol.ok?'All positive: positive definite.':'A pivot ≤ 0: not positive definite.',chol.ok?g.C.c3:g.C.c2); } });
+  add(7,`Properties found: ${tags.join(', ')}.`,2000,g=>{ showA(g); tags.forEach((t,i)=>{ g.prect(g.W*.55,g.H*(.22+i*.12),g.W*.38,g.H*.09,g.C.soft,null,{r:6}); g.ptxt(t,g.W*.57,g.H*(.265+i*.12),g.C.c1,{semi:true,size:.9}); }); });
+  return S;
+});
+
+/* coordinates in a new basis */
+AA.def('basiscoord', T => {
+  const S=[], add=F(S), orth=T.r()<.5;
+  let b1,b2; if(orth){ const t=T.u(.2,1.2); b1=[Math.cos(t),Math.sin(t)]; b2=[-Math.sin(t),Math.cos(t)]; } else { b1=[T.u(1,1.8),T.u(-.4,.6)]; b2=[T.u(-.3,.7),T.u(1,1.7)]; }
+  const x=[T.u(1.2,2.6),T.u(.8,2.6)], det=b1[0]*b2[1]-b1[1]*b2[0], c=[(x[0]*b2[1]-x[1]*b2[0])/det,(b1[0]*x[1]-b1[1]*x[0])/det];
+  const btb=[[b1[0]*b1[0]+b1[1]*b1[1],b1[0]*b2[0]+b1[1]*b2[1]],[b1[0]*b2[0]+b1[1]*b2[1],b2[0]*b2[0]+b2[1]*b2[1]]];
+  const pl=(g,o={})=>{ const v=sq2v(g); g.view(...v,-1,4,-1,4); g.frame(); g.seg(-1,0,4,0,g.C.line,1); g.seg(0,-1,0,4,g.C.line,1);
+    for(let k=-3;k<=5;k++){ g.seg(k*b1[0]-3*b2[0],k*b1[1]-3*b2[1],k*b1[0]+5*b2[0],k*b1[1]+5*b2[1],g.C.c1,1,null,.18); g.seg(k*b2[0]-3*b1[0],k*b2[1]-3*b1[1],k*b2[0]+5*b1[0],k*b2[1]+5*b1[1],g.C.c3,1,null,.18); }
+    g.arrow(0,0,b1[0],b1[1],g.C.c1,3); g.arrow(0,0,b2[0],b2[1],g.C.c3,3); g.txt('b₁',b1[0],b1[1]-.25,g.C.c1,{bold:true}); g.txt('b₂',b2[0]-.25,b2[1],g.C.c3,{bold:true});
+    g.dot(x[0],x[1],6,g.C.c4); g.txt('x',x[0]+.15,x[1]+.2,g.C.c4,{bold:true});
+    if(o.walk!=null){ const p1=Math.min(1,o.walk*2), p2=Math.max(0,o.walk*2-1), s1=[c[0]*b1[0]*p1,c[0]*b1[1]*p1]; g.seg(0,0,s1[0],s1[1],g.C.c1,3.5,[6,4]); if(p2>0) g.seg(s1[0],s1[1],s1[0]+c[1]*b2[0]*p2,s1[1]+c[1]*b2[1]*p2,g.C.c3,3.5,[6,4]); }
+    if(o.proj) [b1,b2].forEach((b,i)=>{ const t=c[i]*o.proj; g.seg(x[0],x[1],t*b[0],t*b[1],i?g.C.c3:g.C.c1,1.5,[3,3]); g.dot(t*b[0],t*b[1],4,i?g.C.c3:g.C.c1); }); };
+  const side=(g,lines)=>lines.forEach(([t,col],i)=>g.ptxt(t,g.W*.64,g.H*(.18+i*.11),col||g.C.ink,{mono:true,size:.82}));
+  add(1,`A basis b₁, b₂ (${orth?'perpendicular unit vectors':'not perpendicular'}) and a point x. What are x's coordinates in this basis?`,1500,g=>{ pl(g); side(g,[[`x = (${T.f(x[0],2)}, ${T.f(x[1],2)})`,g.C.c4],['in the standard basis']]); });
+  add(2,'Is BᵀB the identity? Its entries are dot products of the basis vectors.',1500,g=>{ pl(g); side(g,[[`BᵀB = [${T.f(btb[0][0],2)} ${T.f(btb[0][1],2)}]`],[`      [${T.f(btb[1][0],2)} ${T.f(btb[1][1],2)}]`],[orth?'= I: orthonormal':'≠ I',orth?g.C.c3:g.C.c2]]); });
+  if(orth) add(2,'Orthonormal: each coordinate is a dot product, cᵢ = bᵢ · x (drop a perpendicular).',1800,(g,p)=>{ pl(g,{proj:T.ease(p)}); side(g,[[`c₁ = b₁·x = ${T.f(c[0],2)}`,g.C.c1],[`c₂ = b₂·x = ${T.f(c[1],2)}`,g.C.c3]]); });
+  else add(3,'Not orthonormal: solve Bc = x by elimination.',1500,g=>{ pl(g); side(g,[[`c₁ = ${T.f(c[0],2)}`,g.C.c1],[`c₂ = ${T.f(c[1],2)}`,g.C.c3]]); });
+  add(4,`Check: walk ${T.f(c[0],2)} steps along b₁, then ${T.f(c[1],2)} along b₂. You land on x.`,2000,(g,p)=>{ pl(g,{walk:T.ease(p)}); side(g,[[`c₁ = ${T.f(c[0],2)}`,g.C.c1],[`c₂ = ${T.f(c[1],2)}`,g.C.c3],['c₁b₁ + c₂b₂ = x ✓',g.C.c4]]); });
+  add(5,`Return c = (${T.f(c[0],2)}, ${T.f(c[1],2)}): the same point, new coordinates.`,1600,g=>{ pl(g,{walk:1}); side(g,[[`c = (${T.f(c[0],2)}, ${T.f(c[1],2)})`,g.C.c1]]); });
+  return S;
+});
+
+/* sample covariance and correlation */
+AA.def('covmat', T => {
+  const S=[], add=F(S), n=8, rho=T.u(-.8,.85);
+  const X=T.range(n).map(()=>{ const a=T.g(), b=rho*a+Math.sqrt(1-rho*rho)*T.g(); return [Math.round((3+1.2*a)*10)/10, Math.round((2+0.8*b)*10)/10]; });
+  const m=[0,1].map(j=>T.mean(X.map(r=>r[j]))), C=X.map(r=>[r[0]-m[0],r[1]-m[1]]);
+  const Sig=k=>{ const Sm=[[0,0],[0,0]]; for(let i=0;i<k;i++) for(let a=0;a<2;a++) for(let b=0;b<2;b++) Sm[a][b]+=C[i][a]*C[i][b]/(n-1); return Sm; };
+  const SF=Sig(n), Rr=[[1,SF[0][1]/Math.sqrt(SF[0][0]*SF[1][1])],[SF[0][1]/Math.sqrt(SF[0][0]*SF[1][1]),1]];
+  const tbl=(g,M,hl,lab)=>{ const ch=Math.min(g.H*.075,24), cw=Math.min(g.W*.09,54); g.mat(M,g.W*.04,g.H*.12,cw,ch,{hl,label:lab,dp:1,size:.75}); };
+  const sc=(g,cent,hi)=>{ g.view(.36,.1,.3,.46,-3,3,-3,3); g.frame(); g.seg(-3,0,3,0,g.C.line,1); g.seg(0,-3,0,3,g.C.line,1);
+    X.forEach((r,i)=>{ const x=r[0]-m[0]*cent, y=r[1]-m[1]*cent; const px=T.clamp(cent?x:x-3,-2.9,2.9), py=T.clamp(cent?y:y-2,-2.9,2.9); g.dot(px,py,hi===i?6:4.2,hi===i?g.C.c4:g.C.c3); });
+    g.ptxt(cent?'centred data':'raw data (shifted to fit)',g.vp().x,g.vp().y-g.fs*.7,g.C.muted,{size:.7}); };
+  const mat2=(g,M,lab,col)=>{ const cw=Math.min(g.W*.1,62), ch=Math.min(g.H*.1,30); g.mat(M,g.W*.72,g.H*.2,cw,ch,{label:lab,dp:2,col:()=>col||g.C.ink}); };
+  add(1,`${n} examples, 2 features. Rows are examples, columns are features.`,1400,g=>{ tbl(g,X,null,'X'); sc(g,0); });
+  add(2,`Feature means: x̄ = (${T.f(m[0],2)}, ${T.f(m[1],2)}).`,1300,g=>{ tbl(g,X,null,'X'); sc(g,0); g.ptxt(`x̄ = (${T.f(m[0],2)}, ${T.f(m[1],2)})`,g.W*.36,g.H*.66,g.C.c1,{mono:true,size:.85}); });
+  add(3,'Centre: subtract each column’s mean. The cloud moves to the origin.',1600,(g,p)=>{ const q=T.ease(p); tbl(g,X.map((r,i)=>[r[0]-m[0]*q,r[1]-m[1]*q].map(v=>Math.round(v*10)/10)),null,'X̃'); sc(g,q); });
+  for(let k=1;k<=n;k++) add(4,`Row ${k}: add its outer product (deviation × deviation) to Σ̂, divided by n − 1.`,k<3?900:450,g=>{ tbl(g,C.map(r=>r.map(v=>Math.round(v*10)/10)),(i)=>i===k-1?g.C.c4+'44':null,'X̃'); sc(g,1,k-1); mat2(g,Sig(k),'Σ̂ so far'); });
+  add(5,`Divide by both standard deviations: correlation ρ = ${T.f(Rr[0][1],2)}.`,1700,g=>{ tbl(g,C.map(r=>r.map(v=>Math.round(v*10)/10)),null,'X̃'); sc(g,1); mat2(g,SF,'Σ̂'); const cw=Math.min(g.W*.1,62), ch=Math.min(g.H*.1,30); g.mat(Rr,g.W*.72,g.H*.55,cw,ch,{label:'R',dp:2,col:()=>g.C.c1}); });
+  add(6,'Return Σ̂ (variances on the diagonal) and R (ones on the diagonal).',1600,g=>{ tbl(g,C.map(r=>r.map(v=>Math.round(v*10)/10)),null,'X̃'); sc(g,1); mat2(g,SF,'Σ̂'); const cw=Math.min(g.W*.1,62), ch=Math.min(g.H*.1,30); g.mat(Rr,g.W*.72,g.H*.55,cw,ch,{label:'R',dp:2,col:()=>g.C.c1}); });
+  return S;
+});
+
+/* gradient check */
+AA.def('gradcheck', T => {
+  const S=[], add=F(S), a=T.u(.3,.8), b=T.u(.8,1.6), th=[T.u(-1.6,1.6),T.u(-1.2,1.2)], h=.25, bug=T.r()<.4;
+  const f=(x,y)=>a*x*x+b*y*y, gt=[2*a*th[0],2*b*th[1]], gc=bug?[2*a*th[0],b*th[1]]:gt.slice();
+  const num=[(f(th[0]+h,th[1])-f(th[0]-h,th[1]))/(2*h),(f(th[0],th[1]+h)-f(th[0],th[1]-h))/(2*h)];
+  const err=Math.hypot(gc[0]-num[0],gc[1]-num[1])/(Math.hypot(...gc)+Math.hypot(...num));
+  const pl=(g,o={})=>{ const v=sq2v(g); g.view(...v,-2.5,2.5,-2.5,2.5); g.frame(); g.clip(true);
+    for(let k=1;k<=6;k++){ const L=.25*k*k, pts=T.range(61).map(i=>{ const t=i/60*2*Math.PI; return [Math.sqrt(L/a)*Math.cos(t),Math.sqrt(L/b)*Math.sin(t)]; }); g.poly(pts,g.C.c3,1.2,null,{a:.5}); }
+    g.clip(false); g.dot(th[0],th[1],6,g.C.c4);
+    if(o.j!=null){ const e=o.j?[0,h]:[h,0]; g.dot(th[0]+e[0],th[1]+e[1],4.5,g.C.c1); g.dot(th[0]-e[0],th[1]-e[1],4.5,g.C.c1); g.seg(th[0]-e[0],th[1]-e[1],th[0]+e[0],th[1]+e[1],g.C.c1,2,[3,3]); } };
+  const side=(g,lines)=>{ const v=sq2v(g), x0=(v[0]+v[2])*g.W+10; lines.forEach(([t,col],i)=>g.ptxt(t,x0,g.H*(.16+i*.1),col||g.C.ink,{mono:true,size:.74})); };
+  const base=[[`f = ${T.f(a,2)}θ₁² + ${T.f(b,2)}θ₂²`],[`code ∇f: (${T.f(gc[0],2)}, ${T.f(gc[1],2)})`]];
+  add(1,`A point θ and the gradient your code returned${bug?' (it may have a bug)':''}.`,1500,g=>{ pl(g); side(g,[[base[0][0]],[base[1][0],g.C.c2]]); });
+  add(2,'For each coordinate, nudge just that input both ways.',800,g=>{ pl(g); side(g,[[base[0][0]],[base[1][0],g.C.c2]]); });
+  [0,1].forEach(j=>add(3,`θ${j?'₂':'₁'} ± h: (f(θ+he) − f(θ−he)) / 2h = ${T.f(num[j],3)}.`,1600,g=>{ pl(g,{j}); side(g,[[base[0][0]],[base[1][0],g.C.c2],...[0,1].filter(k=>k<=j).map(k=>[`numeric ∂f/∂θ${k?'₂':'₁'}: ${T.f(num[k],2)}`,g.C.c1])]); }));
+  add(4,`Relative error = ${err<1e-6?'< 1e-6':T.f(err,3)}.`,1500,g=>{ pl(g); side(g,[[base[1][0],g.C.c2],[`numeric: (${T.f(num[0],2)}, ${T.f(num[1],2)})`,g.C.c1],[`relative error ${err<1e-6?'≈ 0':T.f(err,3)}`,err<1e-6?g.C.c3:g.C.c2]]); });
+  add(5,bug?'Too large: the code’s ∂f/∂θ₂ is wrong (a missing factor of 2). Fix and re-check.':'Tiny: the analytic gradient is correct.',2000,g=>{ pl(g); side(g,[[bug?'✗ bug found':'✓ gradient OK',bug?g.C.c2:g.C.c3]]); });
+  return S;
+});
+
+/* backpropagation on a graph */
+AA.def('graphbp', T => {
+  const S=[], add=F(S), w=Math.round(T.u(-1.5,1.5)*10)/10, b=Math.round(T.u(-1,1)*10)/10, x=Math.round(T.u(.5,2)*10)/10, y=T.r()<.5?1:0;
+  const z=w*x+b, a=1/(1+Math.exp(-z)), L=(a-y)**2, dLa=2*(a-y), dz=a*(1-a), dLz=dLa*dz;
+  const N=[{k:'x',p:[.08,.2],v:x,gr:dLz*w},{k:'w',p:[.08,.5],v:w,gr:dLz*x},{k:'b',p:[.08,.8],v:b,gr:dLz},{k:'z',p:[.4,.5],v:z,gr:dLz},{k:'a',p:[.66,.5],v:a,gr:dLa},{k:'L',p:[.9,.5],v:L,gr:1}];
+  const E=[[0,3,'w'],[1,3,'x'],[2,3,'1'],[3,4,T.f(dz,2)],[4,5,T.f(dLa,2)]];
+  const draw=(g,fw,bw,hlE)=>{ E.forEach(([i,j,l],k)=>{ const A=N[i].p,B=N[j].p; g.parrow(A[0]*g.W+22,A[1]*g.H,B[0]*g.W-24,B[1]*g.H,hlE===k?g.C.c2:g.C.line,hlE===k?2.5:1.5); if(bw!=null) g.ptxt('×'+l,(A[0]+B[0])/2*g.W,(A[1]+B[1])/2*g.H-9,g.C.c4,{align:'center',size:.7,mono:true}); });
+    N.forEach((n,i)=>{ const X=n.p[0]*g.W, Y=n.p[1]*g.H; g.prect(X-21,Y-15,42,30,g.C.card,i<3?g.C.c1:i===5?g.C.c2:g.C.c3,{r:7,lw:2}); g.ptxt(n.k,X,Y,g.C.ink,{align:'center',bold:true});
+      if(fw>i||(i<3&&fw>0)) g.ptxt(T.f(n.v,3),X,Y-25,g.C.ink,{align:'center',mono:true,size:.72});
+      if(bw!=null&&bw.includes(i)) g.ptxt(T.f(n.gr,3),X,Y+26,g.C.c2,{align:'center',mono:true,size:.75,bold:true}); }); };
+  add(1,`A graph: z = wx + b, a = σ(z), L = (a − y)² with y = ${y}.`,1400,g=>draw(g,0));
+  add(2,'Forward: inputs are known.',700,g=>draw(g,3));
+  add(2,`z = ${T.f(w,1)}·${T.f(x,1)} + ${T.f(b,1)} = ${T.f(z,3)}.`,800,g=>draw(g,4));
+  add(2,`a = σ(z) = ${T.f(a,3)}.`,800,g=>draw(g,5));
+  add(2,`L = (a − y)² = ${T.f(L,3)}. Every value is stored.`,1000,g=>draw(g,6));
+  add(3,'Backward starts at the loss: ∂L/∂L = 1.',900,g=>draw(g,6,[5]));
+  add([4,5],`Node a: ∂L/∂a = 1 × 2(a − y) = ${T.f(dLa,3)}.`,1100,g=>draw(g,6,[5,4],4));
+  add([4,5],`Node z: ∂L/∂z = ${T.f(dLa,3)} × σ′(z) = ${T.f(dLz,3)}.`,1100,g=>draw(g,6,[5,4,3],3));
+  add([4,5],`Inputs of z: ∂L/∂w = ∂L/∂z × x, ∂L/∂b = ∂L/∂z × 1, ∂L/∂x = ∂L/∂z × w.`,1500,g=>draw(g,6,[5,4,3,2,1,0]));
+  add(6,`Return ∂L/∂w = ${T.f(dLz*x,3)} and ∂L/∂b = ${T.f(dLz,3)}: one forward and one backward pass.`,1900,g=>draw(g,6,[5,4,3,2,1,0]));
+  return S;
+});
+
+/* Lagrange multipliers */
+AA.def('lagrange', T => {
+  const S=[], add=F(S), r=T.u(1.1,1.6), ct=[T.u(1.6,2.3)*(T.r()<.5?1:-1),T.u(.8,1.8)*(T.r()<.5?1:-1)];
+  const f=(x,y)=>(x-ct[0])**2+(y-ct[1])**2, phMin=Math.atan2(ct[1],ct[0]), phMax=phMin+Math.PI, pt=ph=>[r*Math.cos(ph),r*Math.sin(ph)];
+  const pl=(g,ph,o={})=>{ const v=sq2v(g); g.view(...v,-3,3,-3,3); g.frame(); g.clip(true);
+    for(let k=1;k<=9;k++){ const R=.5*k, pts=T.range(61).map(i=>{ const t=i/60*2*Math.PI; return [ct[0]+R*Math.cos(t),ct[1]+R*Math.sin(t)]; }); g.poly(pts,g.C.c3,1,null,{a:.4}); }
+    g.clip(false); g.poly(T.range(81).map(i=>pt(i/80*2*Math.PI)),g.C.c1,3); g.dot(ct[0],ct[1],6,g.C.c4);
+    (o.cands||[]).forEach(q=>{ const p=pt(q); g.dot(p[0],p[1],7,g.C.c3,{ring:g.C.ink}); });
+    if(ph!=null){ const p=pt(ph), gf=[2*(p[0]-ct[0]),2*(p[1]-ct[1])], gg=[2*p[0],2*p[1]], nf=Math.hypot(...gf)||1, ng=Math.hypot(...gg)||1;
+      g.arrow(p[0],p[1],p[0]+gf[0]/nf*1.1,p[1]+gf[1]/nf*1.1,g.C.c2,2.6); g.arrow(p[0],p[1],p[0]+gg[0]/ng*.8,p[1]+gg[1]/ng*.8,g.C.c1,2.6); g.dot(p[0],p[1],5.5,g.C.ink); } };
+  const side=(g,lines)=>{ const v=sq2v(g), x0=(v[0]+v[2])*g.W+10; lines.forEach(([t,col],i)=>g.ptxt(t,x0,g.H*(.16+i*.1),col||g.C.ink,{mono:true,size:.74})); };
+  const ang=ph=>{ const p=pt(ph), gf=[2*(p[0]-ct[0]),2*(p[1]-ct[1])], gg=[2*p[0],2*p[1]]; return Math.atan2(Math.abs(gf[0]*gg[1]-gf[1]*gg[0]),gf[0]*gg[0]+gf[1]*gg[1])*180/Math.PI; };
+  add(1,'Minimise the distance² to the orange target f, staying on the purple circle g = x² + y² − r² = 0.',1500,g=>{ pl(g); side(g,[['f = (x−a)² + (y−b)²'],['g = x² + y² − r²',g.C.c1]]); });
+  add(2,'Form the Lagrangian 𝓛 = f − λg.',1000,g=>{ pl(g); side(g,[['𝓛 = f − λ g'],['∇𝓛 = 0  ⇔  ∇f = λ∇g, g = 0']]); });
+  const ph0=phMin+2.2; add(3,'Slide along the circle and compare the directions of ∇f (red) and ∇g (purple).',2600,(g,p)=>{ const ph=ph0+p*(phMin+2*Math.PI-ph0-0.0)%(2*Math.PI); const q=ph0+(phMin+2*Math.PI-ph0)*T.ease(p); pl(g,q); side(g,[[`angle between them: ${T.f(ang(q),0)}°`]]); });
+  add(3,'Parallel here (same direction): candidate 1.',1100,g=>{ pl(g,phMin,{cands:[phMin]}); side(g,[['angle 0°: ∇f = λ∇g',g.C.c3]]); });
+  add(3,'…and parallel again on the far side (opposite direction): candidate 2.',1300,g=>{ pl(g,phMax,{cands:[phMin,phMax]}); side(g,[['angle 180°: ∇f = λ∇g, λ < 0',g.C.c3]]); });
+  add(4,`Evaluate f: ${T.f(f(...pt(phMin)),2)} at candidate 1, ${T.f(f(...pt(phMax)),2)} at candidate 2.`,1600,g=>{ pl(g,null,{cands:[phMin,phMax]}); side(g,[[`f₁ = ${T.f(f(...pt(phMin)),2)}`,g.C.c3],[`f₂ = ${T.f(f(...pt(phMax)),2)}`]]); });
+  add(5,'Return candidate 1: the constrained minimum (candidate 2 is the maximum).',1800,g=>{ pl(g,phMin,{cands:[phMin]}); side(g,[['minimum on the circle ✓',g.C.c3]]); });
+  return S;
+});
+
+[[/recognising a special matrix/i,'special'],[/coordinates of a vector in a new basis/i,'basiscoord'],[/sample covariance and correlation/i,'covmat'],[/gradient check by finite differences/i,'gradcheck'],
+ [/reverse-mode differentiation/i,'graphbp'],[/Lagrange multipliers for an equality/i,'lagrange']].forEach(([re,k])=>AA.title(re,k));
 /* ================= DEEP LEARNING ANIMATIONS ================= */
 /* draw a small fully connected net. L = sizes, W[l] = matrix (L[l+1] x L[l]); o.act[l][i] values in [-1,1]; o.pulse = {l, p, back} */
 function drawNet(g, L, W, o={}){

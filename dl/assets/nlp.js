@@ -5,7 +5,7 @@ const ML=window.ML, NLP=window.NLP={};
 NLP.GROUPS={
   nn:{name:'Neural nets',pages:[['neural-networks','Neural nets & XOR'],['activations','Activations'],['optimisers','GD → Adam'],['residual','Residual connections'],['normalisation','Normalisation'],['compression','Compression']]},
   nlp:{name:'Sequences & language',pages:[['rnn','RNNs'],['memory','LSTM & GRU'],['tokenisation','Tokenisation'],['embeddings','Embeddings'],['attention','Attention'],['cross-attention','Cross-attention'],['self-attention','Self-attention'],['transformers','Transformers'],['rag','RAG'],['visual-tokenisation','Visual tokens'],['visualbert','VisualBERT'],['vilbert','ViLBERT'],['clip','CLIP']]},
-  math:{name:'Maths',pages:[['probability','Probability & Bayes'],['inference','Inference & testing'],['mle','Maximum likelihood'],['bayesian','Bayesian estimation'],['vectors','Vectors & dot products'],['matrices','Matrices, rank & inverses'],['projections','Projections'],['decompositions','Eigen & decompositions'],['svd','SVD']]} };
+  math:{name:'Maths',pages:[['probability','Probability & Bayes'],['inference','Inference & testing'],['mle','Maximum likelihood'],['bayesian','Bayesian estimation'],['vectors','Vectors & dot products'],['matrices','Matrices, rank & inverses'],['projections','Projections'],['decompositions','Eigen & decompositions'],['svd','SVD'],['calculus','Calculus']]} };
 NLP.ORDER=['math','nn','nlp'];
 NLP.nav=function(group,cur){ const n=document.getElementById('algnav'); if(!n) return; const G=NLP.GROUPS[group], other=NLP.ORDER[(NLP.ORDER.indexOf(group)+1)%NLP.ORDER.length], base=cur==='hub'?'':'../';
   const otherHref=group==='math'?base+'../dl/'+other+'/':other==='math'?base+'../../math/':base+'../'+other+'/';

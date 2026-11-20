@@ -21,7 +21,7 @@
   <p class="kicker">Mathematical concepts &middot; Linear algebra</p>
   <h1>Vectors and the <span class="grad">dot product</span></h1>
   <p class="lede">Almost every model on this site starts by turning an example into a list of numbers and then taking a dot product with a list of weights. This page builds that one operation from scratch: what it computes, why it measures angle, and why that makes it the workhorse of machine learning.</p>
-  <div class="toc"><a href="#intro">0 · Start here</a><a href="#arrows">1 · Lists that are arrows</a><a href="#dot">2 · The dot product</a><a href="#norms">3 · Length: norms</a><a href="#cosine">4 · Cosine similarity</a><a href="#ml">5 · Where it shows up in ML</a><a href="#py">6 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#arrows">1 · Lists that are arrows</a><a href="#dot">2 · The dot product</a><a href="#norms">3 · Length: norms</a><a href="#cosine">4 · Cosine similarity</a><a href="#basis">5 · Span and basis</a><a href="#ml">6 · Where it shows up in ML</a><a href="#py">7 · Python</a></div>
 </section>
 
 <section id="intro" class="card intro">
@@ -138,8 +138,48 @@ $$|a\cdot b|\le\|a\|\,\|b\| .$$
   </div>
 </section>
 
+<section id="basis" class="lab">
+  <div class="card hl">
+    <h2><span class="num">5</span>Span, independence and a basis</h2>
+    <p class="sub">Drag the two basis arrows \(b_1\) (purple) and \(b_2\) (teal), and the point \(x\) (orange). The slanted grid is the coordinate system the new basis gives you; the dashed path shows \(x=c_1b_1+c_2b_2\).</p>
+    <div class="plot sq" id="pBs"></div>
+    <div class="row" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px" id="bsPre"><button class="btn" data-k="std">Standard basis</button><button class="btn" data-k="skew">Slanted</button><button class="btn" data-k="orth">Rotated (orthonormal)</button><button class="btn" data-k="dep">Dependent</button></div>
+    <div class="stats" id="bsStats"></div>
+    <div class="note" id="bsNote"></div>
+  </div>
+  <div>
+    <div class="card prose">
+      <p>Pages about PCA, eigenvectors and the SVD keep saying things like "use the eigenvectors as a new set of axes" or "change to the eigen-basis". This section says precisely what that means.</p>
+      <h3 id="combination">Linear combinations and span</h3>
+      <p>Take some vectors \(b_1,b_2\). Scaling them and adding the results, \(c_1b_1+c_2b_2\), gives a <b>linear combination</b>; the numbers \(c_1,c_2\) are its <b>coefficients</b>. The set of every point you can reach this way is the <b>span</b> of \(b_1,b_2\). Two arrows pointing in different directions span the whole plane: walk some amount along \(b_1\), then some amount along \(b_2\), and you can reach any spot. Press <b>Dependent</b>: now both arrows lie on one line, and their span is only that line.</p>
+      <h3 id="independence">Linear independence</h3>
+      <p>Vectors are <b>linearly independent</b> when none of them is a combination of the others; equivalently, the only way to make \(c_1b_1+c_2b_2=0\) is \(c_1=c_2=0\). Dependent vectors waste a direction: one of them adds nothing new to the span. In a data matrix, dependent columns mean redundant features (area in square feet and in square metres), which is exactly what makes the <a href="../matrices/#rank">rank</a> drop and \(X^\top X\) impossible to invert.</p>
+      <h3 id="basis-def">Basis, dimension and coordinates</h3>
+      <p>A <b>basis</b> is a set of independent vectors that spans the whole space. Every basis of the plane has exactly 2 vectors, every basis of \(\mathbb R^d\) has \(d\): that number is the <b>dimension</b>. The <b>standard basis</b> \(e_1=(1,0),\ e_2=(0,1)\) is the one we use without thinking: the "coordinates" \((x_1,x_2)\) of a point are its coefficients in that basis.</p>
+      <p>Any other basis gives the same point different coordinates. If \(x=c_1b_1+c_2b_2\), then \(c=(c_1,c_2)\) are the coordinates of \(x\) <i>in the basis</i> \(b_1,b_2\). Put the basis vectors in the columns of a matrix \(B\) and this is one equation:</p>
+      <ol class="derive">
+        <li><div class="eq">\(x=c_1b_1+c_2b_2=Bc\)</div><div class="why">A matrix times a vector is a combination of its columns (see <a href="../matrices/#transform">matrices</a>).</div></li>
+        <li><div class="eq">\(c=B^{-1}x\)</div><div class="why">Independent columns make \(B\) invertible, so every \(x\) has exactly one set of coordinates. This is a <b>change of basis</b>.</div></li>
+        <li><div class="eq">\(c=B^\top x\ \) if the basis is orthonormal</div><div class="why">For perpendicular unit vectors \(B^\top B=I\), so \(B^{-1}=B^\top\): each coordinate is just a dot product, \(c_i=b_i\cdot x\). Try <b>Rotated</b>.</div></li>
+      </ol>
+      <p>This is what "a new set of axes" means everywhere on this site. <a href="../../ml/pca/">PCA</a> computes \(c=V^\top(x-\mu)\), the coordinates of each centred data point in the orthonormal basis of principal components, and keeps only the first few. The <a href="../decompositions/#eigdec">eigendecomposition</a> \(A=V\Lambda V^{-1}\) changes to the eigen-basis (\(V^{-1}\)), stretches, and changes back (\(V\)). An embedding of dimension 768 is a set of coordinates in a 768-dimensional space whose basis the network chose for itself.</p>
+      <details class="deeper"><summary>Going deeper: subspaces, and what a matrix looks like in another basis</summary><div>
+        <p>A <b>subspace</b> is a set of vectors closed under combinations: any span is one, such as a line or a plane through the origin. The column space and null space on the <a href="../matrices/#rank">rank</a> section are subspaces, and rank + nullity = number of columns says their dimensions add up.</p>
+        <p>If a map has matrix \(A\) in the standard basis, then in the basis \(B\) it has matrix \(B^{-1}AB\): convert coordinates to standard (\(B\)), apply \(A\), convert back (\(B^{-1}\)). Matrices related this way are called <b>similar</b>; they have the same determinant, trace and eigenvalues, because they are the same map in different coordinates. Diagonalising \(A\) means finding a basis in which \(B^{-1}AB\) is diagonal.</p>
+      </div></details>
+      <div class="algo"><h5 class="algo-h">Algorithm: coordinates of a vector in a new basis</h5><ol>
+        <li><span class="kw">input</span> basis vectors \(b_1,\dots,b_n\) as the columns of \(B\), a vector \(x\)</li>
+        <li><span class="kw">if</span> \(B^\top B=I\) <span class="kw">then</span> \(c\leftarrow B^\top x\) <span class="cm">orthonormal: one dot product per coordinate</span></li>
+        <li><span class="kw">else</span> solve \(Bc=x\) for \(c\) <span class="cm">elimination; fails if the columns are dependent</span></li>
+        <li>check: \(\sum_i c_i b_i\) should equal \(x\)</li>
+        <li><span class="kw">return</span> \(c\)</li>
+      </ol></div>
+    </div>
+  </div>
+</section>
+
 <section id="ml" class="card">
-  <h2><span class="num">5</span>Where the dot product shows up in ML</h2>
+  <h2><span class="num">6</span>Where the dot product shows up in ML</h2>
   <p class="sub">Once you can see a dot product, you start seeing it everywhere. Each of these is \(a\cdot b\) with a different name for \(a\) and \(b\).</p>
   <div class="grid3 prose">
     <div><h3>Linear models</h3><p>A prediction is \(h_\theta(x)=\theta^\top x\): the features weighted and summed. <a href="../../ml/linear-regression/">Linear</a> and <a href="../../ml/logistic-regression/">logistic regression</a> are this one dot product followed by nothing or by a sigmoid.</p></div>
@@ -152,7 +192,7 @@ $$|a\cdot b|\le\|a\|\,\|b\| .$$
 </section>
 
 <section id="py" class="card">
-  <h2><span class="num">6</span>The same thing in Python (NumPy)</h2>
+  <h2><span class="num">7</span>The same thing in Python (NumPy)</h2>
 <pre class="code"><span class="k">import</span> numpy <span class="k">as</span> np
 a, b = np.array([<span class="s">3.</span>, <span class="s">1.</span>]), np.array([<span class="s">1.</span>, <span class="s">2.</span>])
 a + b, <span class="s">1.5</span> * a                       <span class="c"># component-wise</span>
@@ -223,6 +263,23 @@ $('#cosIn').addEventListener('change',e=>{ const t=e.target; if(t.tagName!=='INP
 $('#dbl').addEventListener('click',()=>{ DOCS.C=DOCS.C.map(x=>Math.min(40,x*2)); drawCos(); });
 ML.onTheme(()=>{ drawA(); drawD(); drawN(); });
 drawA(); drawD(); drawN(); drawCos();
+/* ---- 5. basis ---- */
+const LA=ML.LA;
+const pBs=new ML.Plot('#pBs',{bounds:{x0:-4,x1:4,y0:-4,y1:4}}); const BV=[{v:[2,0.5]},{v:[0.6,1.6]},{v:[2.2,2.6]}];
+const BPRE={std:[[1,0],[0,1]],skew:[[2,0.5],[0.6,1.6]],orth:[[Math.cos(.5),Math.sin(.5)],[-Math.sin(.5),Math.cos(.5)]],dep:[[2,1],[-1,-0.5]]};
+function drawBs(){ const P=ML.palette(), b1=BV[0].v, b2=BV[1].v, x=BV[2].v, M=[[b1[0],b2[0]],[b1[1],b2[1]]], d=LA.det2(M);
+  pBs.clear(); pBs.grid(1,true);
+  const dep=Math.abs(d)<1e-3*Math.max(1,Math.hypot(...b1)*Math.hypot(...b2));
+  if(!dep){ for(let k=-8;k<=8;k++){ let p=LA.mv(M,[k,-8]), q=LA.mv(M,[k,8]); pBs.line(p[0],p[1],q[0],q[1],{color:P.c1,width:1,alpha:.22}); p=LA.mv(M,[-8,k]); q=LA.mv(M,[8,k]); pBs.line(p[0],p[1],q[0],q[1],{color:P.c3,width:1,alpha:.22}); } }
+  else { const u=Math.hypot(...b1)>1e-9?b1:b2, n=Math.hypot(...u)||1; pBs.line(-9*u[0]/n,-9*u[1]/n,9*u[0]/n,9*u[1]/n,{color:P.c2,width:5,alpha:.25}); }
+  let c=null; if(!dep){ c=LA.mv(LA.inv2(M),x); const s1=[c[0]*b1[0],c[0]*b1[1]];
+    pBs.line(0,0,s1[0],s1[1],{color:P.c1,width:3,alpha:.55,dash:[6,4]}); pBs.line(s1[0],s1[1],x[0],x[1],{color:P.c3,width:3,alpha:.55,dash:[6,4]}); }
+  MX.vec(pBs,b1,P.c1,'b₁'); MX.vec(pBs,b2,P.c3,'b₂'); MX.vec(pBs,x,P.c4,'x');
+  const orth=Math.abs(b1[0]*b2[0]+b1[1]*b2[1])<0.02&&Math.abs(Math.hypot(...b1)-1)<0.02&&Math.abs(Math.hypot(...b2)-1)<0.02;
+  $('#bsStats').innerHTML=dep?`<div class="stat c2"><b>${d.toFixed(2)}</b><span>det B</span></div><div class="stat"><b>—</b><span>coordinates of x</span></div>`:`<div class="stat c1"><b>${c[0].toFixed(2)}</b><span>c₁ (steps along b₁)</span></div><div class="stat c3"><b>${c[1].toFixed(2)}</b><span>c₂ (steps along b₂)</span></div><div class="stat c4"><b>(${x[0].toFixed(1)}, ${x[1].toFixed(1)})</b><span>x in the standard basis</span></div><div class="stat c2"><b>${d.toFixed(2)}</b><span>det B</span></div>`;
+  const n=$('#bsNote'); n.className='note'+(dep?' warn':''); n.innerHTML=dep?'<b>Dependent.</b> Both arrows lie on one line, so their span is only that line (shaded). Points off it cannot be reached, and points on it can be reached in infinitely many ways: this is not a basis.':orth?'<b>Orthonormal basis.</b> Perpendicular unit arrows: each coordinate is just a dot product, c<sub>i</sub> = b<sub>i</sub> · x.':'<b>A basis.</b> Two independent arrows span the plane, and every point has exactly one pair of coordinates c = B⁻¹x.'; }
+$('#bsPre').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; const v=BPRE[b.dataset.k]; BV[0].v=v[0].slice(); BV[1].v=v[1].slice(); drawBs(); });
+MX.dragVecs(pBs,BV,drawBs,{free:false,lim:3.9,snap:0.05}); pBs.onResize=drawBs; drawBs();
 })();
 </script>
 <script>NLP.nav('math','vectors'); ML.renderMath(document.body);</script>

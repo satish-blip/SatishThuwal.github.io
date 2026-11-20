@@ -21,7 +21,7 @@
   <p class="kicker">Mathematical concepts &middot; Probability</p>
   <h1>Probability and <span class="grad">Bayes' theorem</span></h1>
   <p class="lede">Machine learning is learning under uncertainty. Labels are noisy, data is a sample, and a classifier should say "80% sure" rather than just "yes". Probability is the language for this. Bayes' theorem is the one rule that turns evidence into updated beliefs.</p>
-  <div class="toc"><a href="#intro">0 · Start here</a><a href="#basics">1 · Counting outcomes</a><a href="#rv">2 · Random variables</a><a href="#bayes">3 · Bayes' theorem</a><a href="#update">4 · Learning from data</a><a href="#ml">5 · In ML</a><a href="#py">6 · Python</a></div>
+  <div class="toc"><a href="#intro">0 · Start here</a><a href="#basics">1 · Counting outcomes</a><a href="#rv">2 · Random variables</a><a href="#cov">3 · Covariance</a><a href="#bayes">4 · Bayes' theorem</a><a href="#update">5 · Learning from data</a><a href="#ml">6 · In ML</a><a href="#py">7 · Python</a></div>
 </section>
 
 <section id="intro" class="card intro">
@@ -92,9 +92,70 @@
   </div>
 </section>
 
+<section id="cov" class="lab">
+  <div class="card hl">
+    <h2><span class="num">3</span>Two variables at once: the Gaussian, covariance and the covariance matrix</h2>
+    <p class="sub">Each dot is one draw of two features \((x_1,x_2)\) from a 2-D Gaussian. The ellipses enclose about 39% and 86% of the draws; the arrows are the eigenvectors of \(\Sigma\), scaled by one standard deviation along each.</p>
+    <div class="plot sq" id="pCv"></div>
+    <div class="ctl"><label for="cS1"><span>Spread of \(x_1\): \(\sigma_1\)</span><output id="cS1Out"></output></label><input type="range" id="cS1" min="0.3" max="2.5" step="0.05" value="1.6"></div>
+    <div class="ctl"><label for="cS2"><span>Spread of \(x_2\): \(\sigma_2\)</span><output id="cS2Out"></output></label><input type="range" id="cS2" min="0.3" max="2.5" step="0.05" value="0.9"></div>
+    <div class="ctl"><label for="cR"><span>Correlation \(\rho\)</span><output id="cROut"></output></label><input type="range" id="cR" min="-0.98" max="0.98" step="0.01" value="0.6"></div>
+    <div class="seg" id="cView"><button data-v="raw" class="on">Raw features</button><button data-v="z">Standardised (z-scores)</button></div>
+    <div class="player" style="margin-top:8px"><button class="btn" id="cNew">New sample</button><span class="pos">n = 300</span></div>
+    <div class="texout" id="cTex"></div>
+    <div class="stats" id="cStats"></div>
+  </div>
+  <div>
+    <div class="card prose">
+      <h3 id="gaussian">The Gaussian (normal) distribution</h3>
+      <p>The bell curve \(\mathcal N(\mu,\sigma^2)\) is described by two numbers: the mean \(\mu\) (where the peak sits) and the standard deviation \(\sigma\) (how wide it is). About 68% of draws fall within \(\pm1\sigma\) of the mean, 95% within \(\pm2\sigma\) and 99.7% within \(\pm3\sigma\). It appears everywhere because sums of many small independent effects are approximately Gaussian, whatever the effects look like: that is the <a href="../inference/#sampling">central limit theorem</a>. Measurement noise, averages, and the errors in linear regression are all modelled this way.</p>
+      <p>The <b>standard normal</b> is the one with \(\mu=0,\ \sigma=1\), written \(\mathcal N(0,1)\). Any Gaussian value can be turned into a standard one by its <b>z-score</b>,</p>
+      <div class="mathbox c3">$$z=\frac{x-\mu}{\sigma},$$</div>
+      <p>which answers "how many standard deviations above the mean is this?". Applying it to every feature, using the training mean and standard deviation, is called <b>standardising</b>; it puts features measured in metres and in years on the same footing, which gradient descent, PCA, SVMs and regularisation all need. Press <b>Standardised</b> to see it: each axis is rescaled to spread 1, and only the correlation is left.</p>
+
+      <h3 id="covariance">Covariance: do two features move together?</h3>
+      <p>One number per feature is not enough once we have two. Height and weight are each spread out, but they are also <i>related</i>: tall people tend to be heavier. The <b>covariance</b> measures this:</p>
+      <ol class="derive">
+        <li><div class="eq">\(\operatorname{Cov}(X,Y)=\mathbb E\big[(X-\mu_X)(Y-\mu_Y)\big]\)</div><div class="why">Multiply how far each variable is from its own mean, and average.</div></li>
+        <li><div class="eq">\(&gt;0\): both above or both below together</div><div class="why">Both deviations have the same sign, so the product is positive. The cloud tilts up.</div></li>
+        <li><div class="eq">\(&lt;0\): one up when the other is down</div><div class="why">The cloud tilts down. Near 0: no linear trend.</div></li>
+        <li><div class="eq">\(\operatorname{Cov}(X,X)=\operatorname{Var}(X)\)</div><div class="why">A variable's covariance with itself is its variance.</div></li>
+      </ol>
+      <p>Covariance has awkward units (cm × kg), so its size is hard to read. Dividing by both standard deviations gives the unit-free <b>correlation</b>, \(\rho=\operatorname{Cov}(X,Y)/(\sigma_X\sigma_Y)\), always between \(-1\) and \(1\). \(\pm1\) means the points lie exactly on a line. Correlation is the covariance of the z-scores, which is why the Standardised view keeps the tilt but loses the stretch.</p>
+      <p>Two variables are <b>independent</b> when knowing one tells you nothing about the other: \(p(x,y)=p(x)\,p(y)\). Independent variables have zero covariance, but zero covariance does not imply independence: if \(Y=X^2\) with \(X\) symmetric around 0, \(Y\) is completely determined by \(X\) yet their covariance is 0. Covariance only sees <i>straight-line</i> relationships.</p>
+
+      <h3 id="covariance-matrix">The covariance matrix \(\Sigma\)</h3>
+      <p>With \(d\) features there is a covariance for every pair. Arrange them in a \(d\times d\) table: entry \((j,k)\) is \(\operatorname{Cov}(x_j,x_k)\). That is the <b>covariance matrix</b> \(\Sigma\), and it is the multi-feature version of the variance:</p>
+      <div class="mathbox c1">$$\Sigma=\begin{bmatrix}\sigma_1^2&amp;\rho\sigma_1\sigma_2\\ \rho\sigma_1\sigma_2&amp;\sigma_2^2\end{bmatrix},\qquad \hat\Sigma=\frac{1}{n-1}\sum_{i=1}^n(x^{(i)}-\bar x)(x^{(i)}-\bar x)^\top .$$</div>
+      <p>Read it like this. The <b>diagonal</b> holds each feature's own variance. The <b>off-diagonal</b> entries hold how pairs move together. It is <a href="../matrices/#symmetric">symmetric</a>, because \(\operatorname{Cov}(x_j,x_k)=\operatorname{Cov}(x_k,x_j)\). And it is <a href="../matrices/#pd">positive semi-definite</a>: for any weights \(w\), the combined feature \(w^\top x\) has variance \(w^\top\Sigma w\), and a variance cannot be negative.</p>
+      <p>Geometrically, \(\Sigma\) is the shape of the cloud. Its <a href="../decompositions/#eigen">eigenvectors</a> point along the axes of the ellipse, and each eigenvalue is the variance of the data along its eigenvector. The longest axis is the direction in which the data varies most: that is the first principal component, and finding these axes is exactly what <a href="../../ml/pca/">PCA</a> does. Set \(\rho=0\) and the arrows line up with the feature axes: \(\Sigma\) is diagonal.</p>
+
+      <h3 id="multivariate-gaussian">The multivariate Gaussian</h3>
+      <p>The bell curve in \(d\) dimensions is \(\mathcal N(\mu,\Sigma)\), with density</p>
+      <div class="mathbox c4">$$p(x)=\frac{1}{(2\pi)^{d/2}\det(\Sigma)^{1/2}}\exp\!\Big(-\tfrac12(x-\mu)^\top\Sigma^{-1}(x-\mu)\Big).$$</div>
+      <p>The exponent is the squared <b>Mahalanobis distance</b>: distance from the mean measured in standard deviations, along the ellipse's own axes. Points on one ellipse are equally likely. The \(\det\Sigma\) in front <a href="../matrices/#det">normalises</a> for the volume of the ellipse. <a href="../../ml/lda-gda/">LDA and GDA</a> fit one of these per class; a diagonal \(\Sigma\) means the features are treated as independent, which is the naive Bayes assumption; and drawing samples, as this plot does, uses the <a href="../decompositions/#chol">Cholesky factor</a>: \(x=\mu+Lz\) with \(z\sim\mathcal N(0,I)\).</p>
+
+      <details class="deeper"><summary>Going deeper: why divide by \(n-1\), and what correlation cannot tell you</summary><div>
+        <p>The sample mean \(\bar x\) is fitted to the same data, so the points are on average a little closer to \(\bar x\) than to the true \(\mu\). Dividing by \(n\) underestimates the variance by a factor \((n-1)/n\); dividing by \(n-1\) (Bessel's correction) removes the bias. One "degree of freedom" was spent estimating the mean.</p>
+        <p>Correlation measures straight-line association only, and it is easily moved by a few outliers. Four very different data sets (Anscombe's quartet) share the same means, variances and correlation. And correlation is not causation: ice-cream sales and drownings are correlated because both rise in summer.</p>
+        <p>With more features than examples (\(d&gt;n\)), \(\hat\Sigma\) has rank at most \(n-1\), so it is singular and \(\Sigma^{-1}\) does not exist. Shrinking it towards a diagonal matrix, \((1-\alpha)\hat\Sigma+\alpha\,\mathrm{diag}(\hat\Sigma)\), is the usual fix.</p>
+      </div></details>
+
+      <div class="algo"><h5 class="algo-h">Algorithm: sample covariance and correlation matrices</h5><ol>
+        <li><span class="kw">input</span> data matrix \(X\) (\(n\) rows = examples, \(d\) columns = features)</li>
+        <li>\(\bar x_j\leftarrow\frac1n\sum_i X_{ij}\) for each column \(j\) <span class="cm">feature means</span></li>
+        <li>\(\tilde X\leftarrow X-\mathbf 1\bar x^\top\) <span class="cm">centre: subtract each column's mean</span></li>
+        <li>\(\hat\Sigma\leftarrow\frac{1}{n-1}\tilde X^\top\tilde X\) <span class="cm">entry (j,k) averages products of deviations</span></li>
+        <li>\(R_{jk}\leftarrow\hat\Sigma_{jk}/\sqrt{\hat\Sigma_{jj}\hat\Sigma_{kk}}\) <span class="cm">correlation matrix: ones on the diagonal</span></li>
+        <li><span class="kw">return</span> \(\hat\Sigma\), \(R\)</li>
+      </ol></div>
+    </div>
+  </div>
+</section>
+
 <section id="bayes" class="lab">
   <div class="card hl">
-    <h2><span class="num">3</span>Bayes' theorem: a medical test</h2>
+    <h2><span class="num">4</span>Bayes' theorem: a medical test</h2>
     <p class="sub">1,000 people. Filled squares have the disease; outlined squares tested positive. Of everyone who tested positive, how many are actually ill?</p>
     <div class="people" id="ppl"></div>
     <div class="legend"><span><i style="background:var(--c4)"></i>ill, test +</span><span><i style="background:color-mix(in srgb,var(--c4) 35%,var(--card))"></i>ill, test −</span><span><i style="background:var(--card);outline:2px solid var(--c1);outline-offset:-2px"></i>healthy, test + (false alarm)</span><span><i style="background:var(--soft)"></i>healthy, test −</span></div>
@@ -119,7 +180,7 @@
 
 <section id="update" class="lab">
   <div class="card hl">
-    <h2><span class="num">4</span>Learning from data: how biased is this coin?</h2>
+    <h2><span class="num">5</span>Learning from data: how biased is this coin?</h2>
     <p class="sub">The curve is your belief about the coin's chance of heads, \(\theta\). Flip and watch it sharpen. The dashed line is the true \(\theta\), which the learner does not know.</p>
     <div class="plot wide" id="pB"></div>
     <div class="player" style="margin-top:10px"><button class="btn primary" id="f1">Flip once</button><button class="btn" id="f10">Flip 10</button><button class="btn" id="f100">Flip 100</button><button class="btn" id="fR">Reset</button><span class="pos" id="fPos"></span></div>
@@ -153,7 +214,7 @@
 </section>
 
 <section id="ml" class="card">
-  <h2><span class="num">5</span>Where probability shows up in ML</h2>
+  <h2><span class="num">6</span>Where probability shows up in ML</h2>
   <div class="grid3 prose">
     <div><h3>Classifiers output probabilities</h3><p><a href="../../ml/logistic-regression/">Logistic regression</a> models \(P(y=1\mid x)\) with a sigmoid; neural networks use softmax over classes. The threshold you choose is a decision on top of a probability.</p></div>
     <div><h3>Loss = negative log-likelihood</h3><p>Cross-entropy loss is \(-\log P(\text{true label}\mid x)\). Squared error is the negative log-likelihood under Gaussian noise. Minimising a loss is maximising a likelihood (see <a href="../inference/#mle">maximum likelihood</a>).</p></div>
@@ -165,7 +226,7 @@
 </section>
 
 <section id="py" class="card">
-  <h2><span class="num">6</span>The same thing in Python (NumPy / SciPy)</h2>
+  <h2><span class="num">7</span>The same thing in Python (NumPy / SciPy)</h2>
 <pre class="code"><span class="k">import</span> numpy <span class="k">as</span> np
 <span class="k">from</span> scipy <span class="k">import</span> stats
 rng = np.random.default_rng(<span class="s">0</span>)
@@ -255,6 +316,27 @@ $('#f1').addEventListener('click',()=>flip(1)); $('#f10').addEventListener('clic
 ML.bindRange('tp',v=>{tp=v;drawU();},v=>v.toFixed(2)); ML.bindRange('pa',v=>{pa=v;drawU();}); ML.bindRange('pb',v=>{pbb=v;drawU();}); pB.onResize=drawU;
 ML.onTheme(()=>{ drawRv(); drawU(); });
 drawDice(); setDist('bern'); drawB(); drawU();
+/* ---- 3. covariance ---- */
+const LAc=ML.LA, pCv=new ML.Plot('#pCv',{bounds:{x0:-5,x1:5,y0:-5,y1:5}}); let cs1=1.6, cs2=0.9, cr=0.6, cview='raw', cseed=5, CZ=[];
+const MU=[0.8,0.4];
+function cSample(){ const r=ML.rng(cseed); CZ=[...Array(300)].map(()=>[r.gauss(),r.gauss()]); }
+function drawCv(){ const P=ML.palette(), L=[[cs1,0],[cr*cs2,cs2*Math.sqrt(1-cr*cr)]];
+  let X=CZ.map(z=>[MU[0]+L[0][0]*z[0], MU[1]+L[1][0]*z[0]+L[1][1]*z[1]]);
+  const n=X.length, m=[0,1].map(j=>X.reduce((s,x)=>s+x[j],0)/n);
+  const C=(A,mm)=>{ const S=[[0,0],[0,0]]; A.forEach(x=>{ const d=[x[0]-mm[0],x[1]-mm[1]]; for(let a=0;a<2;a++) for(let b=0;b<2;b++) S[a][b]+=d[a]*d[b]/(n-1); }); return S; };
+  let S=C(X,m), mu=m; const sd=[Math.sqrt(S[0][0]),Math.sqrt(S[1][1])];
+  if(cview==='z'){ X=X.map(x=>[(x[0]-m[0])/sd[0],(x[1]-m[1])/sd[1]]); mu=[0,0]; S=C(X,mu); }
+  pCv.clear(); pCv.grid(1,true);
+  pCv.points(X,X.map(()=>0),{r:2.6,color:()=>P.c3,alpha:()=>.55});
+  pCv.ellipse(mu,S,1,{color:P.c1,width:2,fill:P.c1,fillAlpha:.06}); pCv.ellipse(mu,S,2,{color:P.c1,width:1.5,dash:[5,4]});
+  const E=LAc.eigSym(S); E.vectors.forEach((v,i)=>{ const s=Math.sqrt(Math.max(0,E.values[i])); MX.vec(pCv,[v[0]*s,v[1]*s],i?P.c4:P.c2,i?'PC2':'PC1',{from:mu,width:3}); });
+  pCv.line(mu[0],-6,mu[0],6,{color:P.muted,width:1,dash:[3,4],alpha:.6}); pCv.line(-6,mu[1],6,mu[1],{color:P.muted,width:1,dash:[3,4],alpha:.6});
+  const rho=S[0][1]/Math.sqrt(S[0][0]*S[1][1]);
+  MX.set('cTex',`\\hat\\Sigma=${MX.mtex(S,2)}\\qquad \\Sigma_{\\text{true}}=${MX.mtex(cview==='z'?[[1,cr],[cr,1]]:[[cs1*cs1,cr*cs1*cs2],[cr*cs1*cs2,cs2*cs2]],2)}`,true);
+  $('#cStats').innerHTML=`<div class="stat c3"><b>${S[0][1].toFixed(2)}</b><span>sample covariance</span></div><div class="stat c1"><b>${rho.toFixed(2)}</b><span>sample correlation ρ̂</span></div><div class="stat c2"><b>${E.values[0].toFixed(2)}</b><span>variance along PC1 (λ₁)</span></div><div class="stat c4"><b>${E.values[1].toFixed(2)}</b><span>variance along PC2 (λ₂)</span></div>`; }
+ML.bindRange('cS1',v=>{cs1=v;drawCv();},v=>v.toFixed(2)); ML.bindRange('cS2',v=>{cs2=v;drawCv();},v=>v.toFixed(2)); ML.bindRange('cR',v=>{cr=v;drawCv();},v=>v.toFixed(2));
+ML.bindSeg('cView',v=>{cview=v;drawCv();}); $('#cNew').addEventListener('click',()=>{ cseed++; cSample(); drawCv(); });
+pCv.onResize=drawCv; cSample(); drawCv();
 })();
 </script>
 <script>NLP.nav('math','probability'); ML.renderMath(document.body);</script>

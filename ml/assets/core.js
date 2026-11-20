@@ -274,3 +274,31 @@ ML.ready = function(fn){ if(document.readyState==='loading') document.addEventLi
 /* load the pseudocode animations when a page has pseudocode */
 (function(){ var me=document.currentScript; if(!me) return; var src=me.src.replace(/core\.js(\?.*)?$/,'algoanim.js');
   ML.ready(function(){ if(!document.querySelector('.algo')) return; var s=document.createElement('script'); s.src=src; s.onload=function(){ window.AlgoAnim && AlgoAnim.init(); }; document.body.appendChild(s); }); })();
+
+/* compact labs: keep each plot's controls and live numbers right under the plot,
+   and keep the plot in view (sticky) while the explanation scrolls beside it */
+(function(){
+  const MOVE='.ctl,.seg,.stats,.note[id],.texout[id],.player,.btnrow,.ctlrow';
+  function compact(){
+    document.querySelectorAll('section.lab').forEach(sec=>{
+      if(sec.dataset.compact) return; sec.dataset.compact='1';
+      const kids=[...sec.children]; if(kids.length<2) return;
+      const left=kids[0], right=kids.slice(1);
+      if(!left.querySelector('.plot,canvas')) return;
+      if(right.some(r=>r.querySelector('.plot,canvas'))) return;   /* the other column has its own plot */
+      const items=[]; right.forEach(r=>r.querySelectorAll(MOVE).forEach(el=>{
+        if(el.closest('.algo,.aa-wrap,details,table,.mathbox')) return;
+        if(items.some(p=>p.contains(el))) return; items.push(el); }));
+      if(!items.length) return;
+      const box=document.createElement('div'); box.className='lab-ctl'; items.forEach(el=>box.appendChild(el));
+      left.appendChild(box);
+    });
+    stick();
+  }
+  function stick(){ const wide=matchMedia('(min-width:921px)').matches;
+    document.querySelectorAll('section.lab').forEach(sec=>{ const left=sec.children[0]; if(!left) return;
+      const fits=wide && left.offsetHeight < innerHeight-96 && sec.offsetHeight > left.offsetHeight+40;
+      left.classList.toggle('lab-stick',fits); }); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',compact); else compact();
+  window.addEventListener('load',stick); let t; window.addEventListener('resize',()=>{ clearTimeout(t); t=setTimeout(stick,150); });
+})();
