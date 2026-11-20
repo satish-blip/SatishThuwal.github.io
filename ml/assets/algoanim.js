@@ -1491,6 +1491,71 @@ AA.def('vbert', T => {
   return S;
 });
 AA.title(/VisualBERT pre-training step/i,'vbert');
+/* ---------- ViLBERT: Co-TRM layer and pre-training ---------- */
+const vilFUNC=new Set(['a','the','with','under','on','next','to','behind','waits','sits','plays']);
+const vilMaps=(k)=>{ const S=VIS.SCENES[k], W=S.caption.split(' '), nm=o=>o.tags.concat([o.label]);
+  const wt=['CLS',...W,'SEP'], vt=['IMG',...S.objects.map((o,j)=>'r'+(j+1))], isW=i=>i>=1&&i<=W.length, wd=i=>W[i-1];
+  const TW=wt.map((t,i)=>softmax(vt.map((v,j)=>{ let s=0; if(j===0) s+=(i===0||i===wt.length-1)?2.5:(isW(i)&&vilFUNC.has(wd(i))?2.2:.6); if(j>0&&isW(i)&&nm(S.objects[j-1]).includes(wd(i))) s+=4; return s; })));
+  const VW=vt.map((v,j)=>softmax(wt.map((t,i)=>{ let s=0; if(j===0) s+=i===0?2.5:(isW(i)&&!vilFUNC.has(wd(i))?.8:0); if(j>0&&isW(i)&&nm(S.objects[j-1]).includes(wd(i))) s+=4; if(j>0&&(i===0||i===wt.length-1)) s+=1.4; return s; })));
+  return {S,W,wt,vt,TW,VW}; };
+AA.def('cotrm', T => {
+  const S=[], add=F(S); if(!window.VIS) return S; const k=pick(['park','kitchen','street']); const M=vilMaps(k);
+  const hw=M.wt.map(()=>T.range(4).map(()=>T.g()*.6)), hv=M.vt.map(()=>T.range(4).map(()=>T.g()*.6));
+  const hw2=hw.map((v,i)=>v.map((a,q)=>a*.6+T.sum(M.TW[i].map((w,j)=>w*hv[j][q]))*.8)), hv2=hv.map((v,j)=>v.map((a,q)=>a*.6+T.sum(M.VW[j].map((w,i)=>w*hw[i][q]))*.8));
+  const content=M.W.map((w,i)=>i+1).filter(i=>!vilFUNC.has(M.W[i-1])), qW=[content[0],content[content.length-1],1].filter((v,i,a)=>a.indexOf(v)===i).slice(0,3);
+  const qV=M.vt.map((_,j)=>j).filter(j=>j>0&&M.VW[j].some((w,i)=>i>0&&w>.4)).slice(0,2); if(!qV.length) qV.push(1);
+  const draw=(g,o)=>{ const W=g.W,H=g.H, ty=.2*H, vy=.72*H;
+    g.ptxt('text stream H_W',.02*W,ty-g.fs*2.2,g.C.c1,{size:.68,bold:true}); g.ptxt('image stream H_V',.02*W,vy+g.fs*3.4,g.C.c4,{size:.68,bold:true});
+    const cw=chipRow(g,M.wt,.5*W,ty,i=>({size:.6,tint:g.C.c1,ta:.25,stroke:o.qw===i?g.C.c2:null}),4), cvv=chipRow(g,M.vt.map((t,j)=>j?t+' '+M.S.objects[j-1].label.split(' ')[0]:t),.5*W,vy,j=>({size:.6,tint:g.C.c4,ta:.25,stroke:o.qv===j?g.C.c2:null}),4);
+    const HW=o.upd?hw.map((v,i)=>v.map((a,q)=>T.lerp(a,hw2[i][q],o.upd))):hw, HV=o.upd?hv.map((v,i)=>v.map((a,q)=>T.lerp(a,hv2[i][q],o.upd))):hv, s=Math.min(g.fs*.55,.012*W);
+    cw.forEach((x,i)=>vecSq(g,HW[i],x-2*s,ty+g.fs*1.1,s)); cvv.forEach((x,j)=>vecSq(g,HV[j],x-2*s,vy+g.fs*1.1,s));
+    if(o.qkvW) g.ptxt('Q_W  K_W  V_W from text weights',.98*W,ty-g.fs*2.2,g.C.c1,{align:'right',size:.6,mono:true});
+    if(o.qkvV) g.ptxt('Q_V  K_V  V_V from image weights',.98*W,vy+g.fs*3.4,g.C.c4,{align:'right',size:.6,mono:true});
+    if(o.qw!=null){ M.TW[o.qw].forEach((a,j)=>{ if(a>.03) g.pseg(cw[o.qw],ty+g.fs*1.9,cvv[j],vy-g.fs*1,g.C.c1,1+a*8*(o.p==null?1:o.p)); }); }
+    if(o.qv!=null){ M.VW[o.qv].forEach((a,i)=>{ if(a>.03) g.pseg(cvv[o.qv],vy-g.fs*1,cw[i],ty+g.fs*1.9,g.C.c4,1+a*8*(o.p==null?1:o.p)); }); }
+    if(o.ffn){ g.prect(.3*W,.36*H,.4*W,.09*H,g.C.c1,null,{r:6,a:.18}); g.ptxt('FFN_W (text weights)',.5*W,.405*H,g.C.ink,{align:'center',size:.66}); g.prect(.3*W,.5*H,.4*W,.09*H,g.C.c4,null,{r:6,a:.18}); g.ptxt('FFN_V (image weights)',.5*W,.545*H,g.C.ink,{align:'center',size:.66}); }
+    if(o.res) g.ptxt('H ← LN(H + what it found)',.5*W,.46*H,g.C.c5,{align:'center',size:.75,bold:true}); };
+  add(1,`Two streams: ${M.wt.length} text tokens and ${M.vt.length} image tokens ([IMG] + regions), each with its own vector.`,1500,g=>draw(g,{}));
+  add(2,'The text stream makes queries, keys and values with its own weights.',900,g=>draw(g,{qkvW:true}));
+  add(3,'The image stream does the same with its own weights.',900,g=>draw(g,{qkvW:true,qkvV:true}));
+  qW.forEach((i,n)=>add(4,`Text asks, image answers: "${M.wt[i]}" scores every image key and takes a weighted mix of image values.`,n?800:1300,(g,p)=>draw(g,{qkvW:true,qkvV:true,qw:i,p})));
+  qV.forEach((j,n)=>add(5,`Image asks, text answers: region ${M.vt[j]} (${M.S.objects[j-1].label}) looks for the words about it.`,n?800:1300,(g,p)=>draw(g,{qkvW:true,qkvV:true,qv:j,p})));
+  add(6,'Each stream adds what it found to its own vectors (residual), then normalises.',1300,(g,p)=>draw(g,{upd:p,res:true}));
+  add(7,'Each stream then runs its own feed-forward network.',1100,g=>draw(g,{upd:1,ffn:true}));
+  add(8,'Return both streams. Next, a TRM layer mixes information within each stream.',2200,g=>draw(g,{upd:1}));
+  return S;
+});
+AA.title(/co-attentional transformer \(Co-TRM\) layer/i,'cotrm');
+
+AA.def('vilpt', T => {
+  const S=[], add=F(S); if(!window.VIS) return S; const keys=['park','kitchen','street'], k=pick(keys), truth=T.r()<.6, capK=truth?k:pick(keys.filter(x=>x!==k));
+  const SC=VIS.SCENES[k], W=VIS.SCENES[capK].caption.split(' '), COLW=new Set(['red','blue','yellow','green']);
+  const nounI=W.map((w,i)=>i).filter(i=>!vilFUNC.has(W[i])&&!COLW.has(W[i])); const mw=pick(nounI);
+  const rj=Math.max(0,SC.objects.findIndex(o=>W.includes(o.label)&&o.label!==W[mw])); const rob=SC.objects[rj];
+  const present=new Set(SC.objects.flatMap(o=>o.tags.concat([o.label]))), content=W.filter(w=>!vilFUNC.has(w)), pa=T.sig(6*content.filter(w=>present.has(w)).length/content.length-2.5);
+  const draw=(g,o)=>{ const Wd=g.W,H=g.H, s=Math.min(.28*Wd,.4*H), ix=.02*Wd, iy=.08*H; drawScene(g,k,ix,iy,s);
+    SC.objects.forEach((ob,j)=>{ const b=ob.box; if(o.mask&&j===rj){ g.prect(ix+b[0]*s,iy+b[1]*s,b[2]*s,b[3]*s,'rgba(30,30,30,.85)'); } g.prect(ix+b[0]*s,iy+b[1]*s,b[2]*s,b[3]*s,null,o.mask&&j===rj?g.C.c2:g.C.c4,{lw:o.mask&&j===rj?3:1.5}); });
+    g.ptxt('"'+W.map((w,i)=>o.mask&&i===mw?'[MASK]':w).join(' ')+'"',.33*Wd,.08*H,g.C.ink,{size:.64,bold:true}); g.ptxt(truth?'true caption':'caption of another image',.33*Wd,.08*H+g.fs*1.2,truth?g.C.c5:g.C.c4,{size:.6});
+    if(o.lv>=2){ const ry=.6*H; const vt=['IMG',...SC.objects.map((ob,j)=>o.mask&&j===rj?'[0]':'r'+(j+1))]; chipRow(g,vt,.18*Wd,ry,j=>({size:.58,tint:g.C.c4,ta:.3,stroke:o.mask&&j===rj+1?g.C.c2:null}),3); g.ptxt('image tokens = W_f·f + W_b·box',.02*Wd,ry+g.fs*1.6,g.C.c4,{size:.56}); }
+    if(o.lv>=3){ g.ptxt('text tokens: [CLS] … [SEP]',.33*Wd,.2*H,g.C.c1,{size:.6}); }
+    if(o.lv>=5){ g.prect(.36*Wd,.27*H,.17*Wd,.3*H,g.C.c1,null,{r:6,a:.15}); g.prect(.56*Wd,.27*H,.17*Wd,.3*H,g.C.c4,null,{r:6,a:.15}); g.ptxt('text',.445*Wd,.31*H,g.C.ink,{align:'center',size:.62,bold:true}); g.ptxt('image',.645*Wd,.31*H,g.C.ink,{align:'center',size:.62,bold:true});
+      for(let q=0;q<3;q++){ const y=.37*H+q*.06*H, on=o.lv===5&&(Math.floor((o.p||0)*3)===q); g.pseg(.53*Wd,y,.56*Wd,y+.02*H,on?g.C.c2:g.C.line,on?3:1.5); g.pseg(.56*Wd,y,.53*Wd,y+.02*H,on?g.C.c2:g.C.line,on?3:1.5); } g.ptxt('Co-TRM',.545*Wd,.6*H,g.C.c2,{align:'center',size:.56}); }
+    const bx=.76*Wd; if(o.lv>=6){ g.ptxt('masked word → '+W[mw],bx,.2*H,g.C.ink,{size:.58,bold:true}); g.prect(bx,.23*H,.2*Wd*(truth?.8:.3),.035*H,g.C.c5,null,{r:2,a:.8}); g.ptxt(truth?'80%':'30%',bx+.2*Wd*(truth?.8:.3)+3,.25*H,g.C.muted,{size:.52,mono:true}); }
+    if(o.lv>=7){ g.ptxt('masked region → class',bx,.33*H,g.C.ink,{size:.58,bold:true}); g.ptxt('target: '+rob.label,bx,.37*H,g.C.c4,{size:.55,mono:true}); g.prect(bx,.39*H,.2*Wd*(W.includes(rob.label)?.7:.25),.035*H,g.C.c3,null,{r:2,a:.8}); g.ptxt('KL loss',bx,.46*H,g.C.muted,{size:.52}); }
+    if(o.lv>=8){ g.ptxt('h_IMG ⊙ h_CLS → aligned?',bx,.54*H,g.C.ink,{size:.58,bold:true}); g.prect(bx,.57*H,.2*Wd*pa,.035*H,g.C.c5,null,{r:2,a:.8}); g.ptxt(Math.round(pa*100)+'% (label: '+(truth?'yes':'no')+')',bx,.64*H,g.C.muted,{size:.55,mono:true}); }
+    if(o.lv>=9) g.ptxt(truth?'loss = word + region + alignment':'random pair: only the alignment loss counts',.33*Wd,.82*H,g.C.c1,{size:.66,bold:true}); };
+  add(1,`An image's regions and ${truth?'its caption':'a caption from a different image'}.`,1300,g=>draw(g,{lv:1}));
+  add(2,'Image tokens: [IMG] summary, then each region with its 5-number box.',1000,g=>draw(g,{lv:2}));
+  add(3,'Text tokens, exactly as in BERT.',800,g=>draw(g,{lv:3}));
+  add(4,`Mask the word "${W[mw]}" and region r${rj+1} (its features become zeros).`,1100,g=>draw(g,{lv:3,mask:true}));
+  add(5,'Both streams run; at each Co-TRM layer they swap keys and values.',1600,(g,p)=>draw(g,{lv:5,mask:true,p}));
+  add(6,'Predict the masked word from its text state.',900,g=>draw(g,{lv:6,mask:true}));
+  add(7,`Predict what was in r${rj+1}: match the detector's class distribution (${rob.label}).`,1100,g=>draw(g,{lv:7,mask:true}));
+  add(8,`Alignment: combine the two summaries. ${Math.round(pa*100)}% "aligned".`,1100,g=>draw(g,{lv:8,mask:true}));
+  add(9,truth?'Add the three losses and update every weight in both streams.':'Random pair: only the alignment loss updates the weights.',2300,g=>draw(g,{lv:9,mask:true}));
+  return S;
+});
+AA.title(/ViLBERT pre-training step/i,'vilpt');
 /* ---------- which animation goes with which pseudocode title ---------- */
 [[/ordinary least squares/i,'ols'],[/gradient descent for least squares/i,'gd'],[/lasso by coordinate descent/i,'lassocd'],
  [/logistic regression by gradient descent/i,'logreg'],[/Newton's method \(IRLS\)/i,'newton'],[/proximal gradient descent for L1/i,'proxlog'],[/ROC curve/i,'roc'],
