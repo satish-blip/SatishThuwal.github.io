@@ -343,3 +343,28 @@ details.deeper>div p{margin:.5em 0}
 .aa-b:hover{border-color:var(--c1)}
 .algo li.aa-on{background:color-mix(in srgb,var(--c1) 15%,transparent);box-shadow:inset 3px 0 0 var(--c1);border-radius:3px}
 .algo li{transition:background .25s}
+/* evolution timeline (shared by homepage and lab pages) */
+.evo{margin:18px 0 6px;border:1px solid var(--rule,var(--line));border-radius:8px;padding:12px 14px 12px;background:var(--paper,var(--card))}
+.evo-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:6px}
+.evo-k{font:500 11px/1 var(--mono,"JetBrains Mono",monospace);letter-spacing:.08em;text-transform:uppercase;color:var(--tail,var(--c4))}
+.evo-head b{font:600 16px/1.3 var(--serif,inherit);color:var(--ink)}
+.evo-hint{font:400 12px/1.3 var(--mono,"JetBrains Mono",monospace);color:var(--ink-2,var(--muted))}
+.evo-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:4px}
+.evo-track{list-style:none;display:flex;margin:0;padding:6px 0 0;min-width:max-content;position:relative}
+.evo-track::before{content:"";position:absolute;left:0;right:0;top:34px;height:2px;background:linear-gradient(90deg,var(--rule,var(--line)),var(--tail,var(--c4)))}
+.evo-i button{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;width:118px;padding:0 8px 4px 0;position:relative;box-sizing:border-box}
+.evo-i button:focus-visible{outline:2px solid var(--tail,var(--c1));outline-offset:2px;border-radius:4px}
+.evo-y{font:500 11.5px/1 var(--mono,"JetBrains Mono",monospace);color:var(--ink-2,var(--muted));height:16px}
+.evo-dot{width:12px;height:12px;border-radius:50%;margin:5px 0 8px;background:var(--paper,var(--card));border:2px solid var(--ink-2,var(--muted));position:relative;z-index:1;transition:transform .15s}
+.evo-n{font:500 13px/1.25 var(--sans,inherit);color:var(--ink)}
+.evo-i.root .evo-dot{background:var(--ink-2,var(--muted))}
+.evo-i.now .evo-dot{width:16px;height:16px;margin-top:3px;background:var(--tail,var(--c4));border-color:var(--tail,var(--c4));box-shadow:0 0 0 5px rgba(234,88,12,.18)}
+.evo-i.now .evo-y{color:var(--tail,var(--c4));font-weight:700}
+.evo-i.on .evo-dot{transform:scale(1.35);border-color:var(--tail,var(--c1))}
+.evo-i.on .evo-n{text-decoration:underline;text-decoration-color:var(--tail,var(--c1));text-underline-offset:3px}
+.evo-i button:hover .evo-n{color:var(--tail,var(--c1))}
+.evo-detail{margin-top:8px;padding-top:8px;border-top:1px dashed var(--rule,var(--line));min-height:58px}
+.evo-detail .evo-dy{display:block;font:500 11px/1 var(--mono,"JetBrains Mono",monospace);letter-spacing:.06em;text-transform:uppercase;color:var(--tail,var(--c4));margin-bottom:4px}
+.evo-detail b{font:600 15px/1.3 var(--serif,inherit);color:var(--ink)}
+.evo-detail p{margin:3px 0 0;font-size:14px;line-height:1.5;color:var(--ink-2,var(--muted))}
+/* end evolution timeline */

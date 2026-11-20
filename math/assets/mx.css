@@ -26,3 +26,22 @@
 .wbar{display:flex;height:22px;border-radius:6px;overflow:hidden;margin-top:8px;font:600 11px/22px "JetBrains Mono",monospace;color:#fff}
 .wbar .wp{background:var(--muted);text-align:center;transition:width .3s;white-space:nowrap;overflow:hidden}
 .wbar .wd{background:var(--c4);text-align:center;transition:width .3s;white-space:nowrap;overflow:hidden}
+/* metrics page */
+.cm{display:grid;grid-template-columns:auto 1fr 1fr;gap:4px;margin-top:10px;max-width:440px}
+.cmh{font:600 11px/1.2 "JetBrains Mono",monospace;color:var(--muted);text-align:center;align-self:end;padding:2px}
+.cmh.r{text-align:right;align-self:center;padding-right:8px}
+.cmc{border-radius:8px;padding:10px 6px;text-align:center;font-family:"JetBrains Mono",monospace}
+.cmc b{display:block;font-size:22px}.cmc span{font-size:11px;color:var(--muted)}
+.cmc.tp{background:rgba(234,88,12,.22)}.cmc.tn{background:rgba(8,145,178,.2)}.cmc.fp{background:rgba(234,88,12,.08);outline:1px dashed var(--c4)}.cmc.fn{background:rgba(8,145,178,.07);outline:1px dashed var(--c3)}
+.ranklist{display:flex;flex-direction:column;gap:4px}
+.rk{display:grid;grid-template-columns:26px minmax(0,1fr) 30px auto auto;gap:6px;align-items:center;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);opacity:.55}
+.rk.in{opacity:1;border-color:var(--c1)}
+.rkn{font:600 12px "JetBrains Mono",monospace;color:var(--muted)}.rkt{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rkr{font:700 13px "JetBrains Mono",monospace;text-align:center;border-radius:6px;padding:2px 0;color:#fff}
+.rkr.r0{background:#94a3b8}.rkr.r1{background:#0891b2}.rkr.r2{background:#7c3aed}.rkr.r3{background:#16a34a}
+.rk .btn{padding:3px 9px;min-width:0}
+.txtin{flex:1;min-width:0;width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:500 14px "JetBrains Mono",monospace}
+.bview{margin:10px 0}.bwords{margin-bottom:8px;line-height:2}
+.bw{padding:2px 5px;border-radius:5px;background:var(--soft);font:500 13px "JetBrains Mono",monospace}.bw.hit{background:rgba(22,163,74,.25)}
+.bbar{display:grid;grid-template-columns:60px 1fr 52px;gap:8px;align-items:center;font:500 12px "JetBrains Mono",monospace;margin:3px 0}
+.bbar i{display:block;height:12px;border-radius:4px;background:var(--c1);min-width:2px}.bbar em{font-style:normal;color:var(--muted);text-align:right}

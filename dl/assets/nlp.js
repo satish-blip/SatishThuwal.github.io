@@ -3,7 +3,7 @@
 'use strict';
 const ML=window.ML, NLP=window.NLP={};
 NLP.GROUPS={
-  nn:{name:'Neural nets',pages:[['neural-networks','Neural nets & XOR'],['activations','Activations'],['optimisers','GD → Adam'],['residual','Residual connections'],['normalisation','Normalisation']]},
+  nn:{name:'Neural nets',pages:[['neural-networks','Neural nets & XOR'],['activations','Activations'],['optimisers','GD → Adam'],['residual','Residual connections'],['normalisation','Normalisation'],['compression','Compression']]},
   nlp:{name:'Sequences & language',pages:[['rnn','RNNs'],['memory','LSTM & GRU'],['tokenisation','Tokenisation'],['embeddings','Embeddings'],['attention','Attention'],['cross-attention','Cross-attention'],['self-attention','Self-attention'],['transformers','Transformers'],['rag','RAG'],['visual-tokenisation','Visual tokens'],['visualbert','VisualBERT'],['vilbert','ViLBERT'],['clip','CLIP']]},
   math:{name:'Maths',pages:[['probability','Probability & Bayes'],['inference','Inference & testing'],['mle','Maximum likelihood'],['bayesian','Bayesian estimation'],['vectors','Vectors & dot products'],['matrices','Matrices, rank & inverses'],['projections','Projections'],['decompositions','Eigen & decompositions'],['svd','SVD']]} };
 NLP.ORDER=['math','nn','nlp'];

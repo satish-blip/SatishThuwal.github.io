@@ -262,7 +262,7 @@ ML.renderMath = function(root){ if(!window.renderMathInElement) return; renderMa
 /* ---------------- site nav ---------------- */
 ML.PAGES = [
   ['linear-regression','Linear Regression'],['logistic-regression','Logistic'],['lda-gda','LDA / GDA'],['svm','SVM'],
-  ['decision-trees','Decision Trees'],['ensembles','Bagging & Boosting'],['pca','PCA'],['regularisation','L1 / L2'],['compare','Compare all'] ];
+  ['decision-trees','Decision Trees'],['ensembles','Bagging & Boosting'],['pca','PCA'],['regularisation','L1 / L2'],['compare','Compare all'],['metrics','Metrics'],['datasets','Datasets'] ];
 ML.nav = function(cur){ const n=document.getElementById('algnav'); if(!n) return; const base = cur==='hub' ? '' : '../';
   n.innerHTML = `<a href="${base}"${cur==='hub'?' class="on"':''}>All</a>` + ML.PAGES.map(([id,t])=>`<a href="${base}${id}/"${id===cur?' class="on" aria-current="page"':''}>${t}</a>`).join('');
   const on=n.querySelector('.on'); if(on) requestAnimationFrame(()=>{ n.scrollLeft = on.offsetLeft - n.clientWidth/2 + on.offsetWidth/2; }); };

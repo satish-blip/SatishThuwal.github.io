@@ -999,6 +999,213 @@ AA.def('metro', T => {
   return S;
 });
 AA.title(/Metropolis.Hastings sampling/i,'metro');
+/* ---------- evaluation, datasets and compression ---------- */
+const smT=(z,t=1)=>{ const m=Math.max(...z.map(v=>v/t)), e=z.map(v=>Math.exp(v/t-m)), s=e.reduce((a,b)=>a+b,0); return e.map(v=>v/s); };
+
+/* precision–recall curve and average precision */
+AA.def('prcurve', T => {
+  const S=[], add=F(S), n=12, P=5;
+  const ex=T.shuffle(T.range(n).map(i=>{ const c=i<P?1:0; return {c,s:T.clamp(c?T.u(.35,.97):T.u(.05,.8),.02,.98)}; }));
+  const ord=T.range(n).sort((a,b)=>ex[b].s-ex[a].s), pos=ord.map(i=>ex[i]);
+  const pts=[[0,1]], apAt=[0]; let tp=0,fp=0,ap=0;
+  pos.forEach(e=>{ if(e.c){ tp++; ap+=(1/P)*tp/(tp+fp); } else fp++; pts.push([tp/P,tp/(tp+fp)]); apAt.push(ap); });
+  const strip=(g,sorted,k)=>{ g.view(.04,.16,.5,.5,-.5,n-.5,0,1); g.frame();
+    g.ptxt(sorted?'sorted by score, highest first →':'test examples (dot height = score)',g.vp().x,g.vp().y-g.fs*.8,g.C.muted,{size:.75});
+    ex.forEach((e,i)=>{ const x=T.lerp(i,ord.indexOf(i),sorted); const done=k!=null&&ord.indexOf(i)<k; g.dot(x,e.s,6,kc(g,e.c),{ring:done?g.C.ink:null,lw:2.5}); });
+    if(k!=null&&k>0){ const tx=k-.5; g.seg(tx,0,tx,1,g.C.c1,2); g.txt('threshold',tx+.15,.04,g.C.c1,{size:.68}); } };
+  const pr=(g,k,fill)=>{ g.view(.64,.1,.32,.72,0,1,0,1.05); g.frame(); const q=pts.slice(1,k+1);
+    if(fill){ let x=0; pos.forEach((e,i)=>{ if(e.c){ const p=pts[i+1]; g.rect(x,0,p[0],p[1],g.C.c1,null,{a:.18*fill}); x=p[0]; } }); }
+    if(q.length) g.poly(q,g.C.c2,2.2); q.forEach((p,i)=>g.dot(p[0],p[1],pos[i].c?5:3.5,pos[i].c?g.C.c1:g.C.muted));
+    g.txt('recall',.98,-.07,g.C.muted,{align:'right',size:.72}); g.txt('precision',.02,1.1,g.C.muted,{size:.72});
+    g.ptxt(`TP = ${k?pos.slice(0,k).filter(e=>e.c).length:0}   FP = ${k?pos.slice(0,k).filter(e=>!e.c).length:0}   AP = ${T.f(apAt[k]||0,3)}`,g.W*.04,g.H*.85,g.C.ink,{mono:true,size:.85}); };
+  add(1,`${n} test examples with scores. Red = positive (${P} of them), blue = negative.`,1200,g=>{ strip(g,0); pr(g,0); });
+  add(2,'Sort by score, highest first.',1100,(g,p)=>{ strip(g,T.ease(p)); pr(g,0); });
+  add(3,'Start with nothing predicted positive: TP = FP = AP = 0.',800,g=>{ strip(g,1,0); pr(g,0); });
+  for(let k=1;k<=n;k++){ const e=pos[k-1];
+    add([4,5,6],e.c?`A positive: precision here is ${T.f(pts[k][1],2)}, so AP grows by ${T.f(pts[k][1]/P,3)}.`:'A negative: FP goes up and precision drops; AP is unchanged.',e.c?850:600,g=>{ strip(g,1,k); pr(g,k); }); }
+  add(7,`AP = ${T.f(ap,3)}: the shaded staircase, precision averaged at each positive.`,2000,(g,p)=>{ strip(g,1,n); pr(g,n,T.ease(p)); });
+  return S;
+});
+
+/* nDCG@k */
+AA.def('ndcg', T => {
+  const S=[], add=F(S), n=6, K=5, rel=T.shuffle([3,2,2,1,0,0]); if(rel[0]===3) [rel[0],rel[2]]=[rel[2],rel[0]];
+  const ideal=[...rel].sort((a,b)=>b-a), gain=r=>2**r-1, disc=i=>1/Math.log2(i+2);
+  const dcg=a=>a.slice(0,K).reduce((s,r,i)=>s+gain(r)*disc(i),0), D=dcg(rel), I=dcg(ideal);
+  const idx=T.range(n).map(i=>i), target=[]; { const used=new Set(); ideal.forEach((r,j)=>{ const i=rel.findIndex((v,t)=>v===r&&!used.has(t)); used.add(i); target[i]=j; }); }
+  const panel=(g,mv,upto,which)=>{ g.view(.05,.14,.6,.6,-.5,n-.5,0,9); g.frame();
+    g.ptxt('rank position →   bar = gain 2^rel − 1, dark part = after the log discount',g.vp().x,g.vp().y-g.fs*.8,g.C.muted,{size:.7});
+    for(let k=0;k<n;k++) g.txt(String(k+1),k,-.55,g.C.muted,{align:'center',size:.72,mono:true});
+    g.seg(K-.5,0,K-.5,9,g.C.line,1.5,[4,4]); g.txt('k = '+K,K-.5,8.6,g.C.muted,{align:'center',size:.7});
+    rel.forEach((r,i)=>{ const x=T.lerp(i,target[i],mv), pos=Math.round(x); const col=[g.C.muted,g.C.c3,g.C.c2,g.C.c1][r];
+      g.rect(x-.35,0,x+.35,gain(r),col,null,{a:.3}); if(upto!=null&&pos<upto&&pos<K) g.rect(x-.35,0,x+.35,gain(r)*disc(pos),col);
+      g.txt('rel '+r,x,gain(r)+.45,g.C.ink,{align:'center',size:.7,mono:true}); }); };
+  const sums=(g,a,b,c)=>{ const x=g.W*.7, y=g.H*.25, L=g.fs*1.6;
+    g.ptxt('DCG@'+K+' = '+(a==null?'…':T.f(a,2)),x,y,g.C.c2,{mono:true});
+    g.ptxt('IDCG@'+K+' = '+(b==null?'…':T.f(b,2)),x,y+L,g.C.c4,{mono:true});
+    g.ptxt('nDCG = '+(c==null?'…':T.f(c,3)),x,y+2*L,g.C.c1,{mono:true,bold:true});
+    g.ptxt('discount 1/log₂(i+1): 1, .63, .5, .43, .39',x,y+3.6*L,g.C.muted,{size:.68}); };
+  add(1,'The system returned 6 items; graders marked each 0 (useless) to 3 (perfect).',1300,g=>{ panel(g,0); sums(g); });
+  for(let k=1;k<=K;k++) add(2,`Position ${k}: add gain × 1/log₂(${k+1}). Lower positions count for less.`,650,g=>{ panel(g,0,k); sums(g,dcg(rel.slice(0,k).concat(Array(n).fill(0)))); });
+  add(3,'Sort the same grades best-first: the ideal ranking.',1400,(g,p)=>{ panel(g,T.ease(p)); sums(g,D); });
+  add(4,'Score the ideal ranking the same way.',1100,g=>{ panel(g,1,K); sums(g,D,I); });
+  add(5,`nDCG = DCG / IDCG = ${T.f(D/I,3)}. 1 would mean nothing could be reordered for the better.`,2000,g=>{ panel(g,1,K); sums(g,D,I,D/I); });
+  return S;
+});
+
+/* BLEU score */
+AA.def('bleu', T => {
+  const S=[], add=F(S);
+  const pairs=[['the cat sat on a mat','the cat sat on the mat'],['a cat was sitting on the mat','the cat sat on the mat'],['the cat sat on the red mat','the cat sat on the mat']];
+  const [cs,rs]=pairs[T.ri(pairs.length)], c=cs.split(' '), r=rs.split(' ');
+  const grams=(a,n)=>T.range(Math.max(0,a.length-n+1)).map(i=>a.slice(i,i+n).join(' '));
+  const match=n=>{ const rc={}; grams(r,n).forEach(x=>rc[x]=(rc[x]||0)+1); const used={}; return grams(c,n).map(x=>{ used[x]=(used[x]||0)+1; return used[x]<=(rc[x]||0); }); };
+  const pn=[1,2,3,4].map(n=>{ const m=match(n); return m.length?m.filter(Boolean).length/m.length:0; });
+  const BP=c.length>r.length?1:Math.exp(1-r.length/c.length), sm=pn.map(v=>Math.max(v,.01)), bleu=BP*Math.exp(T.mean(sm.map(Math.log)));
+  const words=(g,a,y,lab,hl)=>{ const w=g.W*.86/Math.max(c.length,r.length); g.ptxt(lab,g.W*.04,y-g.fs*1.4,g.C.muted,{size:.75});
+    a.forEach((t,i)=>{ const on=hl&&hl(i); g.prect(g.W*.04+i*w+2,y-g.fs,w-4,g.fs*2,on?g.C.c2:g.C.soft,null,{r:4,a:on?.85:1}); g.ptxt(t,g.W*.04+i*w+w/2,y,on?'#fff':g.C.ink,{align:'center',size:.85,mono:true}); }); };
+  const cov=(n,k)=>{ const m=match(n); return i=>m.some((ok,s)=>ok&&(k==null||s<=k)&&i>=s&&i<s+n); };
+  const bars=(g,upto,anim=1)=>{ g.view(.06,.62,.5,.3,.5,4.5,0,1); g.frame(); for(let n=1;n<=4;n++){ g.txt(n+'-gram',n,-.12,g.C.muted,{align:'center',size:.68});
+      if(n<=upto){ const v=pn[n-1]*(n===upto?anim:1); g.rect(n-.3,0,n+.3,v,g.C.c2); g.txt(T.f(pn[n-1],2),n,v+.1,g.C.ink,{align:'center',size:.7,mono:true}); } } };
+  const res=(g,o={})=>{ const x=g.W*.64,y=g.H*.7,L=g.fs*1.6; g.ptxt(`|c| = ${c.length}, |r| = ${r.length}`,x,y,g.C.muted,{mono:true,size:.8});
+    if(o.bp) g.ptxt(`BP = ${T.f(BP,3)}`,x,y+L,g.C.c4,{mono:true}); if(o.b) g.ptxt(`BLEU = ${T.f(bleu,3)}`,x,y+2*L,g.C.c1,{mono:true,bold:true}); };
+  const base=(g,hl)=>{ words(g,c,g.H*.16,'candidate c',hl); words(g,r,g.H*.4,'reference r'); };
+  add(1,`Candidate “${cs}” against reference “${rs}”.`,1300,g=>{ base(g); bars(g,0); res(g); });
+  for(let n=1;n<=4;n++){ const m=match(n);
+    add(2,`n = ${n}: slide a window of ${n} word${n>1?'s':''} over the candidate.`,700,g=>{ base(g); bars(g,n-1); res(g); });
+    add(3,`${m.filter(Boolean).length} of ${m.length} ${n}-grams also appear in the reference (each counted at most as often as there): p${n} = ${T.f(pn[n-1],2)}.`,1300,(g,p)=>{ base(g,cov(n,Math.floor(p*m.length))); bars(g,n,T.ease(p)); res(g); }); }
+  add(4,BP<1?'The candidate is shorter than the reference, so a brevity penalty applies.':'The candidate is not shorter than the reference, so BP = 1.',1200,g=>{ base(g); bars(g,4); res(g,{bp:1}); });
+  add(5,`BLEU = BP × geometric mean of p1..p4 = ${T.f(bleu,3)}${pn.some(v=>!v)?' (a zero p is floored at 0.01 here; real BLEU would give 0)':''}.`,2200,g=>{ base(g); bars(g,4); res(g,{bp:1,b:1}); });
+  return S;
+});
+
+/* stratified train/validation/test split */
+AA.def('strat', T => {
+  const S=[], add=F(S), N0=16, N1=4, ST=[.7,2.8], G=T.range(N0+N1).map(i=>({c:i<N0?0:1}));
+  const rnd=T.shuffle(T.range(G.length)); G.forEach((q,i)=>{ const s=rnd[i]; q.a=[(s%7)*1.6+.7,4.3-Math.floor(s/7)*1.1]; });
+  const per=[0,1].map(c=>G.filter(q=>q.c===c)); per.forEach((L,c)=>{ const sh=T.shuffle(T.range(L.length)); L.forEach((q,j)=>q.s=[sh[j]*ST[c]+.6,c?1.2:2.6]); });
+  const cut=n=>{ const a=Math.round(n*.5), b=Math.round(n*.75); return k=>k<a?0:k<b?1:2; };
+  const boxes=[[.2,5.7],[6,8.8],[9.1,11.5]], cnt=[[0,0],[0,0],[0,0]];
+  per.forEach((L,c)=>{ const f=cut(L.length); [...L].sort((p,q)=>p.s[0]-q.s[0]).forEach((q,k)=>{ q.sp=f(k); cnt[q.sp][c]++; const [x0,x1]=boxes[q.sp], pr=Math.max(1,Math.floor((x1-x0-.2)/.7));
+    const idx=cnt[q.sp][0]+cnt[q.sp][1]-1; q.d=[x0+.45+(idx%pr)*.7,2.6-Math.floor(idx/pr)*.75]; }); });
+  const draw=(g,key,from,p,o={})=>{ g.view(.03,.08,.94,.8,0,11.6,0,5);
+    G.forEach(q=>{ const A=q[from]||q[key], B=q[key], x=T.lerp(A[0],B[0],p), y=T.lerp(A[1],B[1],p), col=kc(g,q.c);
+      g.seg(x-.14,y,x+.14,y,col,3); g.dot(x-.14,y,4,col); g.dot(x+.14,y,4,col); });
+    if(o.rows){ g.txt('class 0',.2,3.2,g.C.muted,{size:.75}); g.txt('class 1',.2,1.8,g.C.muted,{size:.75}); }
+    if(o.cuts) [[N0,2.6],[N1,1.2]].forEach(([n,y],c)=>[.5,.75].forEach(f=>{ const x=.6+(Math.round(n*f)-.5)*ST[c]; g.seg(x,y-.45,x,y+.45,g.C.c1,2.2); }));
+    if(o.boxes) ['train','validation','test'].forEach((t,i)=>{ const [a,b]=boxes[i]; g.rect(a,.9,b,3.1,null,g.C.line,{r:8}); const n0=cnt[i][0],n1=cnt[i][1];
+      g.txt(t,(a+b)/2,3.45,g.C.ink,{align:'center',size:.8,semi:true}); g.txt(`${n0+n1} groups, ${Math.round(100*n1/(n0+n1))}% red`,(a+b)/2,.45,g.C.muted,{align:'center',size:.7,mono:true}); }); };
+  add(1,`${N0+N1} groups of two examples (say two scans per patient), 20% of them class 1. Split 50 / 25 / 25.`,1400,g=>draw(g,'a',null,1));
+  add(2,'Each pair stays together, so one patient never lands on both sides.',1000,g=>draw(g,'a',null,1));
+  add([3,4],'Split by class, and shuffle each class with the seed.',1500,(g,p)=>draw(g,'s','a',T.ease(p),{rows:1}));
+  add(5,'Cut each class at 50% and 75%.',1200,g=>draw(g,'s',null,1,{rows:1,cuts:1}));
+  add(6,'Combine the pieces: every split now has the same 20% class 1.',1700,(g,p)=>draw(g,'d','s',T.ease(p),{boxes:1}));
+  add(7,'Return the sets, and do not look at test until the very end.',1600,g=>draw(g,'d',null,1,{boxes:1}));
+  return S;
+});
+
+/* checking for train–test overlap */
+AA.def('leak', T => {
+  const S=[], add=F(S), hx=()=>T.ri(4096).toString(16).padStart(3,'0');
+  const train=T.range(3).map(()=>T.range(6).map(hx)), H=[], pool=train.flat();
+  const test=T.range(4).map(i=>T.range(6).map(j=>(i===1&&j<5)||(i===3&&j%2===0)?pool[T.ri(pool.length)]:hx()));
+  const ov=test.map(d=>d.filter(h=>pool.includes(h)).length/d.length), thr=.4;
+  const docs=(g,list,x,y,lab,hit,upto)=>{ const bw=g.W*.052, bh=g.fs*1.7; g.ptxt(lab,x,y-bh*.9,g.C.muted,{size:.72});
+    list.forEach((d,i)=>{ if(upto!=null&&i>=upto) return; d.forEach((h,j)=>{ const on=hit&&hit(i,j); g.prect(x+j*bw,y+i*bh*1.2,bw-3,bh,on?g.C.c1:g.C.soft,null,{r:3,a:on?.85:1}); g.ptxt(h,x+j*bw+bw/2-1.5,y+i*bh*1.2+bh/2,on?'#fff':g.C.ink,{align:'center',size:.62,mono:true}); }); }); };
+  const hset=(g,k)=>{ const x=g.W*.36,y=g.H*.12; g.ptxt(`hash set H (${k} entries)`,x,y,g.C.muted,{size:.72}); for(let i=0;i<k;i++){ g.ptxt(pool[i],x+(i%6)*g.W*.045,y+g.fs*1.4+Math.floor(i/6)*g.fs*1.3,g.C.c3,{size:.62,mono:true}); } };
+  const ovl=(g,upto)=>{ test.forEach((d,i)=>{ if(i>=upto) return; const y=g.H*.58+i*g.fs*2.04+g.fs*.85, x=g.W*.6, w=g.W*.2; g.prect(x,y-g.fs*.45,w,g.fs*.9,g.C.soft,null,{r:3}); g.prect(x,y-g.fs*.45,w*ov[i],g.fs*.9,ov[i]>thr?g.C.c1:g.C.c3,null,{r:3});
+      g.ptxt(`${Math.round(ov[i]*100)}%${ov[i]>thr?'  flagged':''}`,x+w+6,y,ov[i]>thr?g.C.c1:g.C.muted,{size:.7,mono:true}); }); const x=g.W*.6+g.W*.2*thr; if(upto) g.pseg(x,g.H*.55,x,g.H*.58+test.length*g.fs*2.04,g.C.ink,1.5,[3,3]); };
+  const base=(g,k,hit,up,ovu)=>{ docs(g,train,g.W*.03,g.H*.14,'training docs: hashes of 13-word n-grams'); hset(g,k); docs(g,test,g.W*.03,g.H*.6,'test docs',hit,up); ovl(g,ovu||0); };
+  add(1,'Three training documents and four test documents, each cut into n-grams.',1300,g=>base(g,0,null,0));
+  for(let i=1;i<=3;i++) add(2,`Training doc ${i}: put the hash of each n-gram into the set H.`,700,(g,p)=>base(g,Math.round(T.lerp((i-1)*6,i*6,p)),null,0));
+  test.forEach((d,i)=>add([3,4,5],`Test doc ${i+1}: ${Math.round(ov[i]*100)}% of its n-grams are in H${ov[i]>thr?' → flagged as contaminated':''}.`,1000,g=>base(g,18,(a,j)=>a<=i&&pool.includes(test[a][j]),i+1,i+1)));
+  const clean=T.u(.66,.74), dirty=T.u(.9,.97);
+  add(6,'Report accuracy on clean and flagged test docs separately. A large gap means the model memorised.',2200,(g,p)=>{ base(g,18,(a,j)=>pool.includes(test[a][j]),4,4);
+    g.view(.36,.4,.24,.12,0,1,0,1); g.prect(g.vp().x,g.vp().y,g.vp().w*clean*p,g.fs*.9,g.C.c3,null,{r:3}); g.prect(g.vp().x,g.vp().y+g.fs*1.4,g.vp().w*dirty*p,g.fs*.9,g.C.c1,null,{r:3});
+    g.ptxt(`clean ${Math.round(clean*100)}%`,g.vp().x,g.vp().y-g.fs*.6,g.C.ink,{size:.7,mono:true}); g.ptxt(`flagged ${Math.round(dirty*100)}%`,g.vp().x+g.vp().w*.55,g.vp().y-g.fs*.6,g.C.c1,{size:.7,mono:true}); });
+  return S;
+});
+
+/* symmetric k-bit quantisation */
+AA.def('quant', T => {
+  const S=[], add=F(S), n=16, g8=8, b=3, Q=2**(b-1)-1;
+  const w=T.range(n).map(()=>T.g()*.35); w[T.ri(8)]=T.u(1.2,1.5)*(T.r()<.5?-1:1);
+  const grp=[0,1].map(k=>w.slice(k*g8,k*g8+g8)), s=grp.map(a=>Math.max(...a.map(Math.abs))/Q);
+  const q=w.map((v,i)=>T.clamp(Math.round(v/s[Math.floor(i/g8)]),-Q,Q)), wh=q.map((v,i)=>v*s[Math.floor(i/g8)]);
+  const err=wh.map((v,i)=>Math.abs(v-w[i]));
+  const plot=(g,o={})=>{ g.view(.05,.1,.9,.58,-.5,n-.5,-1.6,1.6); g.frame(); g.seg(-.5,0,n-.5,0,g.C.line,1);
+    g.seg(g8-.5,-1.6,g8-.5,1.6,g.C.ink,1.5,[4,3]); ['group 1','group 2'].forEach((t,k)=>g.txt(t,k*g8+g8/2-.5,1.48,g.C.muted,{align:'center',size:.72}));
+    if(o.grid) [0,1].forEach(k=>{ if(o.grid<k+1) return; for(let j=-Q;j<=Q;j++) g.seg(k*g8-.45,j*s[k],k*g8+g8-.55,j*s[k],g.C.c4,1,[2,3],.7); g.txt(`s = ${T.f(s[k],3)}`,k*g8+g8-.6,-1.45,g.C.c4,{align:'right',size:.7,mono:true}); });
+    w.forEach((v,i)=>{ const k=Math.floor(i/g8); const sn=(o.sn||[0,0])[k], y=T.lerp(v,wh[i],sn);
+      if(o.ghost&&sn) g.dot(i,v,3,g.C.muted,{a:.5}); g.seg(i,0,i,y,g.C.c2,4); g.dot(i,y,4.5,sn?g.C.c1:g.C.c2);
+      if(o.ints&&sn>.9) g.txt(String(q[i]),i,y+(y>=0?.18:-.18),g.C.ink,{align:'center',size:.66,mono:true}); }); };
+  const foot=(g,t,c)=>g.ptxt(t,g.W*.05,g.H*.82,c||g.C.ink,{mono:true,size:.82});
+  add(1,`${n} weights, ${b}-bit integers (−${Q}…${Q}), groups of ${g8}. One weight is an outlier.`,1400,g=>{ plot(g); foot(g,`32-bit floats: ${n*32} bits`); });
+  add([2,3],`Group 1: its largest |w| sets the scale, s = ${T.f(s[0],3)}.`,1300,g=>{ plot(g,{grid:1}); foot(g,'scale = max|w| / (2^(b−1) − 1)'); });
+  add(4,'Round each weight to the nearest level and clip.',1300,(g,p)=>{ plot(g,{grid:1,sn:[T.ease(p),0],ghost:1,ints:1}); foot(g,'q = clip(round(w / s))'); });
+  add([2,3],`Group 2 has no outlier, so its scale is finer: s = ${T.f(s[1],3)}.`,1300,g=>{ plot(g,{grid:2,sn:[1,0],ghost:1,ints:1}); foot(g,'smaller groups = finer grids'); });
+  add(4,'Round group 2.',1200,(g,p)=>{ plot(g,{grid:2,sn:[1,T.ease(p)],ghost:1,ints:1}); foot(g,'q = clip(round(w / s))'); });
+  add(5,`Store ${n} small integers and 2 scales.`,1300,g=>{ plot(g,{grid:2,sn:[1,1],ints:1}); foot(g,`${n}×${b} + 2×16 = ${n*b+32} bits instead of ${n*32}`,g.C.c1); });
+  add(6,'At inference ŵ = s·q. Grey dots are the originals: the error is at most s/2.',1600,g=>{ plot(g,{grid:2,sn:[1,1],ghost:1}); foot(g,`mean |error|  group 1: ${T.f(T.mean(err.slice(0,8)),3)}   group 2: ${T.f(T.mean(err.slice(8)),3)}`); });
+  add(7,'Return q and s. The outlier stretched group 1’s grid, so its small weights lost more.',1800,g=>{ plot(g,{grid:2,sn:[1,1],ints:1}); foot(g,`memory ≈ ${T.f((n*b+32)/(n*32)*100,0)}% of the float version`,g.C.c1); });
+  return S;
+});
+
+/* iterative magnitude pruning */
+AA.def('prune', T => {
+  const S=[], add=F(S), L=[3,5,5,2], E=[]; for(let l=0;l<3;l++) for(let i=0;i<L[l];i++) for(let j=0;j<L[l+1];j++) E.push({l,i,j,w:T.g()*(T.r()<.2?1.6:.6)});
+  const steps=3, Sp=.75, acc=[.95];
+  const states=[E.map(e=>({w:e.w,m:1}))];
+  for(let t=1;t<=steps;t++){ const prev=states[states.length-1], target=Math.round(E.length*Sp*t/steps);
+    const tau=prev.map(e=>e.m?Math.abs(e.w):0).sort((a,b)=>a-b)[target-1];
+    const pr=prev.map(e=>({w:e.w,m:e.m&&Math.abs(e.w)>tau?1:0,tau})); states.push(pr);
+    const ft=pr.map(e=>({w:e.m?e.w*(1+T.u(-.15,.25)):0,m:e.m})); states.push(ft);
+    acc.push(.95-.04*t-.03*t*t*.5, .95-.006*t*t); }
+  const net=(g,st,o={})=>{ const X=l=>g.W*(.08+l*.16), Y=(l,i)=>g.H*(.5+(i-(L[l]-1)/2)*.15);
+    E.forEach((e,k)=>{ const s=st[k]; if(!s.m&&!o.fade) return; const a=s.m?1:(1-o.fade); if(a<=0) return; const w=Math.min(5,.5+Math.abs(s.w)*2.4);
+      g.ctx.save(); g.ctx.globalAlpha=a*(s.m?.9:.35); g.pseg(X(e.l),Y(e.l,e.i),X(e.l+1),Y(e.l+1,e.j),s.m?(s.w>0?g.C.c1:g.C.c3):g.C.muted,w); g.ctx.restore(); });
+    L.forEach((m,l)=>{ for(let i=0;i<m;i++){ g.ctx.beginPath(); g.ctx.arc(X(l),Y(l,i),g.fs*.55,0,7); g.ctx.fillStyle=g.C.card; g.ctx.fill(); g.ctx.strokeStyle=g.C.ink; g.ctx.lineWidth=1.5; g.ctx.stroke(); } });
+    const live=st.filter(e=>e.m).length; g.ptxt(`${live} of ${E.length} weights kept (${Math.round(100*(1-live/E.length))}% sparse)`,g.W*.05,g.H*.1,g.C.ink,{mono:true,size:.8});
+    if(o.tau!=null) g.ptxt(`τ = ${T.f(o.tau,2)}: remove every |w| below it`,g.W*.05,g.H*.1+g.fs*1.5,g.C.c4,{mono:true,size:.75}); };
+  const chart=(g,k)=>{ g.view(.64,.16,.32,.62,0,acc.length-1,.6,1); g.frame(); g.ptxt('accuracy',g.vp().x,g.vp().y-g.fs*.8,g.C.muted,{size:.72});
+    const pts=acc.slice(0,k+1).map((a,i)=>[i,a]); g.poly(pts,g.C.c2,2.2); pts.forEach((p,i)=>g.dot(p[0],p[1],4,i%2?g.C.c4:g.C.c2));
+    for(let t=1;t<=steps;t++) g.txt('step '+t,2*t-.5,.62,g.C.muted,{align:'center',size:.62}); };
+  add(1,`A trained network: ${E.length} weights. Line width = |w|.`,1300,g=>{ net(g,states[0]); chart(g,0); });
+  add(2,'Start with every weight unmasked.',800,g=>{ net(g,states[0]); chart(g,0); });
+  for(let t=1;t<=steps;t++){ const pr=states[2*t-1], ft=states[2*t], tau=pr[0].tau;
+    add([3,4],`Step ${t}: target ${Math.round(Sp*t/steps*100)}% sparsity, so τ is that quantile of |w|.`,900,g=>{ net(g,states[2*t-2],{tau}); chart(g,2*t-2); });
+    add(5,'Mask out the small weights: accuracy dips.',1200,(g,p)=>{ net(g,pr,{fade:T.ease(p),tau}); chart(g,2*t-1); });
+    add(6,'Fine-tune the survivors; the pruned ones stay at zero. Accuracy recovers.',1200,g=>{ net(g,ft); chart(g,2*t); }); }
+  add(7,`Return a network with ${Math.round(Sp*100)}% of weights removed and almost the same accuracy.`,1800,g=>{ net(g,states[2*steps]); chart(g,acc.length-1); });
+  return S;
+});
+
+/* knowledge distillation training step */
+AA.def('distil', T => {
+  const S=[], add=F(S), cls=['cat','dog','fox','car','bus'], Tm=4, alpha=.3, y=0;
+  const zt=[6,4.2,3.4,-1,-1.6], zs0=T.range(5).map(()=>T.g()*.8);
+  const lr=1.2, traj=[zs0.slice()]; for(let k=0;k<5;k++){ const z=traj[traj.length-1], ps=smT(z,Tm), pt=smT(zt,Tm), ph=smT(z);
+    traj.push(z.map((v,i)=>v-lr*((1-alpha)*Tm*(ps[i]-pt[i])+alpha*(ph[i]-(i===y?1:0))))); }
+  const kl=(p,q)=>p.reduce((s,v,i)=>s+v*Math.log(v/Math.max(q[i],1e-9)),0);
+  const bars=(g,fx,lab,pr,col,o={})=>{ g.view(fx,.18,.27,.5,-.5,4.5,0,1); g.frame(); g.ptxt(lab,g.vp().x,g.vp().y-g.fs*.8,g.C.muted,{size:.72});
+    pr.forEach((v,i)=>{ g.rect(i-.32,0,i+.32,v,col,null,{a:.85}); if(o.ref) g.seg(i-.38,o.ref[i],i+.38,o.ref[i],g.C.c1,2); g.txt(cls[i],i,-.08,g.C.muted,{align:'center',size:.66}); }); };
+  const loss=(g,z,o={})=>{ const ps=smT(z,Tm), pt=smT(zt,Tm), soft=Tm*Tm*kl(pt,ps), hard=-Math.log(smT(z)[y]); const x=g.W*.05,yy=g.H*.83;
+    let t=''; if(o.s) t+=`L_soft = T²·KL = ${T.f(soft,3)}    `; if(o.h) t+=`L_hard = CE = ${T.f(hard,3)}    `; if(o.tot) t+=`total = ${T.f(alpha*hard+(1-alpha)*soft,3)}`; g.ptxt(t,x,yy,g.C.ink,{mono:true,size:.78}); };
+  const pt1=smT(zt), ptT=smT(zt,Tm);
+  add(1,`An image of a cat. The label says only “cat”. Temperature T = ${Tm}, α = ${alpha}.`,1300,g=>{ g.ptxt('hard label y = cat',g.W*.05,g.H*.3,g.C.ink,{size:.95}); bars(g,.36,'one-hot label',[1,0,0,0,0],g.C.muted); });
+  add(2,'The teacher at T = 1 is nearly certain…',1100,g=>bars(g,.05,'teacher, T = 1',pt1,g.C.c2));
+  add(2,`…but at T = ${Tm} its softer probabilities show that a cat looks more like a dog or fox than a bus.`,1600,(g,p)=>{ bars(g,.05,'teacher, T = 1',pt1,g.C.c2); bars(g,.38,`teacher, T = ${Tm}`,pt1.map((v,i)=>T.lerp(v,ptT[i],T.ease(p))),g.C.c4); });
+  add(3,'The untrained student’s logits give a different, flat-ish guess.',1200,g=>{ bars(g,.05,`teacher, T = ${Tm}`,ptT,g.C.c4); bars(g,.38,`student, T = ${Tm}`,smT(traj[0],Tm),g.C.c3,{ref:ptT}); });
+  add(4,'Soft loss: how far the student’s softened distribution is from the teacher’s (red ticks).',1300,g=>{ bars(g,.05,`teacher, T = ${Tm}`,ptT,g.C.c4); bars(g,.38,`student, T = ${Tm}`,smT(traj[0],Tm),g.C.c3,{ref:ptT}); loss(g,traj[0],{s:1}); });
+  add(5,'Hard loss: ordinary cross-entropy with the true label, at T = 1.',1200,g=>{ bars(g,.05,`teacher, T = ${Tm}`,ptT,g.C.c4); bars(g,.38,`student, T = ${Tm}`,smT(traj[0],Tm),g.C.c3,{ref:ptT}); bars(g,.7,'student, T = 1',smT(traj[0]),g.C.c3); loss(g,traj[0],{s:1,h:1}); });
+  for(let k=1;k<traj.length;k++) add(6,`Update ${k}: a gradient step on α·L_hard + (1−α)·L_soft pulls the student toward the teacher.`,800,(g,p)=>{ const z=traj[k-1].map((v,i)=>T.lerp(v,traj[k][i],T.ease(p)));
+    bars(g,.05,`teacher, T = ${Tm}`,ptT,g.C.c4); bars(g,.38,`student, T = ${Tm}`,smT(z,Tm),g.C.c3,{ref:ptT}); bars(g,.7,'student, T = 1',smT(z),g.C.c3); loss(g,z,{s:1,h:1,tot:1}); });
+  return S;
+});
+
+[[/precision.recall curve and average precision/i,'prcurve'],[/nDCG@k/i,'ndcg'],[/BLEU score/i,'bleu'],[/stratified train\/validation\/test split/i,'strat'],
+ [/checking for train.test overlap/i,'leak'],[/symmetric k-bit quantisation/i,'quant'],[/iterative magnitude pruning/i,'prune'],[/knowledge distillation training step/i,'distil']
+].forEach(([re,k])=>AA.title(re,k));
 /* ================= DEEP LEARNING ANIMATIONS ================= */
 /* draw a small fully connected net. L = sizes, W[l] = matrix (L[l+1] x L[l]); o.act[l][i] values in [-1,1]; o.pulse = {l, p, back} */
 function drawNet(g, L, W, o={}){
