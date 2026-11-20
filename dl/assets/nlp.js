@@ -4,7 +4,7 @@
 const ML=window.ML, NLP=window.NLP={};
 NLP.GROUPS={
   nn:{name:'Neural nets',pages:[['neural-networks','Neural nets & XOR'],['activations','Activations'],['optimisers','GD → Adam'],['residual','Residual connections'],['normalisation','Normalisation']]},
-  nlp:{name:'NLP',pages:[['tokenisation','Tokenisation'],['embeddings','Embeddings'],['rnn','RNNs'],['memory','LSTM & GRU'],['attention','Attention'],['cross-attention','Cross-attention'],['self-attention','Self-attention'],['transformers','Transformers'],['rag','RAG']]},
+  nlp:{name:'NLP',pages:[['tokenisation','Tokenisation'],['embeddings','Embeddings'],['rnn','RNNs'],['memory','LSTM & GRU'],['attention','Attention'],['cross-attention','Cross-attention'],['self-attention','Self-attention'],['transformers','Transformers'],['visual-tokenisation','Visual tokens'],['visualbert','VisualBERT'],['rag','RAG']]},
   math:{name:'Maths',pages:[['vectors','Vectors & dot products'],['matrices','Matrices, rank & inverses'],['projections','Projections'],['decompositions','Eigen & decompositions'],['svd','SVD'],['probability','Probability & Bayes'],['inference','Inference & testing']]} };
 NLP.ORDER=['nn','nlp','math'];
 NLP.nav=function(group,cur){ const n=document.getElementById('algnav'); if(!n) return; const G=NLP.GROUPS[group], other=NLP.ORDER[(NLP.ORDER.indexOf(group)+1)%NLP.ORDER.length], base=cur==='hub'?'':'../';

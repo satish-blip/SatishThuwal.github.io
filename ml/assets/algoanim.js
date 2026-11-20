@@ -1390,6 +1390,107 @@ AA.def('rag', T => {
   return S;
 });
 AA.title(/^\s*Algorithm: retrieval-augmented generation/i,'rag');
+/* ================= MULTIMODAL ANIMATIONS (pages load dl/assets/vis.js) ================= */
+const sceneKey=()=>pick(['park','kitchen','street']);
+const imgOf=(k,n)=>window.VIS?VIS.canvas(k,n):null;
+const drawScene=(g,k,x,y,s,a)=>{ const c=imgOf(k,192); if(!c){ g.prect(x,y,s,s,g.C.soft); return; } g.ctx.save(); if(a!=null) g.ctx.globalAlpha*=a; g.ctx.imageSmoothingEnabled=false; g.ctx.drawImage(c,x,y,s,s); g.ctx.restore(); };
+const drawPatchTile=(g,k,P,r,c,x,y,s,a)=>{ const im=imgOf(k,192); if(!im) return; g.ctx.save(); if(a!=null) g.ctx.globalAlpha*=a; g.ctx.imageSmoothingEnabled=false; g.ctx.drawImage(im,c*P,r*P,P,P,x,y,s,s); g.ctx.restore(); };
+const patchFeat=(k,P)=>window.VIS?VIS.patches(k,192,P):[];
+
+/* ---------- ViT patch tokenisation ---------- */
+AA.def('patchify', T => {
+  const S=[], add=F(S); const k=sceneKey(), P=48, g4=192/P, Np=g4*g4; const ps=patchFeat(k,P), E=ps.map(p=>window.VIS?VIS.embed(p).slice(0,6):T.range(6).map(()=>T.g()*.3)), POS=T.range(Np).map(i=>window.VIS?VIS.pos2d(Math.floor(i/g4),i%g4,g4,8).slice(0,6):T.range(6).map(()=>0));
+  const draw=(g,o)=>{ const W=g.W,H=g.H, s=Math.min(.42*W,.62*H), ix=.03*W, iy=.1*H, cs=s/g4;
+    drawScene(g,k,ix,iy,s,o.dim?.35:1); g.ptxt('image '+192+' × 192, P = '+P,ix,iy-g.fs*.7,g.C.muted,{size:.66});
+    if(o.grid){ g.ctx.save(); g.ctx.strokeStyle='rgba(255,255,255,.9)'; g.ctx.lineWidth=1.5; g.ctx.beginPath(); for(let q=1;q<g4;q++){ g.ctx.moveTo(ix+q*cs,iy); g.ctx.lineTo(ix+q*cs,iy+s); g.ctx.moveTo(ix,iy+q*cs); g.ctx.lineTo(ix+s,iy+q*cs); } g.ctx.stroke(); g.ctx.restore(); }
+    /* sequence row */
+    const n=Np+1, tw=Math.min((.94*W)/n,.06*H*1.6), sx=.03*W, sy=.84*H;
+    for(let i=0;i<(o.seq||0)+(o.cls?1:0);i++){ const isC=o.cls&&i===0, j=o.cls?i-1:i, x=sx+i*tw*1.05;
+      if(isC){ g.prect(x,sy,tw,tw,g.C.c3,null,{r:3}); g.ptxt('CLS',x+tw/2,sy+tw/2,g.C.card,{align:'center',size:.5,bold:true}); continue; }
+      const r=Math.floor(j/g4), c=j%g4; if(o.tok&&j<o.tok){ vecSq(g,E[j].map((v,q)=>v+POS[j][q]),x,sy,tw/6,{vert:false}); g.prect(x,sy+tw/6+2,tw,tw*.5,g.C.c1,null,{r:2,a:.25}); } else drawPatchTile(g,k,P,r,c,x,sy,tw);
+      if(o.cur===j) g.prect(x-1,sy-1,tw+2,tw+2,null,g.C.c2,{lw:2.5}); }
+    if(o.seq) g.ptxt(o.tok?'tokens to the transformer':'patches in raster order',sx,sy-g.fs*.7,g.C.muted,{size:.66});
+    if(o.cur!=null){ const j=o.cur, r=Math.floor(j/g4), c=j%g4; g.prect(ix+c*cs,iy+r*cs,cs,cs,null,g.C.c2,{lw:3});
+      const bx=.5*W, by=.12*H; drawPatchTile(g,k,P,r,c,bx,by,.09*W); g.ptxt('patch '+(j+1),bx+.045*W,by-g.fs*.6,g.C.ink,{align:'center',size:.66,bold:true});
+      if(o.st>=1){ const px=window.VIS?VIS.pixels(k,192):null, L=24, w=(.44*W)/L; for(let q=0;q<L;q++){ const yy=r*P+Math.floor(q/4)*8+4, xx=c*P+(q%4)*12+6; let col=g.C.soft; if(px){ const i=(yy*192+xx)*3; col='rgb('+[0,1,2].map(t=>Math.round(px[i+t]*255)).join(',')+')'; } g.prect(bx+q*w,.33*H,w-1,.05*H,col); }
+        g.ptxt('x_p: '+(P*P*3)+' numbers (24 shown)',bx,.31*H-g.fs*.4,g.C.muted,{size:.6,mono:true}); }
+      if(o.st>=2){ g.ptxt('E x_p',bx,.47*H,g.C.c1,{size:.66,mono:true,bold:true}); vecSq(g,E[j],bx+.1*W,.45*H,.035*W); }
+      if(o.st>=3){ g.ptxt('+ pos',bx,.56*H,g.C.c3,{size:.66,mono:true,bold:true}); vecSq(g,POS[j],bx+.1*W,.54*H,.035*W);
+        g.ptxt('= token',bx,.65*H,g.C.ink,{size:.66,mono:true,bold:true}); vecSq(g,E[j].map((v,q)=>v+POS[j][q]),bx+.1*W,.63*H,.035*W); } }
+    if(o.tf){ g.prect(.55*W,.22*H,.38*W,.4*H,g.C.c1,g.C.c1,{r:8,a:.15}); g.ptxt('transformer × L',.74*W,.42*H,g.C.ink,{align:'center',size:.85,bold:true}); g.parrow(.74*W,.8*H,.74*W,.64*H,g.C.c1,2.5); } };
+  add(1,`An image, a patch size P = ${P} and a learned projection E.`,1300,g=>draw(g,{}));
+  add(2,`Cut it into ${g4} × ${g4} = ${Np} patches and read them row by row.`,1600,(g,p)=>draw(g,{grid:true,seq:Math.round(p*Np)}));
+  for(let j=0;j<Np;j++){ const f=j>1, cap=j===0;
+    if(j<2){ add(3,`Patch ${j+1}.`,cap?600:350,g=>draw(g,{grid:true,seq:Np,tok:j,cur:j,st:0}));
+      add(4,'Flatten its pixels into one long vector.',cap?900:450,g=>draw(g,{grid:true,seq:Np,tok:j,cur:j,st:1}));
+      add(5,'Multiply by the shared matrix E: the patch embedding.',cap?900:450,g=>draw(g,{grid:true,seq:Np,tok:j,cur:j,st:2}));
+      add(6,'Add the position embedding for this grid cell.',cap?900:450,g=>draw(g,{grid:true,seq:Np,tok:j+1,cur:j,st:3})); }
+    else add([3,4,5,6],`Patch ${j+1}: same steps, same E (sped up).`,170,g=>draw(g,{grid:true,seq:Np,tok:j+1,cur:j,st:3})); }
+  add(7,'Put the learned [CLS] token at the front.',1000,g=>draw(g,{grid:true,seq:Np,tok:Np,cls:true}));
+  add(8,`${Np+1} tokens go into an ordinary transformer, exactly like words.`,2400,g=>draw(g,{grid:true,seq:Np,tok:Np,cls:true,tf:true}));
+  return S;
+});
+AA.title(/ViT patch tokenisation/i,'patchify');
+
+/* ---------- vector quantisation ---------- */
+AA.def('vq', T => {
+  const S=[], add=F(S); const k=sceneKey(), P=24, gN=192/P, ps=patchFeat(k,P); const X=ps.map(p=>p.mean); const K=4;
+  const xy=m=>[m[0]-m[2], m[1]-(m[0]+m[2])/2];
+  let C=T.shuffle(T.range(X.length)).slice(0,K).map(i=>[...X[i]]); const hist=[];
+  for(let it=0;it<4;it++){ const A=X.map(x=>{ let b=0,bd=1e9; C.forEach((c,q)=>{ const d=x.reduce((s,v,t)=>s+(v-c[t])**2,0); if(d<bd){bd=d;b=q;} }); return b; });
+    const Cn=C.map((c,q)=>{ const m=X.filter((_,i)=>A[i]===q); return m.length?c.map((_,t)=>m.reduce((s,x)=>s+x[t],0)/m.length):c; }); hist.push({C:C.map(c=>[...c]),A,Cn}); C=Cn; }
+  const fin=hist[hist.length-1]; const hex=m=>'rgb('+m.map(v=>Math.round(T.clamp(v,0,1)*255)).join(',')+')';
+  const draw=(g,o)=>{ const W=g.W,H=g.H, s=Math.min(.36*W,.6*H), ix=.03*W, iy=.12*H, cs=s/gN;
+    drawScene(g,k,ix,iy,s); g.ptxt('image → '+(gN*gN)+' patches',ix,iy-g.fs*.7,g.C.muted,{size:.66});
+    if(o.paint) o.paint.forEach((col,i)=>g.prect(ix+(i%gN)*cs,iy+Math.floor(i/gN)*cs,cs+.5,cs+.5,col));
+    if(o.ids) o.ids.forEach((id,i)=>g.ptxt(String(id),ix+(i%gN)*cs+cs/2,iy+Math.floor(i/gN)*cs+cs/2,'rgba(0,0,0,.6)',{align:'center',size:.62,mono:true,bold:true}));
+    g.view(.45,.12,.52,.6,-.7,.7,-.5,.6); g.frame(); g.ptxt('patch colours (2-D view)',g.vp().x,g.vp().y-g.fs*.7,g.C.muted,{size:.66});
+    const h=o.h; X.forEach((x,i)=>{ const p=xy(x); if(h&&o.lines){ const c=xy(h.C[h.A[i]]); g.seg(p[0],p[1],c[0],c[1],g.C.line,1); } g.dot(p[0],p[1],3.5,hex(x)); });
+    if(h){ const Cs=o.upd?h.C.map((c,q)=>c.map((v,t)=>T.lerp(v,h.Cn[q][t],o.upd))):h.C; Cs.forEach((c,q)=>{ const p=xy(c); g.dot(p[0],p[1],9,hex(c),{ring:g.C.ink,lw:2.5}); g.txt(String(q),p[0],p[1]+.09,g.C.ink,{align:'center',size:.7,bold:true}); }); }
+    if(o.book){ const bx=.45*W, by=.82*H; g.ptxt('codebook',bx,by-g.fs*.9,g.C.muted,{size:.66}); fin.Cn.forEach((c,q)=>{ g.prect(bx+q*.07*W,by,.06*W,.07*H,hex(c),null,{r:4}); g.ptxt(String(q),bx+q*.07*W+.03*W,by+.035*H,g.C.ink,{align:'center',size:.7,bold:true,mono:true}); }); } };
+  add(1,`${gN*gN} patch vectors (here, each patch's average colour) and a codebook of K = ${K}.`,1400,g=>draw(g,{}));
+  add(2,`Start from ${K} random patches as the codes.`,1000,g=>draw(g,{h:{...hist[0],A:hist[0].A}}));
+  hist.forEach((h,it)=>{ const f=it>0;
+    add(4,`Round ${it+1}: every patch joins its nearest code.`,f?700:1300,g=>draw(g,{h,lines:true}));
+    add(5,'Each code moves to the mean of its patches.',f?600:1100,(g,p)=>draw(g,{h,lines:true,upd:p})); });
+  add(6,'The assignments have stopped changing: the codebook is learned.',900,g=>draw(g,{h:{...fin,C:fin.Cn},book:true}));
+  add(7,`Tokenise: replace each patch by its code id. The image is now ${gN*gN} integers.`,1500,g=>draw(g,{h:{...fin,C:fin.Cn},book:true,ids:fin.A}));
+  add(8,'Decode: paint each patch with its code. Detail is lost, the layout survives.',2600,(g,p)=>draw(g,{h:{...fin,C:fin.Cn},book:true,paint:fin.A.map(a=>hex(fin.Cn[a])),ids:p<.4?fin.A:null}));
+  return S;
+});
+AA.title(/vector-quantising image patches/i,'vq');
+
+/* ---------- VisualBERT pre-training step ---------- */
+AA.def('vbert', T => {
+  const S=[], add=F(S); if(!window.VIS) return S; const keys=['park','kitchen','street'], k=pick(keys), truth=T.r()<.5, capK=truth?k:pick(keys.filter(x=>x!==k));
+  const SC=VIS.SCENES[k], W=VIS.SCENES[capK].caption.split(' '); const FUNC=new Set(['a','the','with','under','on','next','to','behind','waits','sits','plays']);
+  const COLW=new Set(['red','blue','yellow','green']); const nouns=W.map((w,i)=>i).filter(i=>!FUNC.has(W[i])&&!COLW.has(W[i])&&i>1); const mi=pick(nouns), mw=W[mi];
+  const objs=SC.objects, present=new Set(objs.flatMap(o=>o.tags.concat([o.label])));
+  const hitObj=objs.findIndex(o=>o.label===mw||o.tags.includes(mw)); const okWords=W.filter(w=>!FUNC.has(w)), hits=okWords.filter(w=>present.has(w)).length, pm=T.sig(6*hits/okWords.length-2.5);
+  const cands=[mw,...pick([['ball','car','cup'],['apple','bus','tree'],['dog','cat','table']]).filter(x=>x!==mw)].slice(0,3); const pTxt=[.36,.34,.3], pImg=present.has(mw)?[.82,.1,.08]:[.4,.32,.28];
+  const draw=(g,o)=>{ const Wd=g.W,H=g.H, s=Math.min(.3*Wd,.42*H), ix=.02*Wd, iy=.06*H; drawScene(g,k,ix,iy,s);
+    objs.forEach((ob,j)=>{ const b=ob.box; const on=o.att&&j===hitObj; g.prect(ix+b[0]*s,iy+b[1]*s,b[2]*s,b[3]*s,null,on?g.C.c2:g.C.c4,{lw:on?3:1.5}); });
+    const toks=['CLS',...W.map((w,i)=>o.mask&&i===mi?'[MASK]':w),'SEP',...objs.map((ob,j)=>'r'+(j+1))];
+    let ty=.62*H; let x=.02*Wd; const cx=[], cyy=[]; toks.forEach((t,i)=>{ const isR=i>=W.length+2; const w=chipW(g,t,{size:.6}); if(x+w>.98*Wd){ x=.02*Wd; ty+=g.fs*2.1; } const vis=o.lv>=(isR?3:2)||i<1;
+      chip(g,t,x,ty,{size:.6,tint:isR?g.C.c4:(i===mi+1&&o.mask?g.C.c2:g.C.c1),ta:vis?.3:.06,ta2:vis?1:.35,stroke:(o.att&&(i===mi+1||(hitObj>=0&&i===W.length+2+hitObj)))?g.C.c2:null}); cx.push(x+w/2); cyy.push(ty); x+=w+3; }); const ty0=.62*H;
+    if(o.lv>=2) g.ptxt('segment A (text)',.02*Wd,ty+g.fs*1.5,g.C.c1,{size:.58}); if(o.lv>=3) g.ptxt('segment B (image regions)',.98*Wd,ty+g.fs*1.5,g.C.c4,{size:.58,align:'right'});
+    g.ptxt('caption: "'+VIS.SCENES[capK].caption+'"',.36*Wd,.08*H,g.C.ink,{size:.68,bold:true}); g.ptxt(truth?'(the true caption)':'(a caption from another image)',.36*Wd,.08*H+g.fs*1.2,truth?g.C.c5:g.C.c4,{size:.62});
+    if(o.lv>=5){ g.prect(.36*Wd,.22*H,.3*Wd,.22*H,g.C.c1,g.C.c1,{r:8,a:.12}); g.ptxt('BERT: all tokens',.51*Wd,.3*H,g.C.ink,{align:'center',size:.72,bold:true}); g.ptxt('attend to all',.51*Wd,.3*H+g.fs*1.1,g.C.ink,{align:'center',size:.72,bold:true});
+      if(o.att&&cx[mi+1]!=null){ g.ctx.save(); g.ctx.strokeStyle=g.C.c2; g.ctx.lineWidth=2.5; g.ctx.beginPath(); const a=mi+1, b2=hitObj>=0?W.length+2+hitObj:0, x1=cx[a], x2=cx[b2], y1=cyy[a]-g.fs, y2=cyy[b2]-g.fs; g.ctx.moveTo(x1,y1); g.ctx.quadraticCurveTo((x1+x2)/2,Math.min(y1,y2)-.18*H,x2,y2); g.ctx.stroke(); g.ctx.restore(); } }
+    if(o.lv>=6){ const bx=.7*Wd; g.ptxt('predict [MASK]',bx,.2*H,g.C.muted,{size:.62}); cands.forEach((c,q)=>{ const y=.26*H+q*.065*H, p=T.lerp(pTxt[q],pImg[q],o.img||0); g.ptxt(c,bx,y,g.C.ink,{size:.6,mono:true}); g.prect(bx+.08*Wd,y-.02*H,.17*Wd*p,.04*H,q===0?g.C.c5:g.C.c3,null,{r:2,a:.8}); g.ptxt(Math.round(p*100)+'%',bx+.08*Wd+.17*Wd*p+3,y,g.C.muted,{size:.55,mono:true}); }); }
+    if(o.lv>=7){ const bx=.7*Wd, y=.5*H; g.ptxt('[CLS] → caption matches?',bx,y-g.fs*.9,g.C.muted,{size:.62}); g.prect(bx,y,.25*Wd*pm,.04*H,g.C.c5,null,{r:2,a:.8}); g.ptxt(Math.round(pm*100)+'% yes'+(truth?' (label: yes)':' (label: no)'),bx,y+.07*H,g.C.ink,{size:.6,mono:true}); }
+    if(o.lv>=8) g.ptxt('update all weights with L_MLM + L_SIP',.36*Wd,.5*H,g.C.c1,{size:.66,bold:true}); };
+  add(1,`Input: an image's regions and a caption${truth?' (here, its own caption).':' (here, swapped for another image\'s caption).'}`,1500,g=>draw(g,{lv:1}));
+  add(2,'Words become BERT tokens: token + segment A + position.',1000,g=>draw(g,{lv:2}));
+  add(3,'Each detected box becomes a visual token: W_v·feature + segment B.',1100,g=>draw(g,{lv:3}));
+  add(4,`Mask a word: "${mw}". The regions stay visible.`,1000,g=>draw(g,{lv:3,mask:true}));
+  add(5,hitObj>=0?`One BERT reads everything; the masked position can attend to region r${hitObj+1}, the ${objs[hitObj].label}.`:'One BERT reads everything; nothing in this image matches the hidden word.',1500,g=>draw(g,{lv:5,mask:true,att:true}));
+  add(6,present.has(mw)?`Predict the word: the image makes "${mw}" far more likely.`:'Predict the word: the image cannot help here, so the guess stays uncertain.',1600,(g,p)=>draw(g,{lv:6,mask:true,att:true,img:p}));
+  add(7,`The [CLS] output predicts whether the caption matches: ${Math.round(pm*100)}% yes.`,1300,g=>draw(g,{lv:7,mask:true,img:1}));
+  add(8,'Both losses update every weight, including W_v. Repeat on the next image.',2400,g=>draw(g,{lv:8,mask:true,img:1}));
+  return S;
+});
+AA.title(/VisualBERT pre-training step/i,'vbert');
 /* ---------- which animation goes with which pseudocode title ---------- */
 [[/ordinary least squares/i,'ols'],[/gradient descent for least squares/i,'gd'],[/lasso by coordinate descent/i,'lassocd'],
  [/logistic regression by gradient descent/i,'logreg'],[/Newton's method \(IRLS\)/i,'newton'],[/proximal gradient descent for L1/i,'proxlog'],[/ROC curve/i,'roc'],
