@@ -17,3 +17,12 @@
 .people{display:grid;grid-template-columns:repeat(40,1fr);gap:2px;margin:8px 0}
 .people i{display:block;aspect-ratio:1/1;border-radius:2px;background:var(--soft)}
 @media (max-width:640px){.people{grid-template-columns:repeat(25,1fr)}}
+.coins{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:0 0 10px}
+.coin{display:inline-flex;flex-direction:column;align-items:center;min-width:30px;padding:3px 2px;border-radius:6px;background:var(--soft);font:500 11px "JetBrains Mono",monospace}
+.coin b{width:20px;height:20px;border-radius:50%;line-height:20px;text-align:center;color:#fff;font-size:11px}
+.coin.h b{background:var(--c4)}.coin.t b{background:var(--c3)}
+.coin i{font-style:normal;color:var(--muted);font-size:10px;margin-top:2px}
+.coinprod{font:500 12px "JetBrains Mono",monospace;color:var(--c2);margin-left:6px}
+.wbar{display:flex;height:22px;border-radius:6px;overflow:hidden;margin-top:8px;font:600 11px/22px "JetBrains Mono",monospace;color:#fff}
+.wbar .wp{background:var(--muted);text-align:center;transition:width .3s;white-space:nowrap;overflow:hidden}
+.wbar .wd{background:var(--c4);text-align:center;transition:width .3s;white-space:nowrap;overflow:hidden}

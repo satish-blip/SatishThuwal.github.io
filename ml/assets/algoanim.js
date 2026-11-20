@@ -894,6 +894,111 @@ AA.def('svdeig', T => {
   add(7,'Return U, Σ, V with A = UΣVᵀ: rotate (Vᵀ), stretch (Σ), rotate (U).',1700,(g)=>{ circ(g,{v:1}); img(g,{av:1,u:1}); bot(g,[['U',[[u1[0],u2[0]],[u1[1],u2[1]]]],['Σ',[[s1,0],[0,s2]]],['Vᵀ',[v1,v2]]]); });
   return S;
 });
+/* ---------- MLE and Bayesian estimation ---------- */
+const poisS=l=>{ let k=0,p=Math.exp(-l),s=p; const u=Math.random(); while(u>s&&k<60){ k++; p*=l/k; s+=p; } return k; };
+const poisP=(k,l)=>Math.exp(k*Math.log(l)-l-lgam(k+1));
+AA.def('mlerecipe', T => {
+  const S=[], add=F(S), lt=T.u(1.5,5), n=30, x=T.range(n).map(()=>poisS(lt)), sx=T.sum(x), lh=sx/n, kmax=Math.max(10,...x)+1;
+  const ll=l=>sx*Math.log(l)-n*l, L0=.4, L1=Math.max(9,lh*2), top=ll(lh), lo=ll(L1)-(top-ll(L1))*.1;
+  const hist=(g,fit)=>{ g.view(.04,.14,.42,.66,-.5,kmax+.5,0,.42); g.frame(); for(let k=0;k<=kmax;k++){ const c=x.filter(v=>v===k).length/n; if(c) g.rect(k-.38,0,k+.38,c,g.C.c3,null,{a:.55}); if(fit) g.dot(k,poisP(k,lh),4,g.C.c1); }
+    g.ptxt(`${n} counts, e.g. emails per hour`,g.vp().x,g.vp().y-g.fs*.8,g.C.muted,{size:.72}); for(let k=0;k<=kmax;k+=Math.ceil(kmax/6)) g.txt(String(k),k,-.03,g.C.muted,{align:'center',size:.65,mono:true}); };
+  const llv=(g,o)=>{ g.view(.54,.14,.42,.66,L0,L1,lo,top+(top-lo)*.12); g.frame(); g.ptxt('ℓ(λ) = Σxᵢ log λ − nλ',g.vp().x,g.vp().y-g.fs*.8,g.C.muted,{size:.72,mono:true});
+    const e=o.draw==null?L1:L0+(L1-L0)*o.draw; g.fn(ll,L0,e,g.C.c2,2.6);
+    if(o.tan!=null){ const l=o.tan, s=sx/l-n, w=Math.min((L1-L0)*.18,(top-lo)*.22/Math.max(1e-9,Math.abs(s))); g.seg(l-w,ll(l)-s*w,l+w,ll(l)+s*w,g.C.c4,2); g.dot(l,ll(l),5,g.C.c4); g.ptxt(`slope ℓ′(λ) = ${T.f(s,1)}`,g.vp().x+g.vp().w,g.vp().y+g.vp().h+g.fs*1.1,g.C.c4,{align:'right',size:.72,mono:true}); }
+    if(o.curv){ const c2=-sx/(lh*lh); g.fn(l=>top+.5*c2*(l-lh)**2,Math.max(L0,lh-(L1-L0)*.25),Math.min(L1,lh+(L1-L0)*.25),g.C.c1,1.8,{dash:[5,4]}); g.ptxt(`ℓ″(λ̂) = −Σx/λ̂² = ${T.f(c2,1)} < 0`,g.vp().x+g.vp().w,g.vp().y+g.vp().h+g.fs*1.1,g.C.c1,{align:'right',size:.72,mono:true}); }
+    if(o.peak){ g.seg(lh,lo,lh,top,g.C.c1,1.5,[4,3]); g.dot(lh,top,5.5,g.C.c1); } };
+  add(1,`Data: ${n} counts. Model: Poisson with unknown rate λ.`,1300,g=>{ hist(g); llv(g,{draw:0}); });
+  add(2,'Add up log P(xᵢ; λ) over the data: the log-likelihood, as a function of λ.',1500,(g,p)=>{ hist(g); llv(g,{draw:p}); });
+  [.25,.45,.7].forEach((f,i)=>add(3,'Look for the point where the slope is zero.',i?650:1000,(g,p)=>{ hist(g); const l=T.lerp(L0+(L1-L0)*f,L0+(L1-L0)*(f+.2),p); llv(g,{tan:Math.min(L1,l)}); }));
+  add(3,`Σx/λ − n = 0 gives λ̂ = x̄ = ${T.f(lh,2)}: the slope is flat there.`,1400,(g,p)=>{ hist(g); llv(g,{tan:lh,peak:true}); });
+  add(4,'Second derivative negative: the curve bends down, so this is a maximum.',1400,g=>{ hist(g); llv(g,{peak:true,curv:true}); });
+  add(5,`Return λ̂ = ${T.f(lh,2)} (true ${T.f(lt,2)}), SE = √(λ̂/n) = ${T.f(Math.sqrt(lh/n),3)}. Purple dots: the fitted Poisson.`,2200,g=>{ hist(g,true); llv(g,{peak:true}); });
+  return S;
+});
+AA.title(/the maximum-likelihood recipe/i,'mlerecipe');
+
+AA.def('mlenewton', T => {
+  const S=[], add=F(S), wt=T.u(1,2.2), X=T.range(40).map(()=>T.u(-3,3)), Y=X.map(x=>T.r()<T.sig(wt*x)?1:0);
+  const ll=w=>T.sum(X.map((x,i)=>{ const p=T.sig(w*x); return Y[i]?Math.log(p+1e-300):Math.log(1-p+1e-300); })), d1=w=>T.sum(X.map((x,i)=>(Y[i]-T.sig(w*x))*x)), d2=w=>-T.sum(X.map(x=>{ const p=T.sig(w*x); return p*(1-p)*x*x; }));
+  const W0=-2.5, W1=5; let top=-1e9; for(let i=0;i<=100;i++) top=Math.max(top,ll(W0+(W1-W0)*i/100)); const lo=ll(W0)-2;
+  const its=[T.u(-.4,.3)]; for(let t=0;t<5;t++){ const w=its[its.length-1]; its.push(Math.max(W0,Math.min(W1,w-d1(w)/d2(w)))); }
+  const draw=(g,w,o={})=>{ g.view(.05,.12,.9,.68,W0,W1,lo,top+(top-lo)*.1); g.frame(); g.fn(ll,W0,W1,g.C.c1,2.6); g.ptxt('ℓ(w) for a one-weight logistic model',g.vp().x,g.vp().y-g.fs*.8,g.C.muted,{size:.72});
+    if(o.tan){ const s=d1(w), h=Math.min((W1-W0)*.15,(top-lo)*.25/Math.max(1e-9,Math.abs(s))); g.seg(w-h,ll(w)-s*h,w+h,ll(w)+s*h,g.C.c4,2); }
+    if(o.par){ const a=ll(w), b=d1(w), c=d2(w); g.fn(v=>{ const y=a+b*(v-w)+.5*c*(v-w)**2; return y<lo?NaN:y; },W0,W1,g.C.c4,1.8,{dash:[5,4]}); }
+    if(o.trail) o.trail.forEach(v=>g.dot(v,ll(v),3,g.C.muted)); g.dot(w,ll(w),6,g.C.c2);
+    g.ptxt(`w = ${T.f(w,4)}   ℓ′(w) = ${T.f(d1(w),4)}   ℓ″(w) = ${T.f(d2(w),2)}`,g.W*.05,g.H*.92,g.C.ink,{mono:true,size:.74}); };
+  add(1,'Start from a poor guess for w.',1100,g=>draw(g,its[0]));
+  for(let t=0;t<4;t++){ const a=its[t], b=its[t+1], tr=its.slice(0,t), sl=t<2;
+    add(3,`Iteration ${t+1}: the slope g = ℓ′(w) says which way is uphill.`,sl?900:450,g=>draw(g,a,{tan:true,trail:tr}));
+    add(4,'The curvature H = ℓ″(w) fixes the parabola that touches ℓ here.',sl?1000:450,g=>draw(g,a,{par:true,trail:tr}));
+    add(5,`Jump to the top of the parabola: w − g/H = ${T.f(b,4)}.`,sl?1100:550,(g,p)=>draw(g,T.lerp(a,b,p),{par:p<.5,trail:tr.concat([a])})); }
+  add(6,`The slope is now ${T.f(d1(its[4]),6)}: essentially zero. Stop.`,1200,g=>draw(g,its[4],{trail:its.slice(0,4)}));
+  add(7,`Return ŵ = ${T.f(its[4],3)} (true ${T.f(wt,2)}), standard error 1/√(−H) = ${T.f(1/Math.sqrt(-d2(its[4])),3)}.`,2200,g=>draw(g,its[4],{trail:its.slice(0,4)}));
+  return S;
+});
+AA.title(/maximum likelihood by Newton/i,'mlenewton');
+
+AA.def('bayesmean', T => {
+  const S=[], add=F(S), sig=2, m0=T.u(-3,-1), s0=T.u(.8,1.4), mt=T.u(1,3), xs=T.range(8).map(()=>mt+sig*T.g());
+  const st=[[m0,s0]]; xs.forEach(x=>{ const [m,s]=st[st.length-1], tau=1/(s*s)+1/(sig*sig); st.push([(m/(s*s)+x/(sig*sig))/tau,1/Math.sqrt(tau)]); });
+  const N=(x,m,s)=>Math.exp(-((x-m)**2)/(2*s*s))/(s*Math.sqrt(2*Math.PI));
+  const draw=(g,m,s,k,o={})=>{ g.view(.05,.12,.9,.62,-7,7,0,.75); g.frame(); g.fn(x=>N(x,m0,s0),-7,7,g.C.muted,1.6,{dash:[6,4]}); if(o.ci){ g.poly(T.range(81).map(i=>{ const x=m-1.96*s+3.92*s*i/80; return [x,Math.min(.75,N(x,m,s))]; }).concat([[m+1.96*s,0],[m-1.96*s,0]]),null,0,g.C.c1,{a:.25}); }
+    g.fn(x=>Math.min(.75,N(x,m,s)),-7,7,g.C.c1,2.8); g.seg(mt,0,mt,.72,g.C.ink,1.2,[3,4]); g.txt('true μ',mt,.73,g.C.ink,{align:'center',size:.65});
+    xs.slice(0,k).forEach((x,i)=>g.dot(Math.max(-7,Math.min(7,x)),.03,i===k-1&&o.hl?6:4,g.C.c4));
+    const tau=1/(s*s); g.ptxt(`mean ${T.f(m,2)}   spread ${T.f(s,2)}   precision ${T.f(tau,2)}`,g.W*.05,g.H*.86,g.C.ink,{mono:true,size:.76});
+    for(let i=0;i<=4;i++) g.txt(String(-6+3*i),-6+3*i,-.04,g.C.muted,{align:'center',size:.65,mono:true}); };
+  add(1,`Prior: μ is probably near ${T.f(m0,1)} (dashed). Noise σ = ${sig}.`,1300,g=>draw(g,m0,s0,0));
+  xs.forEach((x,i)=>{ const [ma,sa]=st[i], [mb,sb]=st[i+1], sl=i<3;
+    add(2,`Measurement ${i+1}: x = ${T.f(x,2)}.`,sl?800:300,g=>draw(g,ma,sa,i+1,{hl:true}));
+    add(3,`Precision rises from ${T.f(1/(sa*sa),2)} to ${T.f(1/(sb*sb),2)}.`,sl?800:250,g=>draw(g,ma,sa,i+1,{hl:true}));
+    add([4,5],`The mean moves towards x by its share of the precision, ${T.f((1/(sig*sig))/(1/(sb*sb))*100,0)}%; the curve narrows.`,sl?1100:450,(g,p)=>draw(g,T.lerp(ma,mb,p),T.lerp(sa,sb,p),i+1)); });
+  const [mf,sf]=st[st.length-1];
+  add(6,`Return N(${T.f(mf,2)}, ${T.f(sf,2)}²); 95% credible interval ${T.f(mf-1.96*sf,2)} to ${T.f(mf+1.96*sf,2)}.`,2200,g=>draw(g,mf,sf,xs.length,{ci:true}));
+  return S;
+});
+AA.title(/Bayesian estimate of a mean/i,'bayesmean');
+
+AA.def('blr', T => {
+  const S=[], add=F(S), n=6+T.ri(3), d=4, alpha=.5, beta=1/(.2*.2), f=x=>Math.sin(2*Math.PI*x), X=T.range(n).map(()=>T.u(.05,.6)), Y=X.map(x=>f(x)+.2*T.g());
+  const phi=x=>{ const z=2*x-1; return [1,z,z*z,z*z*z]; }, F_=X.map(phi);
+  const A=T.range(d).map(i=>T.range(d).map(j=>beta*T.sum(F_.map(r=>r[i]*r[j]))+(i===j?alpha:0))), b=T.range(d).map(i=>beta*T.sum(F_.map((r,k)=>r[i]*Y[k])));
+  const sol=(M,v)=>{ const m=M.map((r,i)=>[...r,v[i]]); for(let c=0;c<d;c++){ let p=c; for(let r=c+1;r<d;r++) if(Math.abs(m[r][c])>Math.abs(m[p][c])) p=r; [m[c],m[p]]=[m[p],m[c]]; for(let r=0;r<d;r++){ if(r===c) continue; const q=m[r][c]/m[c][c]; for(let k=c;k<=d;k++) m[r][k]-=q*m[c][k]; } } return m.map((r,i)=>r[d]/r[i]); };
+  const mN=sol(A,b), Sc=T.range(d).map(j=>sol(A,T.range(d).map(i=>i===j?1:0))), mean=x=>T.sum(phi(x).map((v,i)=>v*mN[i])), wv=x=>{ const p=phi(x); let s=0; for(let i=0;i<d;i++) for(let j=0;j<d;j++) s+=p[i]*Sc[j][i]*p[j]; return s; }, vr=x=>1/beta+wv(x);
+  const draw=(g,o={})=>{ g.view(.05,.1,.9,.7,0,1,-2.2,2.2); g.frame(); g.seg(.6,-2.2,.6,2.2,g.C.line,1,[3,4]); g.txt('no data beyond here',.62,2,g.C.muted,{size:.65});
+    if(o.band){ const e=o.band===true?1:o.band, V=o.wonly?wv:vr; g.poly(T.range(101).map(i=>{ const x=i/100*e; return [x,Math.min(2.2,mean(x)+1.96*Math.sqrt(V(x)))]; }).concat(T.range(101).map(i=>{ const x=(100-i)/100*e; return [x,Math.max(-2.2,mean(x)-1.96*Math.sqrt(V(x)))]; })),null,0,g.C.c1,{a:.2}); }
+    if(o.mean) g.fn(x=>Math.max(-2.2,Math.min(2.2,mean(x))),0,1,g.C.c1,2.8); X.forEach((x,i)=>g.dot(x,Y[i],4.5,g.C.c4));
+    if(o.xs!=null){ const x=o.xs, m=mean(x), h=1.96*Math.sqrt(vr(x)); g.seg(x,Math.max(-2.2,m-h),x,Math.min(2.2,m+h),g.C.c2,3); g.dot(x,m,5,g.C.c2); g.ptxt(`x* = ${T.f(x,2)}: ${T.f(m,2)} ± ${T.f(h,2)}`,g.W*.05,g.H*.9,g.C.c2,{mono:true,size:.76}); } };
+  add(1,`${n} noisy points, all on the left; cubic features; prior w ~ N(0, I/α).`,1300,g=>draw(g));
+  add(2,'S_N: how unsure we still are about the weights (band from weight uncertainty only).',1500,(g,p)=>draw(g,{band:Math.max(.02,p),wonly:true}));
+  add(3,'m_N: the posterior mean, which is the ridge solution with λ = α/β.',1300,g=>draw(g,{band:true,wonly:true,mean:true}));
+  [.2,.45,.75,.95].forEach((x,i)=>add([4,5],'For a new input, predict the mean and add noise variance to weight uncertainty.',i?750:1100,(g,p)=>draw(g,{mean:true,xs:i?T.lerp([.2,.45,.75,.95][i-1],x,p):x})));
+  add(6,'Return predictions with error bars: narrow near the data, wide where there is none.',2200,g=>draw(g,{band:true,mean:true}));
+  return S;
+});
+AA.title(/Bayesian linear regression/i,'blr');
+
+AA.def('metro', T => {
+  const S=[], add=F(S), m1=T.u(.25,.4), m2=T.u(.6,.75), tgt=x=>x<=0||x>=1?0:.6*Math.exp(-((x-m1)**2)/(2*.06*.06))+.4*Math.exp(-((x-m2)**2)/(2*.05*.05)), s=.12;
+  let th=m1+.04; const rec=[], ev=[]; for(let t=0;t<260;t++){ const pr=th+s*T.g(), r=tgt(pr)/tgt(th), u=T.r(), ok=u<r; ev.push({th,pr,r,ok}); if(ok) th=pr; rec.push(th); }
+  const nb=25;
+  const draw=(g,k,o={})=>{ g.view(.05,.1,.9,.6,0,1,0,1.15); g.frame(); g.fn(tgt,0,1,g.C.c4,2.4);
+    const cnt=new Array(nb).fill(0); rec.slice(0,k).forEach(v=>cnt[Math.min(nb-1,Math.max(0,Math.floor(v*nb)))]++); const mx=Math.max(1,...cnt); if(k) cnt.forEach((c,i)=>{ if(c) g.rect(i/nb+.004,0,(i+1)/nb-.004,c/mx*.95,g.C.c1,null,{a:.4}); });
+    const e=o.e; if(e){ g.seg(e.th,0,e.th,tgt(e.th),g.C.c2,2); g.dot(e.th,tgt(e.th),5.5,g.C.c2);
+      if(o.prop){ g.seg(e.pr,0,e.pr,Math.max(0,tgt(e.pr)),o.dec?(e.ok?g.C.c5:g.C.c4):g.C.muted,2,[4,3]); g.dot(Math.max(0,Math.min(1,e.pr)),Math.max(0,tgt(e.pr)),5,o.dec?(e.ok?g.C.c5:g.C.c4):g.C.muted); }
+      if(o.ratio) g.ptxt(`r = p̃(θ′)/p̃(θ) = ${T.f(Math.min(e.r,99),2)}`,g.W*.05,g.H*.82,g.C.ink,{mono:true,size:.78});
+      if(o.dec) g.ptxt(e.ok?'accept: move':'reject: stay',g.W*.95,g.H*.82,e.ok?g.C.c5:g.C.c4,{align:'right',bold:true,size:.8}); }
+    g.ptxt(`${k} samples recorded`,g.W*.05,g.H*.92,g.C.muted,{size:.72}); };
+  add(1,'The orange curve is the unnormalised posterior. Start the walker anywhere.',1200,g=>draw(g,0,{e:ev[0]}));
+  for(let t=0;t<5;t++){ const e=ev[t];
+    add(3,`Step ${t+1}: propose θ′ = θ + s·N(0,1).`,800,g=>draw(g,t,{e,prop:true}));
+    add(4,'Compare heights: the unknown constant cancels in the ratio.',800,g=>draw(g,t,{e,prop:true,ratio:true}));
+    add(5,e.r>=1?'Higher: always accept.':`Lower: accept with probability ${T.f(e.r,2)}.`,900,g=>draw(g,t,{e,prop:true,ratio:true,dec:true}));
+    add(6,'Record the current value (the old one again if rejected).',600,g=>draw(g,t+1,{e:ev[t+1]})); }
+  for(let k=5;k<=260;k+=15) add([2,3,4,5,6],'Keep walking: the histogram builds up the shape of the posterior.',160,g=>draw(g,k,{e:ev[Math.min(259,k)]}));
+  add(7,'Return the samples (after burn-in): their histogram matches the posterior, with no normalising constant needed.',2200,g=>draw(g,260));
+  return S;
+});
+AA.title(/Metropolis.Hastings sampling/i,'metro');
 /* ================= DEEP LEARNING ANIMATIONS ================= */
 /* draw a small fully connected net. L = sizes, W[l] = matrix (L[l+1] x L[l]); o.act[l][i] values in [-1,1]; o.pulse = {l, p, back} */
 function drawNet(g, L, W, o={}){

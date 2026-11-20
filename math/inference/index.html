@@ -86,6 +86,7 @@
         <li><div class="eq">\(\dfrac{\partial\ell}{\partial\sigma}=-\dfrac n\sigma+\dfrac1{\sigma^3}\sum_i(x^{(i)}-\hat\mu)^2=0\;\Rightarrow\;\hat\sigma^2=\dfrac1n\sum_i(x^{(i)}-\bar x)^2\)</div><div class="why">The best variance is the average squared deviation.</div></li>
       </ol>
       <p>Drag the sliders and watch the log-likelihood: it peaks exactly at \(\bar x\) and at \(\hat\sigma\). This is the same principle that justifies least-squares regression (Gaussian noise) and cross-entropy loss (Bernoulli or categorical labels).</p>
+      <p class="hint">The full story, with four models, Fisher information and Newton's method, is on the <a href="../mle/">maximum likelihood page</a>.</p>
       <div class="ctl"><label for="mu"><span>\(\mu\)</span><output id="muOut"></output></label><input type="range" id="mu" min="0" max="10" step="0.05" value="3.5"></div>
       <div class="ctl"><label for="sg"><span>\(\sigma\)</span><output id="sgOut"></output></label><input type="range" id="sg" min="0.3" max="4" step="0.05" value="2"></div>
       <div class="stats" id="mStats"></div>
