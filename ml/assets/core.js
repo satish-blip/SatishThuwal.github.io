@@ -293,6 +293,19 @@ ML.ready = function(fn){ if(document.readyState==='loading') document.addEventLi
       if(g.tagName==='SECTION') g.appendChild(a); else g.after(a);
       const src=cols[tall]; if(src.offsetHeight<8 || (!src.textContent.trim() && !src.querySelector('canvas,svg,img,input'))){ src.style.display='none'; cols[1-tall].style.gridColumn='1/-1'; }
     }); }
+  /* Maths before visuals: in a plot+text pair the explanation comes first (left on desktop, above on phones). */
+  function textFirst(){
+    document.querySelectorAll('section.lab').forEach(sec=>{ if(sec.classList.contains('lab-tf')) return;
+      const kids=[...sec.children]; if(kids.length!==2) return; const [v,t]=kids;
+      if(!v.querySelector('.plot,canvas,svg') || t.querySelector('.plot,canvas,.matvis')) return;
+      const h=v.querySelector(':scope>h2'), tc=t.classList.contains('card')?t:t.querySelector(':scope>.card'); if(!h||!tc) return;
+      const prose=[...t.querySelectorAll('p,li,.mathbox')].filter(e=>!e.closest('.ctl,.stats,.note,.lab-ctl,.legend')).reduce((a,e)=>a+e.textContent.length,0); if(prose<300) return;
+      tc.insertBefore(h,tc.firstChild); sec.classList.add('lab-tf'); v.classList.add('lab-vis'); t.classList.add('lab-txt'); });
+    document.querySelectorAll('.grid2').forEach(g=>{ if(g.classList.contains('g2-tf')||g.closest('.algo,.aa-wrap,details')) return;
+      const k=[...g.children]; if(k.length!==2) return;
+      const vis=e=>e.querySelector('.plot,canvas,.aa-wrap,.algo,[id]:empty,svg:not(.katex svg)'), txt=e=>e.textContent.replace(/\s+/g,' ').length;
+      if(vis(k[0]) && !vis(k[1]) && txt(k[1])>220 && k[1].querySelector('p,.mathbox,ol,ul')){ g.classList.add('g2-tf'); k[1].classList.add('g2-txt'); } });
+  }
   function compact(){
     document.querySelectorAll('section.lab').forEach(sec=>{
       if(sec.dataset.compact) return; sec.dataset.compact='1';
@@ -307,6 +320,7 @@ ML.ready = function(fn){ if(document.readyState==='loading') document.addEventLi
       const box=document.createElement('div'); box.className='lab-ctl'; items.forEach(el=>box.appendChild(el));
       left.appendChild(box);
     });
+    textFirst();
     stick();
   }
   /* balance: on wide screens put the controls box beside the plot when that makes the two
@@ -332,11 +346,11 @@ ML.ready = function(fn){ if(document.readyState==='loading') document.addEventLi
           const sbox=side.firstChild, n=box._items.length; let best=null;
           for(let k=n;k>=0;k--){
             box._items.forEach((el,i)=>(i<k?box:sbox).appendChild(el));
-            if(k<n){ if(side.parentNode!==right) right.insertBefore(side,right.firstChild); } else side.remove();
+            if(k<n){ if(side.parentNode!==right) (sec.classList.contains('lab-tf')?right.appendChild(side):right.insertBefore(side,right.firstChild)); } else side.remove();
             const l=left.offsetHeight, r=right.scrollHeight, sc=Math.max(l,r)+0.6*Math.abs(l-r);
             if(!best||sc<best.sc-8) best={k,sc}; }
           box._items.forEach((el,i)=>(i<best.k?box:sbox).appendChild(el));
-          if(best.k<n){ if(side.parentNode!==right) right.insertBefore(side,right.firstChild); } else side.remove();
+          if(best.k<n){ if(side.parentNode!==right) (sec.classList.contains('lab-tf')?right.appendChild(side):right.insertBefore(side,right.firstChild)); } else side.remove();
           box.style.display=best.k?'':'none';
         } else { box.style.display=''; if(side) side.remove(); }
       }

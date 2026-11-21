@@ -2091,6 +2091,89 @@ AA.def('zeroshot', T => {
   return S;
 });
 AA.title(/zero-shot classification with CLIP/i,'zeroshot');
+/* ---------- LayoutLMv2: document input, spatial attention, pre-training, BIO extraction ---------- */
+const docPick=()=>pick(['receipt','invoice','form']);
+/* fit a page into the left part of the canvas; returns {k,ox,oy,d} */
+const docFit=(g,d,fx=.42)=>{ const k=Math.min(fx*g.W/d.W,.94*g.H/d.H), ox=.02*g.W, oy=(g.H-d.H*k)/2; return {k,ox,oy}; };
+const docDraw=(g,d,o={},fx)=>{ const f=docFit(g,d,fx); DOCS.draw(g.ctx,d,f.ox,f.oy,f.k,o); return f; };
+const docKind=w=>{ const t=w.text.toLowerCase(); if(DOCS.isDate(w.text)) return 'date'; if(DOCS.isNum(w.text)||/^\d[\d:%]*$/.test(w.text)) return 'num'; if(['total','due','subtotal','tax','date:','name:','phone:','birth:','plan:','paid:','amount','qty'].includes(t)) return 'key'; return 'word'; };
+const docAtt=(d,q,lam,use1=1)=>{ const Q=d.words[q], qk=docKind(Q), cy=w=>(w.px[1]+w.px[3])/2, hg=Q.px[3]-Q.px[1];
+  const c=d.words.map((W,j)=>{ const k=docKind(W); let s=j===q?.8:0; if((qk==='key'&&(k==='num'||k==='date'||W.st==='h'))||((qk==='num'||qk==='date'||Q.st==='h')&&k==='key')) s+=1; if(qk==='num'&&k==='num') s+=.4; return s; });
+  const b1=d.words.map((W,j)=>use1*1.3*Math.exp(-Math.abs(j-q)/1.4));
+  const b2=d.words.map(W=>{ const k=docKind(W), dy=Math.abs(cy(W)-cy(Q))/Math.max(8,hg), dx=(W.px[0]+W.px[2])/2-(Q.px[0]+Q.px[2])/2, row=Math.exp(-dy*dy/.5);
+    return lam*(2.8*row+(qk==='key'&&dx>0?1.2*row:0)+((qk==='num'||Q.st==='h')&&dx<0?row:0)+.9*Math.exp(-Math.pow((W.px[2]-Q.px[2])/10,2))*(k===qk?1:.3)-1.2*Math.min(1,Math.hypot(dx/d.W,(cy(W)-cy(Q))/d.H)/.5)); });
+  return {c,b1,b2}; };
+AA.def('lmv2in', T => { const S=[], add=F(S); if(!window.DOCS) return S; const d=DOCS.get(docPick()), wi=T.ri(d.words.length), w=d.words[wi];
+  const draw=(g,o)=>{ const f=docDraw(g,d,{outline:i=>o.lv>=1&&o.lv<6?(i===wi&&o.lv>=2?'c2':'c1'):(o.lv>=6&&i===wi?'c2':null), grid:o.lv>=4?7:0, gridHi:o.lv>=5?[o.cr,o.cc]:null},.4), X=.46*g.W, W=g.W;
+    if(o.lv>=2){ const b=w.box; g.ptxt('"'+w.text+'"  box on 0–1000 grid:',X,.12*g.H,g.C.ink,{size:.79,bold:true}); g.ptxt('x₀ '+b[0]+'  y₀ '+b[1]+'  x₁ '+b[2]+'  y₁ '+b[3],X,.12*g.H+g.fs*1.3,g.C.c2,{size:.74,mono:true}); g.ptxt('w '+b[4]+'  h '+b[5],X,.12*g.H+g.fs*2.5,g.C.c2,{size:.74,mono:true}); }
+    if(o.lv>=3){ g.ptxt('text: TokEmb + Pos1D(i) + Seg[A]',X,.34*g.H,g.C.c1,{size:.72,bold:true}); chipRow(g,['[CLS]',...d.words.slice(0,4).map(x=>x.text)],X+.25*W,.34*g.H+g.fs*1.6,i=>({size:.62,tint:g.C.c1,ta:.22,stroke:d.words[i-1]===w?g.C.c2:null}),3); }
+    if(o.lv>=5){ g.ptxt('image: CNN → 7×7 → Proj + Pos1D(j) + Seg[C]',X,.52*g.H,g.C.c4,{size:.72,bold:true}); chipRow(g,['v1','v2','v3','…','v49'],X+.25*W,.52*g.H+g.fs*1.6,j=>({size:.62,tint:g.C.c4,ta:.22}),3); }
+    if(o.lv>=6){ g.ptxt('layout ℓ = [Emb2Dx(x₀,x₁,w) ; Emb2Dy(y₀,y₁,h)]',X,.7*g.H,g.C.c2,{size:.70,bold:true}); }
+    if(o.lv>=7){ const toks=['v1','…','v49','[CLS]',...d.words.slice(0,3).map(x=>x.text),'…','[SEP]']; chipRow(g,toks,X+.25*W,.84*g.H,i=>({size:.62,tint:i<3?g.C.c4:g.C.c1,ta:.22}),2); g.ptxt('+ ℓ for every token',X+.25*W,.84*g.H+g.fs*1.6,g.C.muted,{size:.66,align:'center'}); } };
+  add(1,`A ${d.name.toLowerCase()} and its ${d.words.length} OCR words, each with a box.`,1300,g=>draw(g,{lv:1}));
+  add(2,`Scale every box to the 0–1000 grid. "${w.text}" gets these six numbers.`,1400,g=>draw(g,{lv:2}));
+  add(3,'Text tokens: word embedding + reading position + segment [A].',1200,g=>draw(g,{lv:3}));
+  for(let t=0;t<5;t++){ const cr=T.ri(7), cc=T.ri(7); add(4,'The CNN turns the page into a 7×7 grid of feature vectors.',t?380:900,g=>draw(g,{lv:4,cr,cc})); }
+  add(5,'Each cell becomes a visual token with segment [C].',1300,g=>draw(g,{lv:5,cr:3,cc:3}));
+  add(6,'Every token also gets a layout embedding from its box.',1300,g=>draw(g,{lv:6,cr:3,cc:3}));
+  add(7,'One sequence: 49 visual tokens, then the text, all plus layout.',1500,g=>draw(g,{lv:7,cr:3,cc:3}));
+  add(8,'Return X: ready for the transformer.',1800,g=>draw(g,{lv:7,cr:3,cc:3}));
+  return S; });
+AA.title(/building LayoutLMv2's input/i,'lmv2in');
+AA.def('lmv2attn', T => { const S=[], add=F(S); if(!window.DOCS) return S; const d=DOCS.get(docPick());
+  const keys=d.words.map((w,i)=>i).filter(i=>/^(total|name:|phone:|date:|paid:)$/i.test(d.words[i].text)), q=keys.length?pick(keys):T.ri(d.words.length), {c,b1,b2}=docAtt(d,q,1);
+  const sm=a=>softmax(a), Ac=sm(c), Ab=sm(c.map((x,j)=>x+b1[j]+b2[j]));
+  const draw=(g,o)=>{ const A=o.A, mx=A?Math.max(...A.filter((_,j)=>j!==q)):1; docDraw(g,d,{fill:i=>i===q?['c1',.25]:(A?['c2',Math.min(.85,A[i]/mx*.8)]:null),outline:i=>i===q?'c1':null},.46);
+    const X=.52*g.W; g.ptxt('query: "'+d.words[q].text+'"',X,.1*g.H,g.C.c1,{size:.84,bold:true});
+    if(o.lv>=2) g.ptxt('q = xW^Q,  k = xW^K,  v = xW^V',X,.1*g.H+g.fs*1.5,g.C.muted,{size:.70,mono:true});
+    if(A){ const top=A.map((a,j)=>({a,j})).filter(z=>z.j!==q).sort((u,v)=>v.a-u.a).slice(0,5); top.forEach((z,r)=>{ const y=.3*g.H+r*g.fs*1.7; g.ptxt(d.words[z.j].text,X,y,g.C.ink,{size:.70,mono:true}); g.prect(X+.17*g.W,y-g.fs*.45,.25*g.W*z.a/top[0].a,g.fs*.9,g.C.c2,null,{r:2,a:.8}); g.ptxt(Math.round(z.a*100)+'%',X+.43*g.W,y,g.C.muted,{size:.62,mono:true,align:'right'}); }); }
+    if(o.tag) g.ptxt(o.tag,X,.86*g.H,o.tc||g.C.ink,{size:.72,bold:true}); };
+  add(1,`${d.words.length} tokens with reading positions and boxes. Query: "${d.words[q].text}".`,1200,g=>draw(g,{lv:1}));
+  add(2,'Project every token to a query, a key and a value.',900,g=>draw(g,{lv:2}));
+  add(3,'Content scores only: what the words say.',1500,g=>draw(g,{lv:2,A:Ac,tag:'α: content only',tc:null}));
+  add(4,'Add the 1-D and 2-D biases: same row and same column get a boost.',600,g=>draw(g,{lv:2,A:Ac,tag:'α′ = α + b1D + b2Dx + b2Dy'}));
+  for(let t=1;t<=6;t++){ const A=sm(c.map((x,j)=>x+(b1[j]+b2[j])*t/6)); add(4,'Add the 1-D and 2-D biases: same row and same column get a boost.',220,g=>draw(g,{lv:2,A,tag:'α′ = α + b1D + b2Dx + b2Dy'})); }
+  add(5,'Softmax over all tokens: the weights sum to 1.',1300,g=>draw(g,{lv:2,A:Ab,tag:'a = softmax(α′)'}));
+  add(6,'Output: the weighted average of the value vectors.',1300,g=>draw(g,{lv:2,A:Ab,tag:'h = Σ a·v'}));
+  add(7,'Return h for every token (all queries run in parallel).',1800,g=>draw(g,{lv:2,A:Ab,tag:'h = Σ a·v'}));
+  return S; });
+AA.title(/spatial-aware self-attention/i,'lmv2attn');
+AA.def('lmv2pt', T => { const S=[], add=F(S); if(!window.DOCS) return S; const k=docPick(), d=DOCS.get(k), n=d.words.length;
+  const swap=T.r()<.3, other=DOCS.get(pick(DOCS.keys.filter(x=>x!==k))); const mask=new Set(); while(mask.size<Math.max(1,Math.round(n*.15))) mask.add(T.ri(n));
+  const lines=[...new Set(d.words.map(w=>w.line))], cover=new Set(); while(cover.size<2) cover.add(pick(lines));
+  const draw=(g,o)=>{ const img=o.swap?other:d; docDraw(g,img,{mask:o.mask&&!o.swap?mask:null,cover:o.cover&&!o.swap?cover:null},.42); const X=.48*g.W, W=g.W;
+    g.ptxt(o.swap?'image: another page (TIM negative)':'image: this page',X,.08*g.H,o.swap?g.C.c4:g.C.c5,{size:.72,bold:true});
+    const toks=d.words.slice(0,5), ys=.2*g.H; chipRow(g,toks.map((w,i)=>o.mask&&mask.has(i)?'[MASK]':w.text),X+.25*W,ys,i=>({size:.62,tint:o.mask&&mask.has(i)?g.C.c2:g.C.c1,ta:.25}),2);
+    if(o.lv>=5){ g.prect(X,.3*g.H,.48*W,.1*g.H,g.C.c3,null,{r:6,a:.18}); g.ptxt('LayoutLMv2(text, layout, image)',X+.24*W,.35*g.H,g.C.ink,{size:.72,align:'center',bold:true}); }
+    if(o.lv>=6){ const mw=[...mask].slice(0,2).map(i=>d.words[i].text).join(', '); g.ptxt('MVLM: predict '+mw,X,.5*g.H,g.C.c2,{size:.70,bold:true}); }
+    if(o.lv>=7){ g.ptxt('TIA: each word → covered?',X,.62*g.H,g.C.c4,{size:.70,bold:true}); const cw=d.words.filter((w,i)=>!mask.has(i)).slice(0,6); cw.forEach((w,r)=>g.ptxt((cover.has(w.line)&&!o.swap)||o.swap?'C':'N',X+r*g.fs*1.6,.62*g.H+g.fs*1.3,((cover.has(w.line)&&!o.swap)||o.swap)?g.C.c4:g.C.c5,{size:.74,mono:true,bold:true})); }
+    if(o.lv>=8) g.ptxt('TIM: [CLS] → '+(o.swap?'not the same page':'same page'),X,.78*g.H,g.C.c3,{size:.70,bold:true});
+    if(o.lv>=9) g.ptxt('loss = MVLM + TIA + TIM → update all weights',X,.9*g.H,g.C.c1,{size:.72,bold:true}); };
+  add(1,`A ${d.name.toLowerCase()}: its image and ${n} OCR words.`,1200,g=>draw(g,{lv:1}));
+  add(2,swap?'This time the image is swapped for another page.':'This time the image stays (it belongs to the text).',1200,g=>draw(g,{lv:2,swap}));
+  add(3,'Mask 15% of the words, and black out their pixels too.',1300,g=>draw(g,{lv:3,swap,mask:true}));
+  add(4,'Cover a couple of text lines in the image.',1200,g=>draw(g,{lv:4,swap,mask:true,cover:true}));
+  add(5,'Run the model on text, layout and image together.',1000,g=>draw(g,{lv:5,swap,mask:true,cover:true}));
+  add(6,'Masked words: predict them from the page.',1000,g=>draw(g,{lv:6,swap,mask:true,cover:true}));
+  add(7,swap?'Image swapped, so every TIA target is "covered".':'Every unmasked word: is my line covered in the image?',1200,g=>draw(g,{lv:7,swap,mask:true,cover:true}));
+  add(8,'[CLS]: do this text and image belong together?',1100,g=>draw(g,{lv:8,swap,mask:true,cover:true}));
+  add(9,'Add the three losses and update every weight, CNN included.',1800,g=>draw(g,{lv:9,swap,mask:true,cover:true}));
+  return S; });
+AA.title(/LayoutLMv2 pre-training step/i,'lmv2pt');
+AA.def('lmv2bio', T => { const S=[], add=F(S); if(!window.DOCS) return S; const d=DOCS.get(docPick()), W=d.words;
+  const fields=[]; let open=null; const states=[];
+  W.forEach((w,i)=>{ const t=w.tag; if(t.startsWith('B-')){ open={type:t.slice(2),words:[w.text]}; fields.push(open); } else if(t.startsWith('I-')&&open&&open.type===t.slice(2)) open.words.push(w.text); else open=null; states.push(fields.map(f=>({type:f.type,text:f.words.join(' ')}))); });
+  const draw=(g,o)=>{ docDraw(g,d,{fill:i=>o.tag&&i<=o.upto&&W[i].type?[DOCS.TYPE_COL[W[i].type],.35]:null,outline:i=>i===o.cur?'c2':null},.44); const X=.5*g.W;
+    if(o.lv>=2){ g.prect(X,.06*g.H,.46*g.W,.08*g.H,g.C.c3,null,{r:6,a:.18}); g.ptxt('H = LayoutLMv2(page)',X+.23*g.W,.1*g.H,g.C.ink,{size:.72,align:'center',bold:true}); }
+    if(o.cur!=null){ const w=W[o.cur]; g.ptxt('"'+w.text+'" → '+w.tag,X,.22*g.H,w.type?g.C[DOCS.TYPE_COL[w.type]]:g.C.muted,{size:.77,mono:true,bold:true}); }
+    if(o.fields){ g.ptxt('fields found',X,.33*g.H,g.C.muted,{size:.67,bold:true}); o.fields.slice(-7).forEach((f,r)=>{ g.ptxt(f.type,X,.33*g.H+(r+1)*g.fs*1.45,g.C.c1,{size:.66,mono:true,bold:true}); g.ptxt(f.text,X+.15*g.W,.33*g.H+(r+1)*g.fs*1.45,g.C.ink,{size:.66,mono:true}); }); } };
+  add(1,`A ${d.name.toLowerCase()} and a fine-tuned tagger.`,1000,g=>draw(g,{lv:1,upto:-1}));
+  add(2,'Encode the page once.',900,g=>draw(g,{lv:2,upto:-1}));
+  add(3,'Tag every token: O, B-type or I-type.',1300,g=>draw(g,{lv:2,tag:true,upto:W.length}));
+  W.forEach((w,i)=>{ const l=w.tag.startsWith('B-')?5:w.tag.startsWith('I-')?6:7; add(l,w.tag.startsWith('B-')?'B: open a new '+w.tag.slice(2)+' field.':w.tag.startsWith('I-')?'I: append to the open field.':'O: close any open field.',w.type?620:260,g=>draw(g,{lv:2,tag:true,upto:W.length,cur:i,fields:states[i]})); });
+  add(8,`Return ${fields.length} fields.`,2200,g=>draw(g,{lv:2,tag:true,upto:W.length,fields}));
+  return S; });
+AA.title(/key information extraction with BIO tags/i,'lmv2bio');
 /* ---------- which animation goes with which pseudocode title ---------- */
 [[/ordinary least squares/i,'ols'],[/gradient descent for least squares/i,'gd'],[/lasso by coordinate descent/i,'lassocd'],
  [/logistic regression by gradient descent/i,'logreg'],[/Newton's method \(IRLS\)/i,'newton'],[/proximal gradient descent for L1/i,'proxlog'],[/ROC curve/i,'roc'],

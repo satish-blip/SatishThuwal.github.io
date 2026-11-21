@@ -358,6 +358,32 @@ details.deeper>div p{margin:.5em 0}
 @container (min-width:640px){.aa-in{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);align-items:start}.aa-panel{position:sticky;top:64px}}
 .aa-panel{max-width:560px}
 .aa-in>.aa-panel:only-child{margin-inline:auto}
+
+/* balanced lab tiles (2026-11-21): the text column stretches so both tiles end on one line */
+@media (min-width:921px){
+  .lab{align-items:stretch}
+  .lab>:first-child{align-self:start}
+  .lab>:first-child:not(.lab-stick){align-self:stretch;display:flex;flex-direction:column}
+  .lab>:not(:first-child):not(.aa-full){display:flex;flex-direction:column}
+  .lab>:not(:first-child)>.card:last-child{flex:1 1 auto}
+  .lab>:not(:first-child)>.card.lab-side{flex:0 0 auto}
+  .lab-side>.lab-ctl{margin-top:0}
+  .lab.lab-measure,.lab.lab-measure>*{align-items:start!important;align-self:start!important;display:block!important}
+  .lab.lab-measure{display:grid!important}
+}
+/* tile balance helpers (2026-11-21) */
+.bal-measure{align-items:start!important}.bal-measure>*{align-self:start!important;display:block!important}
+.lab>.aa-wrap.aa-full{grid-column:1/-1;margin:0}
+.aa-wrap.aa-full{margin-top:14px}
+@container (min-width:640px){.aa-in>.algo{align-self:stretch}}
+@media (min-width:921px){.g2-stick{position:sticky;top:72px;align-self:start}}
+/* maths before visuals (2026-11-21) */
+.lab-tf>.lab-txt,.g2-tf>.g2-txt{order:-1}
+.lab-txt h2{margin-top:0}
+@media (min-width:921px){
+  .lab.lab-tf{grid-template-columns:minmax(0,1fr) minmax(320px,440px)}
+  .lab-tf>.lab-txt>.card:first-child{flex:1 1 auto}
+}
 /* evolution timeline (shared by homepage and lab pages) */
 .evo{margin:18px 0 6px;border:1px solid var(--rule,var(--line));border-radius:8px;padding:12px 14px 12px;background:var(--paper,var(--card))}
 .evo-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:6px}
@@ -383,21 +409,3 @@ details.deeper>div p{margin:.5em 0}
 .evo-detail b{font:600 15px/1.3 var(--serif,inherit);color:var(--ink)}
 .evo-detail p{margin:3px 0 0;font-size:14px;line-height:1.5;color:var(--ink-2,var(--muted))}
 /* end evolution timeline */
-/* balanced lab tiles (2026-11-21): the text column stretches so both tiles end on one line */
-@media (min-width:921px){
-  .lab{align-items:stretch}
-  .lab>:first-child{align-self:start}
-  .lab>:first-child:not(.lab-stick){align-self:stretch;display:flex;flex-direction:column}
-  .lab>:not(:first-child):not(.aa-full){display:flex;flex-direction:column}
-  .lab>:not(:first-child)>.card:last-child{flex:1 1 auto}
-  .lab>:not(:first-child)>.card.lab-side{flex:0 0 auto}
-  .lab-side>.lab-ctl{margin-top:0}
-  .lab.lab-measure,.lab.lab-measure>*{align-items:start!important;align-self:start!important;display:block!important}
-  .lab.lab-measure{display:grid!important}
-}
-/* tile balance helpers (2026-11-21) */
-.bal-measure{align-items:start!important}.bal-measure>*{align-self:start!important;display:block!important}
-.lab>.aa-wrap.aa-full{grid-column:1/-1;margin:0}
-.aa-wrap.aa-full{margin-top:14px}
-@container (min-width:640px){.aa-in>.algo{align-self:stretch}}
-@media (min-width:921px){.g2-stick{position:sticky;top:72px;align-self:start}}

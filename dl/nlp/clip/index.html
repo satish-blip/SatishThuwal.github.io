@@ -17,7 +17,7 @@
 <header class="top"><div class="wrap top-in"><a class="home" href="../../../#ml-nlp">&larr; Satish Thuwal</a><nav class="algnav" id="algnav" aria-label="Topics"></nav></div></header>
 <main class="wrap">
 <section class="hero">
-  <p class="kicker">Deep Learning &middot; NLP &middot; Multimodal (part 4 of 4)</p>
+  <p class="kicker">Deep Learning &middot; NLP &middot; Multimodal (part 4 of 5)</p>
   <h1>CLIP: <span class="grad">one space for pictures and words</span></h1>
   <p class="lede">VisualBERT and ViLBERT fuse an image and a caption inside one network to answer questions about them. CLIP (Radford et al., OpenAI, 2021) does something simpler and, it turned out, far more widely useful: it trains an image encoder and a text encoder separately, so that a picture and a sentence describing it land on the same point of a shared space. On this page you train a small CLIP yourself, then use it to classify images it was never trained to classify.</p>
   <div class="toc"><a href="#intro">0 · Start here</a><a href="#space">1 · Two encoders, one space</a><a href="#train">2 · Contrastive training, live</a><a href="#maths">3 · The loss, step by step</a><a href="#zero">4 · Zero-shot classification</a><a href="#search">5 · Search by text</a><a href="#real">6 · The real CLIP</a><a href="#py">7 · Python</a></div>
@@ -175,6 +175,7 @@
       <p class="hint">Fusion models (<a href="../visualbert/">VisualBERT</a>, <a href="../vilbert/">ViLBERT</a>) are better at reasoning about one image and one question; CLIP is better at matching and searching at scale. Modern assistants combine them: a CLIP-style image encoder feeding a language model.</p>
     </div>
   </div>
+  <p class="hint">Next: <a href="../layoutlmv2/">part 5, LayoutLMv2</a>, reads scanned documents using the words, where they sit on the page, and the page image.</p>
 </section>
 
 <section id="py" class="card">
