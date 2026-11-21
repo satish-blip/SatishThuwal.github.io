@@ -279,6 +279,20 @@ ML.ready = function(fn){ if(document.readyState==='loading') document.addEventLi
    and keep the plot in view (sticky) while the explanation scrolls beside it */
 (function(){
   const MOVE='.ctl,.seg,.stats,.note[id],.texout[id],.player,.btnrow,.ctlrow';
+  /* Pull a "watch it run" block out of an over-tall column so paired columns end level. */
+  function relocate(){ if(!matchMedia('(min-width:921px)').matches) return;
+    document.querySelectorAll('section.lab, .grid2').forEach(g=>{
+      const cols=[...g.children].filter(c=>c.offsetHeight>0 && !c.classList.contains('aa-wrap')); if(cols.length!==2) return;
+      g.classList.add('bal-measure');
+      const h=cols.map(c=>c.offsetHeight), tall=h[0]>h[1]?0:1, diff=Math.abs(h[0]-h[1]);
+      const aa=[...cols[tall].querySelectorAll('.aa-wrap')].filter(a=>!a.dataset.moved && !a.closest('details'));
+      g.classList.remove('bal-measure'); if(!aa.length) return;
+      const a=aa[aa.length-1], ah=a.offsetHeight, narrow=a.offsetWidth<640;
+      if(!narrow && (diff<200 || Math.abs(diff-ah) > diff-120)) return;
+      a.dataset.moved='1'; a.classList.add('aa-full');
+      if(g.tagName==='SECTION') g.appendChild(a); else g.after(a);
+      const src=cols[tall]; if(src.offsetHeight<8 || (!src.textContent.trim() && !src.querySelector('canvas,svg,img,input'))){ src.style.display='none'; cols[1-tall].style.gridColumn='1/-1'; }
+    }); }
   function compact(){
     document.querySelectorAll('section.lab').forEach(sec=>{
       if(sec.dataset.compact) return; sec.dataset.compact='1';
@@ -295,10 +309,39 @@ ML.ready = function(fn){ if(document.readyState==='loading') document.addEventLi
     });
     stick();
   }
-  function stick(){ const wide=matchMedia('(min-width:921px)').matches;
-    document.querySelectorAll('section.lab').forEach(sec=>{ const left=sec.children[0]; if(!left) return;
-      const fits=wide && left.offsetHeight < innerHeight-96 && sec.offsetHeight > left.offsetHeight+40;
-      left.classList.toggle('lab-stick',fits); }); }
+  /* balance: on wide screens put the controls box beside the plot when that makes the two
+     columns closer in height, stretch the shorter text column so both tiles end together,
+     and keep a short plot column in view while the text scrolls */
+  /* In a two-column block whose sides differ a lot, let the shorter side travel with the reader. */
+  function float2(wide){ document.querySelectorAll('.grid2').forEach(g=>{ const c=[...g.children].filter(k=>k.offsetHeight>0&&!k.classList.contains('aa-wrap'));
+      c.forEach(k=>k.classList.remove('g2-stick')); if(!wide||c.length!==2) return;
+      g.classList.add('bal-measure'); const h=c.map(k=>k.offsetHeight); g.classList.remove('bal-measure');
+      const s=h[0]<h[1]?0:1, d=Math.abs(h[0]-h[1]);
+      if(d>200 && h[s]<innerHeight-110 && !c[s].classList.contains('card') && !c[s].querySelector('.aa-wrap')) c[s].classList.add('g2-stick'); }); }
+  function stick(){ relocate(); const wide=matchMedia('(min-width:921px)').matches; float2(wide);
+    document.querySelectorAll('section.lab').forEach(sec=>{ const kids=[...sec.children].filter(k=>!k.classList.contains("aa-full")), left=kids[0], rights=kids.slice(1); if(!left||!rights.length) return;
+      const right=rights[0], box=sec.querySelector('.lab-ctl');
+      left.classList.remove('lab-stick'); sec.classList.add('lab-measure');
+      if(box){ let side=sec.querySelector('.lab-side');
+        if(!box._items) box._items=[...box.children];
+        if(box.parentNode!==left) left.appendChild(box);
+        box._items.forEach(el=>box.appendChild(el));
+        if(wide && rights.length===1){
+          /* split the controls: the first k stay under the plot, the rest go to the top of the text column; keep the k that ends both columns closest to level */
+          if(!side){ side=document.createElement('div'); side.className='card lab-side'; side.innerHTML='<div class="lab-ctl"></div>'; }
+          const sbox=side.firstChild, n=box._items.length; let best=null;
+          for(let k=n;k>=0;k--){
+            box._items.forEach((el,i)=>(i<k?box:sbox).appendChild(el));
+            if(k<n){ if(side.parentNode!==right) right.insertBefore(side,right.firstChild); } else side.remove();
+            const l=left.offsetHeight, r=right.scrollHeight, sc=Math.max(l,r)+0.6*Math.abs(l-r);
+            if(!best||sc<best.sc-8) best={k,sc}; }
+          box._items.forEach((el,i)=>(i<best.k?box:sbox).appendChild(el));
+          if(best.k<n){ if(side.parentNode!==right) right.insertBefore(side,right.firstChild); } else side.remove();
+          box.style.display=best.k?'':'none';
+        } else { box.style.display=''; if(side) side.remove(); }
+      }
+      const lh=left.offsetHeight, rh=right.scrollHeight, fits=wide && rh-lh > Math.max(200,0.3*lh); left.style.top=fits?Math.min(72,innerHeight-lh-16)+'px':'';
+      sec.classList.remove('lab-measure'); left.classList.toggle('lab-stick',fits); }); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',compact); else compact();
-  window.addEventListener('load',stick); let t; window.addEventListener('resize',()=>{ clearTimeout(t); t=setTimeout(stick,150); });
+  window.addEventListener('load',()=>{ stick(); setTimeout(stick,700); setTimeout(stick,2000); }); let t; window.addEventListener('resize',()=>{ clearTimeout(t); t=setTimeout(stick,150); });
 })();

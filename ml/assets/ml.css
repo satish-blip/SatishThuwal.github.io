@@ -325,7 +325,7 @@ details.deeper>div p{margin:.5em 0}
 .algo li::before{content:counter(al);position:absolute;left:0;width:20px;text-align:right;color:var(--muted);font:12px/1.9 "JetBrains Mono",monospace}
 .algo li.i1{padding-left:52px}.algo li.i2{padding-left:74px}.algo li.i3{padding-left:96px}
 .algo .kw{font-weight:700;font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--c1)}
-.algo .cm{color:var(--muted);font-style:italic}
+.algo .cm{color:var(--muted);font-style:italic;display:inline;margin:0;max-width:none}
 .algo .cm::before{content:"▹ "}
 /* looping pseudocode animations (algoanim.js) */
 .aa-wrap{container-type:inline-size;margin:12px 0}
@@ -383,3 +383,21 @@ details.deeper>div p{margin:.5em 0}
 .evo-detail b{font:600 15px/1.3 var(--serif,inherit);color:var(--ink)}
 .evo-detail p{margin:3px 0 0;font-size:14px;line-height:1.5;color:var(--ink-2,var(--muted))}
 /* end evolution timeline */
+/* balanced lab tiles (2026-11-21): the text column stretches so both tiles end on one line */
+@media (min-width:921px){
+  .lab{align-items:stretch}
+  .lab>:first-child{align-self:start}
+  .lab>:first-child:not(.lab-stick){align-self:stretch;display:flex;flex-direction:column}
+  .lab>:not(:first-child):not(.aa-full){display:flex;flex-direction:column}
+  .lab>:not(:first-child)>.card:last-child{flex:1 1 auto}
+  .lab>:not(:first-child)>.card.lab-side{flex:0 0 auto}
+  .lab-side>.lab-ctl{margin-top:0}
+  .lab.lab-measure,.lab.lab-measure>*{align-items:start!important;align-self:start!important;display:block!important}
+  .lab.lab-measure{display:grid!important}
+}
+/* tile balance helpers (2026-11-21) */
+.bal-measure{align-items:start!important}.bal-measure>*{align-self:start!important;display:block!important}
+.lab>.aa-wrap.aa-full{grid-column:1/-1;margin:0}
+.aa-wrap.aa-full{margin-top:14px}
+@container (min-width:640px){.aa-in>.algo{align-self:stretch}}
+@media (min-width:921px){.g2-stick{position:sticky;top:72px;align-self:start}}
